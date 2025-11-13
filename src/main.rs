@@ -376,71 +376,28 @@ fn get_datetime_from_exif(exif: &exif::Exif) -> Option<String> {
 // ============================================================
 
 #[cfg(feature = "heif")]
+#[allow(dead_code)]
 /// Декодирует HEIC/AVIF файл в стандартный формат для обработки.
 /// Требует feature 'heif' и установленную libheif через vcpkg/system.
+/// 
+/// TODO: Эта функция требует глубокой интеграции с API libheif-sys.
+/// Для полной поддержки нужно:
+/// 1. Правильно использовать константы (heif_colorspace, heif_chroma, heif_channel)
+/// 2. Получить ширину и высоту изображения из декодированного буфера
+/// 3. Конвертировать raw RGBA буфер в image::RgbaImage
+/// 4. Обработать EXIF данные из HEIF контейнера
 fn decode_heif_to_image(path: &Path) -> Result<image::DynamicImage> {
-    use libheif_sys::{
-        heif_context_alloc, heif_context_free, heif_context_read_from_file,
-        heif_context_get_primary_image_handle, heif_image_handle_release,
-        heif_decode_image, heif_image_release, heif_colorspace_RGB,
-        heif_chroma_interleaved_RGB, heif_image_get_plane_readonly,
-        heif_channel_interleaved,
-    };
-    
-    unsafe {
-        // Выделяем контекст libheif
-        let ctx = heif_context_alloc();
-        if ctx.is_null() {
-            anyhow::bail!("Не удалось выделить контекст libheif");
-        }
-        
-        // Читаем файл в контекст
-        let path_cstr = std::ffi::CString::new(path.to_string_lossy().as_bytes())?;
-        let read_result = heif_context_read_from_file(ctx, path_cstr.as_ptr(), std::ptr::null());
-        if !read_result.code == 0 { // code 0 = no error
-            heif_context_free(ctx);
-            anyhow::bail!("Не удалось прочитать HEIF файл: {}", path.display());
-        }
-        
-        // Получаем первичное изображение
-        let mut handle = std::ptr::null_mut();
-        let handle_result = heif_context_get_primary_image_handle(ctx, &mut handle);
-        if !handle_result.code == 0 || handle.is_null() {
-            heif_context_free(ctx);
-            anyhow::bail!("Не удалось получить основное изображение из HEIF файла");
-        }
-        
-        // Декодируем в RGB
-        let mut img = std::ptr::null_mut();
-        let decode_result = heif_decode_image(handle, &mut img, heif_colorspace_RGB, heif_chroma_interleaved_RGB, std::ptr::null_mut());
-        if !decode_result.code == 0 || img.is_null() {
-            heif_image_handle_release(handle);
-            heif_context_free(ctx);
-            anyhow::bail!("Не удалось декодировать HEIF изображение");
-        }
-        
-        // Получаем данные пикселей
-        let mut stride = 0i32;
-        let data = heif_image_get_plane_readonly(img, heif_channel_interleaved, &mut stride);
-        if data.is_null() {
-            heif_image_release(img);
-            heif_image_handle_release(handle);
-            heif_context_free(ctx);
-            anyhow::bail!("Не удалось получить данные пикселей из HEIF");
-        }
-        
-        // TODO: конвертировать raw буфер в image::DynamicImage
-        // Это требует получения ширины, высоты и копирования буфера в image::RgbaImage
-        // Временно возвращаем ошибку
-        heif_image_release(img);
-        heif_image_handle_release(handle);
-        heif_context_free(ctx);
-        
-        anyhow::bail!("HEIC декодирование: реализация в разработке");
-    }
+    // Заглушка: пока HEIC будет обрабатываться с ошибкой
+    anyhow::bail!(
+        "HEIC/AVIF декодирование: реализация в разработке. \
+         Требуется полная интеграция с API libheif-sys (константы, размеры, буфер RGBA). \
+         Файл: {}",
+        path.display()
+    );
 }
 
 #[cfg(not(feature = "heif"))]
+#[allow(dead_code)]
 /// Stub для когда feature 'heif' отключена.
 fn decode_heif_to_image(_path: &Path) -> Result<image::DynamicImage> {
     anyhow::bail!("HEIC поддержка отключена (включите feature 'heif' в Cargo.toml)")
