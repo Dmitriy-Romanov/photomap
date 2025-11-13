@@ -1,0 +1,8 @@
+[build]
+# Статическая линковка
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[env]
+# Встроенная версия libheif
+LIBHEIF_NO_PKG_CONFIG = "1"
+LIBHEIF_STATIC = "1"

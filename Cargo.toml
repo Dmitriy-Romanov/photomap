@@ -1,0 +1,27 @@
+[package]
+name = "photomap_processor"
+version = "0.1.0"
+edition = "2021"
+description = "Параллельная обработка фотографий: извлечение GPS из EXIF, создание миниатюр и генерация интерактивной карты"
+authors = ["PhotoMap Contributors"]
+license = "MIT"
+repository = "https://github.com/yourusername/photomap"
+keywords = ["photo", "gps", "exif", "map", "leaflet"]
+categories = ["graphics", "command-line-utilities"]
+
+[dependencies]
+anyhow = "1.0"
+ignore = "0.4"
+image = "0.25"
+exif = { package = "kamadak-exif", version = "0.6" }
+rayon = "1.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.release]
+opt-level = "z"     # Оптимизировать на размер вместо скорости
+lto = "fat"         # Более агрессивная оптимизация
+codegen-units = 1
+strip = true
+panic = "abort"
+
