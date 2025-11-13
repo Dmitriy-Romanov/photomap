@@ -9,6 +9,7 @@
 .thumbnails/
 geodata.js
 map.html
+photos/
 
 # OS
 .DS_Store
