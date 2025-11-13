@@ -194,8 +194,20 @@ fn process_file(path: &Path) -> Result<ImageMetadata> {
         .and_then(|s| s.to_str())
         .map(|s| s.to_lowercase());
     
-    if !matches!(ext.as_deref(), Some("jpg") | Some("jpeg") | Some("png") | Some("tiff") | Some("tif") | Some("webp") | Some("bmp") | Some("gif")) {
-        anyhow::bail!("Файл не является поддерживаемым изображением (поддерживается: JPG, PNG, WebP, TIFF, BMP, GIF)");
+    // Базовый список поддерживаемых форматов
+    let supported_formats = if cfg!(feature = "heif") {
+        ["jpg", "jpeg", "png", "tiff", "tif", "webp", "bmp", "gif", "heic", "heif", "avif"].iter().map(|s| *s).collect::<Vec<_>>()
+    } else {
+        ["jpg", "jpeg", "png", "tiff", "tif", "webp", "bmp", "gif"].iter().map(|s| *s).collect::<Vec<_>>()
+    };
+    
+    if !supported_formats.contains(&ext.as_deref().unwrap_or("")) {
+        let formats = if cfg!(feature = "heif") {
+            "JPG, PNG, WebP, TIFF, BMP, GIF, HEIC, HEIF, AVIF"
+        } else {
+            "JPG, PNG, WebP, TIFF, BMP, GIF (поддержка HEIC включается с feature 'heif')"
+        };
+        anyhow::bail!("Файл не является поддерживаемым изображением (поддерживается: {})", formats);
     }
 
     // --- Извлечение GPS-данных ---
@@ -357,4 +369,79 @@ fn get_datetime_from_exif(exif: &exif::Exif) -> Option<String> {
     }
 
     None
+}
+
+// ============================================================
+// HEIC/AVIF поддержка (опциональна, включается через feature 'heif')
+// ============================================================
+
+#[cfg(feature = "heif")]
+/// Декодирует HEIC/AVIF файл в стандартный формат для обработки.
+/// Требует feature 'heif' и установленную libheif через vcpkg/system.
+fn decode_heif_to_image(path: &Path) -> Result<image::DynamicImage> {
+    use libheif_sys::{
+        heif_context_alloc, heif_context_free, heif_context_read_from_file,
+        heif_context_get_primary_image_handle, heif_image_handle_release,
+        heif_decode_image, heif_image_release, heif_colorspace_RGB,
+        heif_chroma_interleaved_RGB, heif_image_get_plane_readonly,
+        heif_channel_interleaved,
+    };
+    
+    unsafe {
+        // Выделяем контекст libheif
+        let ctx = heif_context_alloc();
+        if ctx.is_null() {
+            anyhow::bail!("Не удалось выделить контекст libheif");
+        }
+        
+        // Читаем файл в контекст
+        let path_cstr = std::ffi::CString::new(path.to_string_lossy().as_bytes())?;
+        let read_result = heif_context_read_from_file(ctx, path_cstr.as_ptr(), std::ptr::null());
+        if !read_result.code == 0 { // code 0 = no error
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось прочитать HEIF файл: {}", path.display());
+        }
+        
+        // Получаем первичное изображение
+        let mut handle = std::ptr::null_mut();
+        let handle_result = heif_context_get_primary_image_handle(ctx, &mut handle);
+        if !handle_result.code == 0 || handle.is_null() {
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось получить основное изображение из HEIF файла");
+        }
+        
+        // Декодируем в RGB
+        let mut img = std::ptr::null_mut();
+        let decode_result = heif_decode_image(handle, &mut img, heif_colorspace_RGB, heif_chroma_interleaved_RGB, std::ptr::null_mut());
+        if !decode_result.code == 0 || img.is_null() {
+            heif_image_handle_release(handle);
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось декодировать HEIF изображение");
+        }
+        
+        // Получаем данные пикселей
+        let mut stride = 0i32;
+        let data = heif_image_get_plane_readonly(img, heif_channel_interleaved, &mut stride);
+        if data.is_null() {
+            heif_image_release(img);
+            heif_image_handle_release(handle);
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось получить данные пикселей из HEIF");
+        }
+        
+        // TODO: конвертировать raw буфер в image::DynamicImage
+        // Это требует получения ширины, высоты и копирования буфера в image::RgbaImage
+        // Временно возвращаем ошибку
+        heif_image_release(img);
+        heif_image_handle_release(handle);
+        heif_context_free(ctx);
+        
+        anyhow::bail!("HEIC декодирование: реализация в разработке");
+    }
+}
+
+#[cfg(not(feature = "heif"))]
+/// Stub для когда feature 'heif' отключена.
+fn decode_heif_to_image(_path: &Path) -> Result<image::DynamicImage> {
+    anyhow::bail!("HEIC поддержка отключена (включите feature 'heif' в Cargo.toml)")
 }

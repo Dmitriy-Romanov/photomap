@@ -18,6 +18,13 @@ rayon = "1.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
+# Опциональная поддержка HEIC/AVIF (отключена по умолчанию для безопасности сборки)
+libheif-sys = { version = "0.2", optional = true }
+
+[features]
+default = []
+heif = ["libheif-sys"]
+
 [profile.release]
 opt-level = "z"     # Оптимизировать на размер вместо скорости
 lto = "fat"         # Более агрессивная оптимизация
