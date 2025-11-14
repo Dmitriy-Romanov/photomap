@@ -3,6 +3,11 @@
 rustflags = ["-C", "target-feature=+crt-static"]
 
 [env]
+# Путь к vcpkg для Windows (поддержка libheif)
+# Установите переменную окружения если vcpkg находится в другом месте
+VCPKG_ROOT = "D:\\vcpkg"
+VCPKG_DEFAULT_TRIPLET = "x64-windows-static"
+
 # Встроенная версия libheif
 LIBHEIF_NO_PKG_CONFIG = "1"
 LIBHEIF_STATIC = "1"

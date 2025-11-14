@@ -235,7 +235,22 @@ fn process_file(path: &Path) -> Result<ImageMetadata> {
         .ok_or_else(|| anyhow::Error::msg("Некорректное имя файла"))?;
 
     let thumbnail_path = generate_thumbnail_path(path)?;
-    create_thumbnail(path, &thumbnail_path)?;
+    
+    // Для HEIC/AVIF используем декодированное изображение, для остальных - открываем файл
+    #[cfg(feature = "heif")]
+    let is_heif = matches!(ext.as_deref(), Some("heic") | Some("heif") | Some("avif"));
+    #[cfg(not(feature = "heif"))]
+    let is_heif = false;
+    
+    if is_heif {
+        #[cfg(feature = "heif")]
+        {
+            let decoded_img = decode_heif_to_image(path)?;
+            create_thumbnail_from_dynamic_image(&decoded_img, &thumbnail_path)?;
+        }
+    } else {
+        create_thumbnail(path, &thumbnail_path)?;
+    }
 
     // --- Формирование результата ---
     let metadata = ImageMetadata {
@@ -285,6 +300,15 @@ fn create_thumbnail(source_path: &Path, thumbnail_path: &Path) -> Result<()> {
     let img = image::open(source_path)
         .with_context(|| format!("Не удалось открыть изображение: {:?}", source_path))?;
 
+    // Используем thumbnail() для сохранения пропорций
+    let thumbnail = img.thumbnail(THUMBNAIL_SIZE, THUMBNAIL_SIZE);
+    thumbnail.save(thumbnail_path)?;
+    Ok(())
+}
+
+/// Создает миниатюру из уже декодированного image::DynamicImage (для HEIC/AVIF).
+#[allow(dead_code)]
+fn create_thumbnail_from_dynamic_image(img: &image::DynamicImage, thumbnail_path: &Path) -> Result<()> {
     // Используем thumbnail() для сохранения пропорций
     let thumbnail = img.thumbnail(THUMBNAIL_SIZE, THUMBNAIL_SIZE);
     thumbnail.save(thumbnail_path)?;
@@ -376,24 +400,104 @@ fn get_datetime_from_exif(exif: &exif::Exif) -> Option<String> {
 // ============================================================
 
 #[cfg(feature = "heif")]
-#[allow(dead_code)]
 /// Декодирует HEIC/AVIF файл в стандартный формат для обработки.
 /// Требует feature 'heif' и установленную libheif через vcpkg/system.
-/// 
-/// TODO: Эта функция требует глубокой интеграции с API libheif-sys.
-/// Для полной поддержки нужно:
-/// 1. Правильно использовать константы (heif_colorspace, heif_chroma, heif_channel)
-/// 2. Получить ширину и высоту изображения из декодированного буфера
-/// 3. Конвертировать raw RGBA буфер в image::RgbaImage
-/// 4. Обработать EXIF данные из HEIF контейнера
 fn decode_heif_to_image(path: &Path) -> Result<image::DynamicImage> {
-    // Заглушка: пока HEIC будет обрабатываться с ошибкой
-    anyhow::bail!(
-        "HEIC/AVIF декодирование: реализация в разработке. \
-         Требуется полная интеграция с API libheif-sys (константы, размеры, буфер RGBA). \
-         Файл: {}",
-        path.display()
-    );
+    use libheif_sys::{
+        heif_context_alloc, heif_context_free, heif_context_read_from_file,
+        heif_context_get_primary_image_handle, heif_image_handle_release,
+        heif_decode_image, heif_image_release, 
+        heif_image_get_width, heif_image_get_height,
+        heif_image_get_plane_readonly,
+    };
+    
+    unsafe {
+        // Выделяем контекст libheif
+        let ctx = heif_context_alloc();
+        if ctx.is_null() {
+            anyhow::bail!("Не удалось выделить контекст libheif");
+        }
+        
+        // Читаем файл в контекст
+        let path_cstr = std::ffi::CString::new(path.to_string_lossy().as_bytes())?;
+        let read_result = heif_context_read_from_file(ctx, path_cstr.as_ptr(), std::ptr::null());
+        if read_result.code != 0 {
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось прочитать HEIF файл: {} (код ошибки: {})", path.display(), read_result.code);
+        }
+        
+        // Получаем первичное изображение
+        let mut handle = std::ptr::null_mut();
+        let handle_result = heif_context_get_primary_image_handle(ctx, &mut handle);
+        if handle_result.code != 0 || handle.is_null() {
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось получить основное изображение из HEIF файла");
+        }
+        
+        // Декодируем в 24-bit RGB (без альфа-канала)
+        let mut img = std::ptr::null_mut();
+        let decode_result = heif_decode_image(
+            handle, 
+            &mut img, 
+            0, // heif_colorspace_RGB
+            2, // heif_chroma_RGB (24-bit)
+            std::ptr::null_mut()
+        );
+        if decode_result.code != 0 || img.is_null() {
+            heif_image_handle_release(handle);
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось декодировать HEIF изображение");
+        }
+        
+        // Получаем размеры изображения
+        let width = heif_image_get_width(img, 0) as u32;
+        let height = heif_image_get_height(img, 0) as u32;
+        
+        if width == 0 || height == 0 {
+            heif_image_release(img);
+            heif_image_handle_release(handle);
+            heif_context_free(ctx);
+            anyhow::bail!("Неверные размеры HEIF изображения: {}x{}", width, height);
+        }
+        
+        // Получаем буфер пикселей
+        let mut stride = 0i32;
+        let data_ptr = heif_image_get_plane_readonly(img, 0, &mut stride);
+        if data_ptr.is_null() {
+            heif_image_release(img);
+            heif_image_handle_release(handle);
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось получить данные пикселей из HEIF");
+        }
+        
+        // Копируем буфер в вектор (RGB, 3 байта на пиксель)
+        let pixel_count = (width * height) as usize;
+        let data_size = pixel_count * 3;
+        let data_slice = std::slice::from_raw_parts(data_ptr as *const u8, data_size);
+        let rgb_data = data_slice.to_vec();
+        
+        // Конвертируем RGB в RGBA (добавляем полный альфа-канал)
+        let mut rgba_data = Vec::with_capacity(pixel_count * 4);
+        for i in 0..pixel_count {
+            let base = i * 3;
+            rgba_data.push(rgb_data[base]);        // R
+            rgba_data.push(rgb_data[base + 1]);    // G
+            rgba_data.push(rgb_data[base + 2]);    // B
+            rgba_data.push(255);                   // A (полностью непрозрачный)
+        }
+        
+        // Создаём image::RgbaImage
+        let img_rgba = image::RgbaImage::from_vec(width, height, rgba_data)
+            .ok_or_else(|| anyhow::Error::msg("Не удалось создать RgbaImage из буфера"))?;
+        
+        // Освобождаем ресурсы libheif
+        heif_image_release(img);
+        heif_image_handle_release(handle);
+        heif_context_free(ctx);
+        
+        // Возвращаем DynamicImage
+        Ok(image::DynamicImage::ImageRgba8(img_rgba))
+    }
 }
 
 #[cfg(not(feature = "heif"))]
