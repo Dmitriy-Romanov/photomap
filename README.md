@@ -1,93 +1,94 @@
-# 📍 PhotoMap Processor
+# PhotoMap Processor
 
-Утилита для создания интерактивной карты с фотографиями на основе GPS-координат из EXIF-данных.
+A utility for creating interactive photo maps from GPS EXIF data. Built with Rust and parallel processing.
 
-## 🎯 Возможности
+## Features
 
-- ✅ **Параллельная обработка** фотографий (JPEG, PNG, WebP, TIFF, BMP, GIF)
-- ✅ **Извлечение GPS-координат** из EXIF-данных
-- ✅ **Автоматическое создание миниатюр** (600x600 px)
-- ✅ **Интерактивная карта** в браузере (Leaflet + OpenStreetMap)
-- ✅ **Кластеризация маркеров** для удобной навигации
+- **Native HEIC/JPEG parsing** - No external dependencies required
+- **GPS extraction** - Extracts GPS coordinates and shooting time from EXIF data
+- **Parallel processing** - Fast processing of large photo collections
+- **Interactive maps** - Creates beautiful Leaflet.js maps with photo clusters
+- **Thumbnail generation** - Creates optimized thumbnails for all supported formats
 
-## 📦 Использование
+## Supported Formats
 
-### Шаг 1: Подготовьте фотографии
-Поместите фотографии с GPS-данными в папку с программой:
-```
-photomap/
-├── photomap_processor.exe
-├── photo1.jpg
-├── photo2.jpg
-└── subfolder/
-    └── photo3.jpg
-```
+- **Images**: JPG, JPEG, PNG, WebP, TIFF, BMP, GIF, **HEIC**, HEIF, AVIF
+- **Output**: Interactive HTML map + JSON data
 
-### Шаг 2: Запустите обработку
+## Installation
+
+### From Source
+
 ```bash
-photomap_processor.exe
-```
-
-Программа автоматически:
-- Создаст `map.html` если его еще нет
-- Обработает все фотографии
-- Создаст папку `.thumbnails/` с миниатюрами
-- Сгенерирует `geodata.js` с координатами
-- **Прежде чем закрыться, попросит нажать клавишу** (для видимости результатов)
-
-### Шаг 3: Откройте карту
-Откройте `map.html` в браузере - фотографии будут отображены на карте по их географическому местоположению.
-
-## 🛠️ Как распространять
-
-### Для друга нужны:
-1. **photomap_processor.exe** - основная программа
-2. **INSTRUCTIONS_RU.txt** или README.txt - инструкция (опционально)
-
-### Структура для раздачи:
-```
-PhotoMap/
-├── photomap_processor.exe
-└── README.txt (инструкция для пользователя)
-```
-
-**map.html будет создан автоматически при первом запуске!**
-
-### Инструкция для конечного пользователя (README.txt):
-```
-📍 PhotoMap - Интерактивная карта фотографий
-
-1. Положите фотографии в эту папку (с GPS-данными в EXIF)
-2. Запустите photomap_processor.exe
-3. Откройте map.html в браузере
-
-Если фото не показываются на карте:
-- Убедитесь что в фото есть GPS-координаты в EXIF
-- Перезагрузите map.html (Ctrl+F5)
-```
-
-## 🔧 Для разработчиков
-
-### Сборка из исходников
-```bash
-git clone <repo>
+git clone https://github.com/Dmitriy-Romanov/photomap.git
 cd photomap
 cargo build --release
 ```
 
-Бинарник: `target/release/photomap_processor.exe`
+The compiled binary will be at `target/release/photomap_processor`.
 
-### Настройка размера миниатюр
-Отредактируйте `src/main.rs`:
-```rust
-const THUMBNAIL_SIZE: u32 = 600; // Размер в пикселях
+## Usage
+
+```bash
+# Run from current directory
+./target/release/photomap_processor
+
+# Open the generated map
+open map.html
 ```
 
-## 📋 Поддерживаемые форматы
-- JPEG, PNG, WebP, TIFF, BMP, GIF
+### Output Files
 
-## 📄 Лицензия
-MIT
+- `map.html` - Interactive map with all photos
+- `geodata.js` - GPS data in JSON format
+- `.thumbnails/` - Generated thumbnails
 
-## 🤝 Авторы
-Создано для обработки и визуализации фотографий с GPS-координатами.
+## Architecture
+
+### Native Parsers
+
+The project uses custom parsers for major formats:
+
+- **HEIC Parser**: Direct binary structure parsing
+- **JPEG Parser**: APP1 segment EXIF extraction
+- **Cross-platform**: Works on Windows, macOS, Linux
+
+### Size Comparison
+
+| Version | Size (Windows) | Dependencies |
+|---------|----------------|-------------|
+| With libheif | 9.4MB | External libraries required |
+| **Native parsers** | **~3.8MB** | **No dependencies** |
+
+## Technical Details
+
+- **Language**: Rust
+- **Parallelism**: Rayon for concurrent file processing
+- **Mapping**: Leaflet.js with MarkerCluster
+- **Thumbnails**: ImageMagick/fallback system
+- **EXIF**: Custom parsing + standard library
+
+## Development
+
+### Build Requirements
+
+- Rust 1.70+
+- (Optional) ImageMagick for HEIC thumbnails
+
+### Building
+
+```bash
+cargo build --release  # Standard build
+```
+
+## License
+
+MIT License
+
+## Contributing
+
+Pull requests are welcome! Please ensure:
+
+- Code follows Rust conventions
+- Comments and documentation are in English
+- Tests pass for new features

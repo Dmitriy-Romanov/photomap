@@ -140,37 +140,37 @@ const MAP_HTML_TEMPLATE: &str = r#"<!DOCTYPE html>
 </html>"#;
 
 fn main() -> Result<()> {
-    println!("🗺️  PhotoMap Processor starting...");
+    println!("🗺️  PhotoMap Processor запускается...");
 
-    // 0. Create map.html if it doesn't exist
+    // 0. Создаем map.html если его еще нет
     if !std::path::Path::new(MAP_HTML_FILE).exists() {
-        println!("📄 Creating map.html...");
+        println!("📄 Создаю map.html...");
         create_map_html()?;
-        println!("✅ map.html created in current directory: {}", MAP_HTML_FILE);
+        println!("✅ map.html создан в текущей директории: {}", MAP_HTML_FILE);
     } else {
-        println!("📄 map.html already exists in current directory: {}", MAP_HTML_FILE);
+        println!("📄 map.html уже существует в текущей директории: {}", MAP_HTML_FILE);
     }
 
-    // 1. Create thumbnails directory if it doesn't exist
+    // 1. Создаем папку для миниатюр, если ее нет
     fs::create_dir_all(THUMBNAIL_DIR)
-        .with_context(|| format!("Failed to create thumbnails directory: {}", THUMBNAIL_DIR))?;
+        .with_context(|| format!("Не удалось создать папку для миниатюр: {}", THUMBNAIL_DIR))?;
 
-    // 2. Get list of all files in current directory and subdirectories
-    println!("🔍 Scanning current directory and subdirectories...");
+    // 2. Получаем список всех файлов в текущем каталоге и подпапках
+    println!("🔍 Сканирование текущей директории и подпапок...");
     let current_dir = std::env::current_dir()?;
-    println!("📂 Current directory: {}", current_dir.display());
+    println!("📂 Текущая директория: {}", current_dir.display());
 
-    // Create walker for current directory with limitations
+    // Создаем walker для текущей директории с ограничением
     let walker = Walk::new(&current_dir);
     let files: Vec<PathBuf> = walker
         .into_iter()
         .filter_map(|entry| entry.ok())
         .filter(|e| {
-            // Check that file is in current directory or its subdirectories
+            // Проверяем, что файл находится в текущей директории или ее подпапках
             e.path().starts_with(&current_dir)
         })
         .filter(|e| {
-            // Exclude system directories and hidden files
+            // Исключаем системные директории и скрытые файлы
             let path = e.path();
             if let Some(components) = path.components().collect::<Vec<_>>().get(1..) {
                 for component in components {
@@ -186,27 +186,27 @@ fn main() -> Result<()> {
         .filter(|e| e.file_type().map_or(false, |ft| ft.is_file()))
         .map(|e| e.into_path())
         .collect();
-    println!("✅ Found {} files in current directory. Starting processing...", files.len());
+    println!("✅ Найдено {} файлов в текущей директории. Начинаю обработку...", files.len());
 
-    // 3. Process files in parallel using Rayon
+    // 3. Обрабатываем файлы параллельно с помощью Rayon
     let photo_data: Vec<ImageMetadata> = files
-        .par_iter() // <-- Parallelism magic!
-        .filter_map(|path| process_file(path).ok()) // Filter out files that couldn't be processed
+        .par_iter() // <-- Магия параллелизма!
+        .filter_map(|path| process_file(path).ok()) // Отфильтровываем файлы, которые не удалось обработать
         .collect();
 
-    println!("✅ Processing complete. Found {} photos with GPS data.", photo_data.len());
+    println!("✅ Обработка завершена. Найдено {} фотографий с GPS-данными.", photo_data.len());
 
-    // 4. Write result to geodata.js
+    // 4. Записываем результат в geodata.js
     write_geodata_js(&photo_data)?;
 
     println!(
-        "🎉 Done! Data saved to '{}' in current directory.",
+        "🎉 Готово! Данные сохранены в файле '{}' в текущей директории.",
         OUTPUT_FILE
     );
-    println!("🌐 To view the map, open in browser: {}", std::env::current_dir()?.join(MAP_HTML_FILE).display());
-    println!("💡 Or run: open {}", MAP_HTML_FILE);
+    println!("🌐 Для просмотра карты откройте в браузере файл: {}", std::env::current_dir()?.join(MAP_HTML_FILE).display());
+    println!("💡 Или выполните команду: open {}", MAP_HTML_FILE);
 
-    // Wait for user input before closing
+    // Ждем ввода пользователя перед закрытием
     pause_and_wait_for_input()?;
 
     Ok(())
@@ -670,5 +670,23 @@ fn create_info_thumbnail(heic_path: &Path, thumbnail_path: &Path) -> Result<()> 
     dynamic_img.write_to(&mut output_file, output_format)?;
 
     eprintln!("📝 Создана информационная миниатюра для HEIC: {}", filename);
+    Ok(())
+}
+
+fn pause_and_wait_for_input() {
+    println!("
+✋ Press any key to exit...");
+    let _ = std::io::stdin().read_line(&mut String::new());
+}
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("❌ Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<()> {
+    pause_and_wait_for_input();
     Ok(())
 }
