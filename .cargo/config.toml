@@ -8,6 +8,7 @@ rustflags = ["-C", "target-feature=+crt-static"]
 VCPKG_ROOT = "D:\\vcpkg"
 VCPKG_DEFAULT_TRIPLET = "x64-windows-static"
 
-# Встроенная версия libheif
+# Встроенная версия libheif (статическая линковка)
 LIBHEIF_NO_PKG_CONFIG = "1"
 LIBHEIF_STATIC = "1"
+LIBHEIF_USE_STATIC_LIB = "1"

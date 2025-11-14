@@ -210,23 +210,47 @@ fn process_file(path: &Path) -> Result<ImageMetadata> {
         anyhow::bail!("Файл не является поддерживаемым изображением (поддерживается: {})", formats);
     }
 
-    // --- Извлечение GPS-данных ---
-    let file = fs::File::open(path)?;
-    let mut bufreader = std::io::BufReader::new(&file);
-    let exifreader = Reader::new();
-    let exif = exifreader.read_from_container(&mut bufreader)?;
+    // Проверяем, это HEIC или нет
+    #[cfg(feature = "heif")]
+    let is_heif = matches!(ext.as_deref(), Some("heic") | Some("heif") | Some("avif"));
+    #[cfg(not(feature = "heif"))]
+    let is_heif = false;
 
-    let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
-    let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
+    // --- Извлечение GPS и даты ---
+    let (lat, lng, datetime) = if is_heif {
+        #[cfg(feature = "heif")]
+        {
+            // Пытаемся извлечь метаданные из HEIC, но если ошибка - логируем и пропускаем файл
+            match extract_metadata_from_heif(path) {
+                Ok(data) => data,
+                Err(e) => {
+                    eprintln!("⚠️  Ошибка при обработке HEIC файла {}: {}", path.display(), e);
+                    anyhow::bail!("Не удалось обработать HEIC файл")
+                }
+            }
+        }
+        #[cfg(not(feature = "heif"))]
+        {
+            anyhow::bail!("HEIC поддержка отключена")
+        }
+    } else {
+        // Для стандартных форматов: читаем EXIF из файла
+        let file = fs::File::open(path)?;
+        let mut bufreader = std::io::BufReader::new(&file);
+        let exifreader = Reader::new();
+        let exif = exifreader.read_from_container(&mut bufreader)?;
 
-    if lat.is_none() || lng.is_none() {
-        anyhow::bail!("GPS-данные не найдены");
-    }
-    let lat = lat.unwrap();
-    let lng = lng.unwrap();
+        let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
+        let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
 
-    // --- Извлечение даты съемки ---
-    let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+        if lat.is_none() || lng.is_none() {
+            anyhow::bail!("GPS-данные не найдены");
+        }
+
+        let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+        
+        (lat.unwrap(), lng.unwrap(), datetime)
+    };
 
     // --- Создание миниатюры ---
     let filename = path
@@ -295,10 +319,56 @@ fn get_gps_coord(
     Ok(None)
 }
 
+/// Применяет EXIF-ориентацию к изображению на основе тега Orientation.
+/// EXIF-тег Orientation (0x0112) определяет, как нужно повернуть изображение:
+/// 1=нормально, 2=отразить горизонтально, 3=повернуть на 180°, 
+/// 4=отразить вертикально, 5=повернуть на 90° влево и отразить,
+/// 6=повернуть на 90° вправо, 7=повернуть на 90° вправо и отразить,
+/// 8=повернуть на 90° влево
+fn apply_exif_orientation(source_path: &Path, img: image::DynamicImage) -> Result<image::DynamicImage> {
+    let file = match fs::File::open(source_path) {
+        Ok(f) => f,
+        Err(_) => return Ok(img), // Если не удалось открыть - возвращаем изображение как есть
+    };
+    
+    let mut bufreader = std::io::BufReader::new(&file);
+    let exifreader = Reader::new();
+    
+    // Пытаемся прочитать EXIF, но если не получилось - просто возвращаем оригинальное изображение
+    let exif = match exifreader.read_from_container(&mut bufreader) {
+        Ok(e) => e,
+        Err(_) => return Ok(img),
+    };
+    
+    // Ищем тег ориентации (0x0112)
+    let orientation = exif
+        .get_field(Tag::Orientation, In::PRIMARY)
+        .and_then(|f| f.value.get_uint(0))
+        .unwrap_or(1); // По умолчанию 1 (нормальная ориентация)
+    
+    // Применяем трансформацию в зависимости от значения ориентации
+    let rotated = match orientation {
+        1 => img, // Нормально
+        2 => img.fliph(), // Отразить горизонтально
+        3 => img.rotate180(), // Повернуть на 180°
+        4 => img.flipv(), // Отразить вертикально
+        5 => img.rotate270().fliph(), // Повернуть на 270° (90° влево) и отразить
+        6 => img.rotate90(), // Повернуть на 90° вправо
+        7 => img.rotate90().fliph(), // Повернуть на 90° и отразить
+        8 => img.rotate270(), // Повернуть на 270° (90° влево)
+        _ => img, // Неизвестное значение - оставляем как есть
+    };
+    
+    Ok(rotated)
+}
+
 /// Создает миниатюру для изображения.
 fn create_thumbnail(source_path: &Path, thumbnail_path: &Path) -> Result<()> {
-    let img = image::open(source_path)
+    let mut img = image::open(source_path)
         .with_context(|| format!("Не удалось открыть изображение: {:?}", source_path))?;
+
+    // Применяем EXIF-ориентацию
+    img = apply_exif_orientation(source_path, img)?;
 
     // Используем thumbnail() для сохранения пропорций
     let thumbnail = img.thumbnail(THUMBNAIL_SIZE, THUMBNAIL_SIZE);
@@ -398,6 +468,94 @@ fn get_datetime_from_exif(exif: &exif::Exif) -> Option<String> {
 // ============================================================
 // HEIC/AVIF поддержка (опциональна, включается через feature 'heif')
 // ============================================================
+
+#[cfg(feature = "heif")]
+/// Извлекает GPS и дату съемки из HEIC/AVIF контейнера.
+fn extract_metadata_from_heif(path: &Path) -> Result<(f64, f64, String)> {
+    use libheif_sys::{
+        heif_context_alloc, heif_context_free, heif_context_read_from_file,
+        heif_context_get_primary_image_handle, heif_image_handle_release,
+        heif_image_handle_get_list_of_metadata_block_IDs, 
+        heif_image_handle_get_metadata_size,
+        heif_image_handle_get_metadata,
+    };
+    
+    unsafe {
+        // Выделяем контекст libheif
+        let ctx = heif_context_alloc();
+        if ctx.is_null() {
+            anyhow::bail!("Не удалось выделить контекст libheif");
+        }
+        
+        // Читаем файл в контекст
+        let path_cstr = std::ffi::CString::new(path.to_string_lossy().as_bytes())?;
+        let read_result = heif_context_read_from_file(ctx, path_cstr.as_ptr(), std::ptr::null());
+        if read_result.code != 0 {
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось прочитать HEIF файл");
+        }
+        
+        // Получаем первичное изображение
+        let mut handle = std::ptr::null_mut();
+        let handle_result = heif_context_get_primary_image_handle(ctx, &mut handle);
+        if handle_result.code != 0 || handle.is_null() {
+            heif_context_free(ctx);
+            anyhow::bail!("Не удалось получить основное изображение из HEIF");
+        }
+        
+        // Пытаемся получить EXIF метаданные
+        let exif_type = std::ffi::CString::new("Exif")?;
+        let mut exif_id = 0u32;
+        let n = heif_image_handle_get_list_of_metadata_block_IDs(
+            handle,
+            exif_type.as_ptr(),
+            &mut exif_id,
+            1
+        );
+        
+        let mut exif_data = Vec::new();
+        if n > 0 {
+            let exif_size = heif_image_handle_get_metadata_size(handle, exif_id);
+            if exif_size > 0 {
+                exif_data.resize(exif_size, 0u8);
+                let meta_result = heif_image_handle_get_metadata(
+                    handle, 
+                    exif_id, 
+                    exif_data.as_mut_ptr() as *mut std::os::raw::c_void
+                );
+                if meta_result.code != 0 {
+                    exif_data.clear();
+                }
+            }
+        }
+        
+        heif_image_handle_release(handle);
+        heif_context_free(ctx);
+        
+        // Парсим EXIF данные если их удалось получить
+        if !exif_data.is_empty() {
+            // EXIF в HEIC обычно хранится с 4-байтным смещением
+            let exif_start = if exif_data.len() > 4 && &exif_data[0..4] == b"\x00\x00\x00\x00" {
+                4
+            } else {
+                0
+            };
+            
+            if let Ok(exif) = exif::Reader::new().read_raw(exif_data[exif_start..].to_vec()) {
+                let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
+                let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
+                let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+                
+                if lat.is_some() && lng.is_some() {
+                    return Ok((lat.unwrap(), lng.unwrap(), datetime));
+                }
+            }
+        }
+        
+        // Если EXIF нет или не удалось распарсить - возвращаем ошибку (должны быть GPS данные)
+        anyhow::bail!("GPS-данные не найдены в HEIF файле")
+    }
+}
 
 #[cfg(feature = "heif")]
 /// Декодирует HEIC/AVIF файл в стандартный формат для обработки.
