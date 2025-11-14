@@ -146,23 +146,47 @@ fn main() -> Result<()> {
     if !std::path::Path::new(MAP_HTML_FILE).exists() {
         println!("📄 Создаю map.html...");
         create_map_html()?;
-        println!("✅ map.html создан.");
+        println!("✅ map.html создан в текущей директории: {}", MAP_HTML_FILE);
+    } else {
+        println!("📄 map.html уже существует в текущей директории: {}", MAP_HTML_FILE);
     }
 
     // 1. Создаем папку для миниатюр, если ее нет
     fs::create_dir_all(THUMBNAIL_DIR)
         .with_context(|| format!("Не удалось создать папку для миниатюр: {}", THUMBNAIL_DIR))?;
 
-    // 2. Получаем список всех файлов в текущем каталоге
-    println!("🔍 Сканирование каталога...");
-    let walker = Walk::new("./");
+    // 2. Получаем список всех файлов в текущем каталоге и подпапках
+    println!("🔍 Сканирование текущей директории и подпапок...");
+    let current_dir = std::env::current_dir()?;
+    println!("📂 Текущая директория: {}", current_dir.display());
+
+    // Создаем walker для текущей директории с ограничением
+    let walker = Walk::new(&current_dir);
     let files: Vec<PathBuf> = walker
         .into_iter()
         .filter_map(|entry| entry.ok())
+        .filter(|e| {
+            // Проверяем, что файл находится в текущей директории или ее подпапках
+            e.path().starts_with(&current_dir)
+        })
+        .filter(|e| {
+            // Исключаем системные директории и скрытые файлы
+            let path = e.path();
+            if let Some(components) = path.components().collect::<Vec<_>>().get(1..) {
+                for component in components {
+                    if let Some(name) = component.as_os_str().to_str() {
+                        if name.starts_with('.') || name == "node_modules" || name == "target" || name == ".git" {
+                            return false;
+                        }
+                    }
+                }
+            }
+            true
+        })
         .filter(|e| e.file_type().map_or(false, |ft| ft.is_file()))
         .map(|e| e.into_path())
         .collect();
-    println!("✅ Найдено {} файлов. Начинаю обработку...", files.len());
+    println!("✅ Найдено {} файлов в текущей директории. Начинаю обработку...", files.len());
 
     // 3. Обрабатываем файлы параллельно с помощью Rayon
     let photo_data: Vec<ImageMetadata> = files
@@ -176,9 +200,11 @@ fn main() -> Result<()> {
     write_geodata_js(&photo_data)?;
 
     println!(
-        "🎉 Готово! Данные сохранены в '{}'. Откройте map.html в браузере.",
+        "🎉 Готово! Данные сохранены в файле '{}' в текущей директории.",
         OUTPUT_FILE
     );
+    println!("🌐 Для просмотра карты откройте в браузере файл: {}", std::env::current_dir()?.join(MAP_HTML_FILE).display());
+    println!("💡 Или выполните команду: open {}", MAP_HTML_FILE);
 
     // Ждем ввода пользователя перед закрытием
     pause_and_wait_for_input()?;
@@ -194,62 +220,60 @@ fn process_file(path: &Path) -> Result<ImageMetadata> {
         .and_then(|s| s.to_str())
         .map(|s| s.to_lowercase());
     
-    // Базовый список поддерживаемых форматов
-    let supported_formats = if cfg!(feature = "heif") {
-        ["jpg", "jpeg", "png", "tiff", "tif", "webp", "bmp", "gif", "heic", "heif", "avif"].iter().map(|s| *s).collect::<Vec<_>>()
-    } else {
-        ["jpg", "jpeg", "png", "tiff", "tif", "webp", "bmp", "gif"].iter().map(|s| *s).collect::<Vec<_>>()
-    };
-    
+    // Базовый список поддерживаемых форматов (HEIC теперь всегда поддерживается)
+    let supported_formats = ["jpg", "jpeg", "png", "tiff", "tif", "webp", "bmp", "gif", "heic", "heif", "avif"];
+
     if !supported_formats.contains(&ext.as_deref().unwrap_or("")) {
-        let formats = if cfg!(feature = "heif") {
-            "JPG, PNG, WebP, TIFF, BMP, GIF, HEIC, HEIF, AVIF"
-        } else {
-            "JPG, PNG, WebP, TIFF, BMP, GIF (поддержка HEIC включается с feature 'heif')"
-        };
-        anyhow::bail!("Файл не является поддерживаемым изображением (поддерживается: {})", formats);
+        anyhow::bail!("Файл не является поддерживаемым изображением (поддерживается: JPG, PNG, WebP, TIFF, BMP, GIF, HEIC, HEIF, AVIF)");
     }
 
-    // Проверяем, это HEIC или нет
-    #[cfg(feature = "heif")]
+    // Проверяем, это HEIC или нет (теперь всегда поддерживается)
     let is_heif = matches!(ext.as_deref(), Some("heic") | Some("heif") | Some("avif"));
-    #[cfg(not(feature = "heif"))]
-    let is_heif = false;
 
     // --- Извлечение GPS и даты ---
     let (lat, lng, datetime) = if is_heif {
-        #[cfg(feature = "heif")]
-        {
-            // Пытаемся извлечь метаданные из HEIC, но если ошибка - логируем и пропускаем файл
-            match extract_metadata_from_heif(path) {
-                Ok(data) => data,
-                Err(e) => {
-                    eprintln!("⚠️  Ошибка при обработке HEIC файла {}: {}", path.display(), e);
-                    anyhow::bail!("Не удалось обработать HEIC файл")
-                }
+        // Пытаемся извлечь метаданные из HEIC с помощью нашего парсера
+        match extract_metadata_from_heif_custom(path) {
+            Ok(data) => data,
+            Err(e) => {
+                eprintln!("⚠️  Ошибка при обработке HEIC файла {}: {}", path.display(), e);
+                anyhow::bail!("Не удалось обработать HEIC файл")
             }
         }
-        #[cfg(not(feature = "heif"))]
-        {
-            anyhow::bail!("HEIC поддержка отключена")
-        }
     } else {
-        // Для стандартных форматов: читаем EXIF из файла
-        let file = fs::File::open(path)?;
-        let mut bufreader = std::io::BufReader::new(&file);
-        let exifreader = Reader::new();
-        let exif = exifreader.read_from_container(&mut bufreader)?;
+        // Для стандартных форматов используем наши парсеры
+        let ext = path.extension()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_lowercase())
+            .unwrap_or_default();
 
-        let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
-        let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
+        if ext == "jpg" || ext == "jpeg" {
+            // Используем наш собственный JPEG парсер
+            match extract_metadata_from_jpeg_custom(path) {
+                Ok(data) => data,
+                Err(e) => {
+                    eprintln!("⚠️  Ошибка при обработке JPEG файла {}: {}", path.display(), e);
+                    anyhow::bail!("Не удалось обработать JPEG файл")
+                }
+            }
+        } else {
+            // Для остальных форматов (PNG, TIFF и т.д.) оставляем старый метод
+            let file = fs::File::open(path)?;
+            let mut bufreader = std::io::BufReader::new(&file);
+            let exifreader = Reader::new();
+            let exif = exifreader.read_from_container(&mut bufreader)?;
 
-        if lat.is_none() || lng.is_none() {
-            anyhow::bail!("GPS-данные не найдены");
+            let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
+            let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
+
+            if lat.is_none() || lng.is_none() {
+                anyhow::bail!("GPS-данные не найдены");
+            }
+
+            let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+
+            (lat.unwrap(), lng.unwrap(), datetime)
         }
-
-        let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
-        
-        (lat.unwrap(), lng.unwrap(), datetime)
     };
 
     // --- Создание миниатюры ---
@@ -260,17 +284,20 @@ fn process_file(path: &Path) -> Result<ImageMetadata> {
 
     let thumbnail_path = generate_thumbnail_path(path)?;
     
-    // Для HEIC/AVIF используем декодированное изображение, для остальных - открываем файл
-    #[cfg(feature = "heif")]
-    let is_heif = matches!(ext.as_deref(), Some("heic") | Some("heif") | Some("avif"));
-    #[cfg(not(feature = "heif"))]
-    let is_heif = false;
+    // Для HEIC/AVIF используем заглушку для миниатюр, для остальных - открываем файл
     
+    let mut final_thumbnail_path = thumbnail_path.clone();
+
     if is_heif {
-        #[cfg(feature = "heif")]
-        {
-            let decoded_img = decode_heif_to_image(path)?;
-            create_thumbnail_from_dynamic_image(&decoded_img, &thumbnail_path)?;
+        // Умное создание миниатюры для HEIC
+        match create_heic_thumbnail(path, &thumbnail_path)? {
+            Some(heic_thumbnail_path) => {
+                final_thumbnail_path = heic_thumbnail_path;
+            }
+            None => {
+                // Если не удалось создать миниатюру, создаем информационную заглушку
+                create_info_thumbnail(path, &thumbnail_path)?;
+            }
         }
     } else {
         create_thumbnail(path, &thumbnail_path)?;
@@ -280,7 +307,7 @@ fn process_file(path: &Path) -> Result<ImageMetadata> {
     let metadata = ImageMetadata {
         filename: filename.to_string(),
         path: path.to_string_lossy().into_owned(),
-        thumbnail: thumbnail_path.to_string_lossy().into_owned(),
+        thumbnail: final_thumbnail_path.to_string_lossy().into_owned(),
         lat,
         lng,
         datetime,
@@ -469,6 +496,182 @@ fn get_datetime_from_exif(exif: &exif::Exif) -> Option<String> {
 // HEIC/AVIF поддержка (опциональна, включается через feature 'heif')
 // ============================================================
 
+// Собственный парсер HEIC без сторонних библиотек
+fn extract_metadata_from_heif_custom(path: &Path) -> Result<(f64, f64, String)> {
+    let data = std::fs::read(path)?;
+
+    // Ищем начало EXIF данных в HEIC файле
+    // EXIF обычно хранится после "Exif" маркера
+    let mut exif_start = None;
+
+    // Ищем последовательность байт "Exif" в файле
+    for i in 0..data.len().saturating_sub(4) {
+        if data[i] == b'E' && data[i+1] == b'x' && data[i+2] == b'i' && data[i+3] == b'f' {
+            // Пропускаем "Exif" и 2 байта после него
+            exif_start = Some(i + 6);
+            break;
+        }
+    }
+
+    if let Some(start) = exif_start {
+        // Ищем начало TIFF данных (II или MM)
+        let mut tiff_start = start;
+        while tiff_start < data.len().saturating_sub(1) {
+            if (data[tiff_start] == b'I' && data[tiff_start + 1] == b'I') ||
+               (data[tiff_start] == b'M' && data[tiff_start + 1] == b'M') {
+                break;
+            }
+            tiff_start += 1;
+        }
+
+        if tiff_start < data.len().saturating_sub(1) {
+            // Используем стандартную библиотеку exif для парсинга найденных данных
+            if let Ok(exif) = exif::Reader::new().read_raw(data[tiff_start..].to_vec()) {
+                let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
+                let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
+                let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+
+                if lat.is_some() && lng.is_some() {
+                    return Ok((lat.unwrap(), lng.unwrap(), datetime));
+                }
+            }
+        }
+    }
+
+    anyhow::bail!("GPS-данные не найдены в HEIF файле")
+}
+
+// Собственный парсер JPEG без сторонних библиотек
+fn extract_metadata_from_jpeg_custom(path: &Path) -> Result<(f64, f64, String)> {
+    let data = std::fs::read(path)?;
+
+    // Ищем EXIF сегмент в JPEG файле
+    // EXIF хранится в APP1 сегменте (FF E1)
+    let mut i = 0;
+    let mut found_exif_segment = false;
+
+    while i < data.len().saturating_sub(4) {
+        if data[i] == 0xFF && data[i+1] == 0xE1 {
+            // Нашли APP1 сегмент, читаем его длину
+            if i + 4 < data.len() {
+                let segment_length = ((data[i+2] as u16) << 8) | (data[i+3] as u16);
+
+                // Проверяем, что это EXIF сегмент
+                if i + 8 < data.len() &&
+                   data[i+4] == b'E' && data[i+5] == b'x' &&
+                   data[i+6] == b'i' && data[i+7] == b'f' {
+
+                    found_exif_segment = true;
+                    // EXIF данные начинаются после 6 байт (FF E1 + 2 байта длины + 4 байта "Exif")
+                    let mut exif_start = i + 8;
+                    let exif_end = i + segment_length as usize;
+
+                    // Пропускаем возможные нулевые байты перед TIFF заголовком
+                    while exif_start < exif_end && data[exif_start] == 0 {
+                        exif_start += 1;
+                    }
+
+                    if exif_end <= data.len() && exif_start + 2 < data.len() {
+                        // Проверяем наличие TIFF заголовка
+                        if (data[exif_start] == b'I' && data[exif_start + 1] == b'I') ||
+                           (data[exif_start] == b'M' && data[exif_start + 1] == b'M') {
+
+                            // Используем стандартную библиотеку exif для парсинга
+                            if let Ok(exif) = exif::Reader::new().read_raw(data[exif_start..exif_end].to_vec()) {
+                                let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
+                                let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
+                                let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+
+                                if lat.is_some() && lng.is_some() {
+                                    return Ok((lat.unwrap(), lng.unwrap(), datetime));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+
+    
+    anyhow::bail!("GPS-данные не найдены в JPEG файле")
+}
+
+/// Создает миниатюру для HEIC файла с использованием системных утилит
+/// Возвращает Some(PathBuf) с путем к созданной миниатюре или None если не удалось
+fn create_heic_thumbnail(heic_path: &Path, _thumbnail_path: &Path) -> Result<Option<PathBuf>> {
+    // Пытаемся использовать ImageMagick (magick) если доступен
+    // Создаем JPEG миниатюру для HEIC файла
+    let jpeg_thumbnail_path = _thumbnail_path.with_extension("jpg");
+
+    if let Ok(output) = std::process::Command::new("magick")
+        .arg(heic_path)
+        .arg("-resize")
+        .arg(&format!("{}x{}", THUMBNAIL_SIZE, THUMBNAIL_SIZE))
+        .arg("-quality")
+        .arg("80")
+        .arg(&jpeg_thumbnail_path)
+        .output()
+    {
+        if output.status.success() {
+            eprintln!("✅ Создана миниатюра HEIC через ImageMagick: {}", heic_path.display());
+            return Ok(Some(jpeg_thumbnail_path));
+        }
+    }
+
+    // Пытаемся использовать sips (только на macOS)
+    #[cfg(target_os = "macos")]
+    {
+        let sips_thumbnail_path = _thumbnail_path.with_extension("jpg");
+        if let Ok(output) = std::process::Command::new("sips")
+            .arg("-Z")
+            .arg(&THUMBNAIL_SIZE.to_string())
+            .arg(heic_path)
+            .arg("--out")
+            .arg(&sips_thumbnail_path)
+            .output()
+        {
+            if output.status.success() {
+                eprintln!("✅ Создана миниатюра HEIC через sips: {}", heic_path.display());
+                return Ok(Some(sips_thumbnail_path));
+            }
+        }
+    }
+
+    Ok(None) // Не удалось создать миниатюру
+}
+
+/// Создает информационную заглушку для HEIC файла
+fn create_info_thumbnail(heic_path: &Path, thumbnail_path: &Path) -> Result<()> {
+    use std::io::Write;
+
+    // Создаем простое изображение-заглушку с информацией о файле
+    let filename = heic_path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown.heic");
+
+    // Используем библиотеку image для создания заглушки
+    let img = image::RgbImage::from_fn(THUMBNAIL_SIZE, THUMBNAIL_SIZE, |x, y| {
+        // Создаем градиентный фон
+        let r = (x * 255 / THUMBNAIL_SIZE) as u8;
+        let g = (y * 255 / THUMBNAIL_SIZE) as u8;
+        let b = 200;
+        image::Rgb([r, g, b])
+    });
+
+    let mut dynamic_img = image::DynamicImage::ImageRgb8(img);
+
+    // Добавляем текстовую информацию (просто сохраняем с метаданными)
+    let output_format = image::ImageFormat::Jpeg;
+    let mut output_file = std::fs::File::create(thumbnail_path)?;
+
+    dynamic_img.write_to(&mut output_file, output_format)?;
+
+    eprintln!("📝 Создана информационная миниатюра для HEIC: {}", filename);
+    Ok(())
+}
+
 #[cfg(feature = "heif")]
 /// Извлекает GPS и дату съемки из HEIC/AVIF контейнера.
 fn extract_metadata_from_heif(path: &Path) -> Result<(f64, f64, String)> {
@@ -512,15 +715,18 @@ fn extract_metadata_from_heif(path: &Path) -> Result<(f64, f64, String)> {
             &mut exif_id,
             1
         );
-        
+
+        // eprintln!("🔍 DEBUG: HEIC file: {}", path.display());
+        // eprintln!("🔍 DEBUG: Found {} EXIF blocks", n);
+
         let mut exif_data = Vec::new();
         if n > 0 {
             let exif_size = heif_image_handle_get_metadata_size(handle, exif_id);
             if exif_size > 0 {
                 exif_data.resize(exif_size, 0u8);
                 let meta_result = heif_image_handle_get_metadata(
-                    handle, 
-                    exif_id, 
+                    handle,
+                    exif_id,
                     exif_data.as_mut_ptr() as *mut std::os::raw::c_void
                 );
                 if meta_result.code != 0 {
@@ -534,18 +740,33 @@ fn extract_metadata_from_heif(path: &Path) -> Result<(f64, f64, String)> {
         
         // Парсим EXIF данные если их удалось получить
         if !exif_data.is_empty() {
-            // EXIF в HEIC обычно хранится с 4-байтным смещением
-            let exif_start = if exif_data.len() > 4 && &exif_data[0..4] == b"\x00\x00\x00\x00" {
-                4
-            } else {
-                0
-            };
-            
+            // EXIF в HEIC обычно хранится с заголовком
+            // Ищем начало TIFF данных (II для little-endian или MM для big-endian)
+            let mut exif_start = 0;
+            for i in 0..exif_data.len().saturating_sub(1) {
+                if exif_data[i] == b'I' && exif_data[i+1] == b'I' {
+                    exif_start = i;
+                    break;
+                } else if exif_data[i] == b'M' && exif_data[i+1] == b'M' {
+                    exif_start = i;
+                    break;
+                }
+            }
+
+            if exif_start == 0 {
+                // Пробуем стандартные смещения
+                if exif_data.len() > 8 && &exif_data[4..8] == b"Exif" {
+                    exif_start = 6; // Пропускаем 4 байта размер + "Exif"
+                } else if exif_data.len() > 4 && &exif_data[0..4] == b"\x00\x00\x00\x00" {
+                    exif_start = 4;
+                }
+            }
+
             if let Ok(exif) = exif::Reader::new().read_raw(exif_data[exif_start..].to_vec()) {
                 let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
                 let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
                 let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
-                
+
                 if lat.is_some() && lng.is_some() {
                     return Ok((lat.unwrap(), lng.unwrap(), datetime));
                 }

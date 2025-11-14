@@ -1,14 +1,12 @@
-[build]
-# Статическая линковка
+[target.'cfg(target_os = "windows")']
 rustflags = ["-C", "target-feature=+crt-static"]
 
-[env]
-# Путь к vcpkg для Windows (поддержка libheif)
-# Установите переменную окружения если vcpkg находится в другом месте
+[target.'cfg(target_os = "windows")'.env]
 VCPKG_ROOT = "D:\\vcpkg"
 VCPKG_DEFAULT_TRIPLET = "x64-windows-static"
-
-# Встроенная версия libheif (статическая линковка)
 LIBHEIF_NO_PKG_CONFIG = "1"
 LIBHEIF_STATIC = "1"
 LIBHEIF_USE_STATIC_LIB = "1"
+
+[target.'cfg(target_os = "macos")'.env]
+PKG_CONFIG_PATH = "/opt/homebrew/lib/pkgconfig"
