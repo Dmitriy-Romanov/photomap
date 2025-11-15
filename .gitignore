@@ -1,12 +1,17 @@
 # Rust/Cargo
 /target/
 **/*.rs.bk
+Cargo.lock
 
 # VSCode
 .vscode/
 
-# Thumbnail and generated data
-.thumbnails/
+# PhotoMap specific
+/photos/
+/photomap.db
+/.thumbnails/
+
+# Generated files (legacy)
 geodata.js
 map.html
 
@@ -16,3 +21,7 @@ Thumbs.db
 
 # Debug files
 *.log
+
+# Temporary files
+*.tmp
+temp_*
