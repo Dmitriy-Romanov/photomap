@@ -10,7 +10,9 @@ pub fn get_map_html(has_heic_support: bool) -> Html<String> {
         ""
     };
 
-    let html = MAP_HTML.replace("<!-- HEIC_WARNING_PLACEHOLDER -->", heic_warning);
+    let html = MAP_HTML
+        .replace("<!-- HEIC_WARNING_PLACEHOLDER -->", heic_warning)
+        .replace("{has_heic_support}", if has_heic_support { "true" } else { "false" });
     Html(html)
 }
 
@@ -20,7 +22,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoMap v0.4.4 - Height-based Panel Toggle</title>
+    <title>PhotoMap v0.5.4 - Enhanced UI Edition</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
@@ -91,10 +93,10 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
     <div id="map" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1;"></div>
 
     <!-- Floating Info Window -->
-    <div id="floating-info-window" style="position: fixed; top: 0; right: 0; width: 400px; background: white; border-left: 2px solid #ccc; border-bottom: 2px solid #ccc; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+    <div id="floating-info-window" style="position: fixed; top: 0; right: 0; width: 440px; background: white; border-left: 2px solid #ccc; border-bottom: 2px solid #ccc; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
         <!-- Title Bar (always visible) -->
         <div id="window-title-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #f8f9fa; border-bottom: 1px solid #ddd; cursor: default;">
-            <span style="font-size: 12px; font-weight: bold; color: #333;">🗺️ PhotoMap v0.5.3</span>
+            <span style="font-size: 12px; font-weight: bold; color: #333;">🗺️ PhotoMap v0.5.4</span>
             <button id="toggle-window-btn" style="background: #007bff; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">⌄</button>
         </div>
 
@@ -102,14 +104,14 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
         <div id="window-content" style="height: auto; max-height: calc(100vh - 30px); overflow-y: auto;">
             <!-- HEIC_WARNING_PLACEHOLDER -->
                 <!-- Control Panel -->
-                <div id="control-panel" style="padding: 15px;">
+                <div id="control-panel" style="padding: 15px; box-sizing: border-box;">
                     <h3 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">PhotoMap Controls</h3>
 
                 <!-- Folder Selection -->
                 <!-- Folder Path Input -->
                 <div style="margin-bottom: 10px;">
                     <label for="folder-input" style="display: block; margin-bottom: 5px; font-weight: bold;">📁 Folder Path:</label>
-                    <input type="text" id="folder-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="/Users/user/Photos/my_folder">
+                    <input type="text" id="folder-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" placeholder="/Users/user/Photos/my_folder">
                 </div>
 
                 <!-- Processing Controls -->
@@ -117,6 +119,16 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                     <button id="process-button" onclick="processFolder()" style="background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; width: 100%;">
                         🚀 Process Photos
                     </button>
+                </div>
+
+                <!-- Year Range Controls -->
+                <div style="margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.9em;">
+                        <strong style="white-space: nowrap;">От:</strong>
+                        <input type="number" id="year-from" style="width: 70px; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" min="1900" max="2100" step="1" autocomplete="off" spellcheck="false" data-lpignore="true" data-form-type="other" role="presentation">
+                        <strong style="white-space: nowrap;">До:</strong>
+                        <input type="number" id="year-to" style="width: 70px; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" min="1900" max="2100" step="1" autocomplete="off" spellcheck="false" data-lpignore="true" data-form-type="other" role="presentation">
+                    </div>
                 </div>
 
                 <!-- Processing Status -->
@@ -131,6 +143,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                     <div style="font-size: 0.9em; line-height: 1.6;">
                         <div style="margin-bottom: 4px;"><strong>Всего фото:</strong> <span id="total-photos">-</span></div>
                         <div style="margin-bottom: 4px;"><strong>Отображено:</strong> <span id="visible-photos">-</span></div>
+                        <div style="margin-bottom: 4px;"><strong>ImageMagick:</strong> <span id="imagemagick-status">-</span></div>
                     </div>
                 </div>
         </div> <!-- control-panel -->
@@ -217,8 +230,11 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             zoomToBoundsOnClick: true
         });
 
+        // Set global HEIC support flag
+        window.hasHeicSupport = {has_heic_support};
+
         // Load photo data from API
-        let photoData = [];
+        var photoData = [];
 
         async function loadPhotos() {
             try {
@@ -230,6 +246,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                 photoData = await response.json();
                 console.log(`Loaded ${photoData.length} photos from database`);
                 addMarkers();
+                return photoData; // Return the loaded data
             } catch (error) {
                 console.error('Failed to load photos:', error);
             }
@@ -322,7 +339,13 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
 
             document.getElementById('total-photos').textContent = totalPhotos;
             document.getElementById('visible-photos').textContent = visiblePhotos;
-            console.log('Statistics updated - Total:', totalPhotos, 'Visible:', visiblePhotos);
+
+            // Update ImageMagick status
+            const imagemagickStatus = document.getElementById('imagemagick-status');
+            imagemagickStatus.textContent = window.hasHeicSupport ? 'есть' : 'нет';
+            imagemagickStatus.style.color = window.hasHeicSupport ? '#28a745' : '#dc3545';
+
+            console.log('Statistics updated - Total:', totalPhotos, 'Visible:', visiblePhotos, 'ImageMagick:', window.hasHeicSupport ? 'yes' : 'no');
         }
 
         // Load settings when page loads
@@ -341,9 +364,121 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             }
         }
 
+        // Initialize year range controls
+        function initializeYearControls() {
+            const yearFromInput = document.getElementById('year-from');
+            const yearToInput = document.getElementById('year-to');
+
+            if (photoData.length === 0) {
+                // No photos data yet, set default to current year
+                const currentYear = new Date().getFullYear();
+                yearFromInput.value = currentYear;
+                yearToInput.value = currentYear;
+                return;
+            }
+
+            // Extract years from photo dates
+            console.log('Initializing year controls with', photoData.length, 'photos');
+            console.log('Sample photo datetime:', photoData[0]?.datetime);
+
+            const years = photoData
+                .map(photo => {
+                    // Extract year from datetime (multiple formats supported)
+                    let year = null;
+
+                    // Pattern 1: Standard EXIF format "2021:05:22 20:21:21"
+                    let match = photo.datetime.match(/^(\d{4}):/);
+                    if (match) {
+                        year = parseInt(match[1]);
+                    } else {
+                        // Pattern 2: Alternative format "2021-05-22 20:21:21"
+                        match = photo.datetime.match(/^(\d{4})-/);
+                        if (match) {
+                            year = parseInt(match[1]);
+                        } else {
+                            // Pattern 3: Russian format "Дата съемки: 30.05.2025 11:04"
+                            match = photo.datetime.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+                            if (match) {
+                                year = parseInt(match[3]); // Third group is year in DD.MM.YYYY
+                            } else {
+                                // Pattern 4: Any 4-digit number (fallback)
+                                match = photo.datetime.match(/(\d{4})/);
+                                if (match) {
+                                    year = parseInt(match[1]);
+                                }
+                            }
+                        }
+                    }
+
+                    console.log('Photo:', photo.filename, 'datetime:', photo.datetime, 'extracted year:', year);
+                    return year;
+                })
+                .filter(year => year !== null);
+
+            console.log('Valid years found:', years);
+
+            if (years.length === 0) {
+                // No valid dates found
+                console.log('No valid years found, using current year');
+                const currentYear = new Date().getFullYear();
+                yearFromInput.value = currentYear;
+                yearToInput.value = currentYear;
+                return;
+            }
+
+            const minYear = Math.min(...years);
+            const maxYear = Math.max(...years);
+
+            // Set initial values
+            yearFromInput.value = minYear;
+            yearToInput.value = maxYear;
+
+            // Set min/max attributes
+            yearFromInput.min = minYear;
+            yearFromInput.max = maxYear;
+            yearToInput.min = minYear;
+            yearToInput.max = maxYear;
+
+            // Add event listeners for validation
+            yearFromInput.addEventListener('change', function() {
+                const fromValue = parseInt(this.value);
+                const toValue = parseInt(yearToInput.value);
+
+                // Ensure "From" is not greater than "To"
+                if (fromValue > toValue) {
+                    this.value = toValue;
+                }
+
+                // Ensure "From" is not less than minYear
+                if (fromValue < minYear) {
+                    this.value = minYear;
+                }
+            });
+
+            yearToInput.addEventListener('change', function() {
+                const fromValue = parseInt(yearFromInput.value);
+                const toValue = parseInt(this.value);
+
+                // Ensure "To" is not less than "From"
+                if (toValue < fromValue) {
+                    this.value = fromValue;
+                }
+
+                // Ensure "To" is not greater than maxYear
+                if (toValue > maxYear) {
+                    this.value = maxYear;
+                }
+            });
+
+            console.log(`Year controls initialized: ${minYear} to ${maxYear}`);
+        }
+
         // Load photos when page loads
-        loadSettings();
-        loadPhotos();
+        loadSettings().then(() => {
+            loadPhotos().then(() => {
+                initializeYearControls();
+            });
+        });
 
         // === UI Control Functions ===
 
@@ -413,7 +548,9 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                                 statusDiv.style.display = 'none';
                                 processButton.disabled = false;
                                 processButton.textContent = '🚀 Process Photos';
-                                loadPhotos(); // Refresh map
+                                loadPhotos().then(() => {
+                                    initializeYearControls(); // Re-initialize year controls with new data
+                                }); // Refresh map
                                 updateStatistics();
                                 showNotification(`🎉 Processing completed! Found ${photos.length} photos`, 'success');
                             }

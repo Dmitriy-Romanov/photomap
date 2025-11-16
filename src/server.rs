@@ -19,7 +19,7 @@ use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
 use crate::database::{Database, ImageMetadata};
-use crate::image_processing::{create_marker_icon_in_memory, create_thumbnail_in_memory, convert_heic_to_jpeg};
+use crate::image_processing::{create_scaled_image_in_memory, convert_heic_to_jpeg, ImageType};
 use crate::html_template::get_map_html;
 use crate::settings::Settings;
 use std::sync::Arc;
@@ -93,9 +93,11 @@ pub async fn get_all_photos(State(state): State<AppState>) -> Result<Json<Vec<Im
     Ok(Json(api_photos))
 }
 
-pub async fn get_marker_image(
+/// Универсальная функция для обработки изображений (маркеры или превью)
+async fn serve_processed_image(
     State(state): State<AppState>,
-    AxumPath(filename): AxumPath<String>
+    AxumPath(filename): AxumPath<String>,
+    image_type: ImageType,
 ) -> Result<Response, StatusCode> {
     // Get photo file path from database
     let photos = state.db.get_all_photos()
@@ -109,7 +111,8 @@ pub async fn get_marker_image(
     if photo.is_heic {
         if state.has_heic_support {
             // Redirect to the converted HEIC image (served as JPEG)
-            let redirect_url = format!("/convert-heic?filename={}&size=marker", filename);
+            let size_param = image_type.name();
+            let redirect_url = format!("/convert-heic?filename={}&size={}", filename, size_param);
             return Ok(Response::builder()
                 .status(StatusCode::FOUND)
                 .header(header::LOCATION, redirect_url)
@@ -121,10 +124,10 @@ pub async fn get_marker_image(
         }
     }
 
-    // Generate marker icon on-demand for non-HEIC files
-    let png_data = create_marker_icon_in_memory(std::path::Path::new(&photo.file_path))
+    // Generate image on-demand for non-HEIC files
+    let png_data = create_scaled_image_in_memory(std::path::Path::new(&photo.file_path), image_type)
         .map_err(|e| {
-            eprintln!("Failed to create marker for {}: {}", filename, e);
+            eprintln!("Failed to create {:?} for {}: {}", image_type, filename, e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -136,47 +139,20 @@ pub async fn get_marker_image(
         .unwrap())
 }
 
-pub async fn get_thumbnail_image(
-    State(state): State<AppState>,
-    AxumPath(filename): AxumPath<String>
+/// Обработчик для маркеров изображений (40x40px)
+pub async fn get_marker_image(
+    state: State<AppState>,
+    filename: AxumPath<String>
 ) -> Result<Response, StatusCode> {
-    // Get photo file path from database
-    let photos = state.db.get_all_photos()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    serve_processed_image(state, filename, ImageType::Marker).await
+}
 
-    let photo = photos.into_iter()
-        .find(|p| p.relative_path == filename || p.filename == filename)
-        .ok_or(StatusCode::NOT_FOUND)?;
-
-    // For HEIC files, redirect to converted JPEG with proper size parameter
-    if photo.is_heic {
-        if state.has_heic_support {
-            // Redirect to the converted HEIC image (served as JPEG)
-            let redirect_url = format!("/convert-heic?filename={}&size=thumbnail", filename);
-            return Ok(Response::builder()
-                .status(StatusCode::FOUND)
-                .header(header::LOCATION, redirect_url)
-                .header(header::CACHE_CONTROL, "public, max-age=3600")
-                .body("Redirecting to converted image".into())
-                .unwrap());
-        } else {
-            return Err(StatusCode::NOT_FOUND);
-        }
-    }
-
-    // Generate thumbnail (larger than marker) on-demand for non-HEIC files
-    let png_data = create_thumbnail_in_memory(std::path::Path::new(&photo.file_path))
-        .map_err(|e| {
-            eprintln!("Failed to create thumbnail for {}: {}", filename, e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "image/png")
-        .header(header::CACHE_CONTROL, "public, max-age=3600")
-        .body(png_data.into())
-        .unwrap())
+/// Обработчик для превью изображений (60x60px)
+pub async fn get_thumbnail_image(
+    state: State<AppState>,
+    filename: AxumPath<String>
+) -> Result<Response, StatusCode> {
+    serve_processed_image(state, filename, ImageType::Thumbnail).await
 }
 
 pub async fn convert_heic(
@@ -469,8 +445,16 @@ use axum::response::sse::Event as SseEvent;
 
 // Create the main application router
 pub async fn create_app(state: AppState) -> Router {
-    // Use default photos directory for serving static files
-    let photos_path = PathBuf::from("photos");
+    // Get photos directory from settings or use default
+    let photos_path = {
+        let settings = state.settings.lock().unwrap();
+        if let Some(ref folder) = settings.last_folder {
+            std::path::Path::new(folder).to_path_buf()
+        } else {
+            // Default directory
+            std::path::Path::new("/Users/dmitriiromanov/claude/photomap/photos").to_path_buf()
+        }
+    };
 
     Router::new()
         .route("/", get(serve_map_html))

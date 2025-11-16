@@ -15,6 +15,7 @@ mod html_template;
 mod settings;
 mod server;
 mod process_manager;
+mod utils;
 
 use database::{Database, PhotoMetadata};
 use image_processing::check_imagemagick;
@@ -271,7 +272,7 @@ fn process_file_to_database(path: &Path, db: &Database) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🗺️  PhotoMap Processor v0.5.3 - Single Instance Edition starting...");
+    println!("🗺️  PhotoMap Processor v0.5.4 - Enhanced UI Edition starting...");
 
     // Ensure single instance - kill existing processes
     process_manager::ensure_single_instance()?;

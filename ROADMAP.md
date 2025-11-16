@@ -10,7 +10,14 @@
 
 ## 📅 Release Planning
 
-### Current: v0.5.3 - Single Instance Edition ✅
+### Current: v0.5.4 - Enhanced UI Edition ✅
+- [x] ImageMagick status display in info panel
+- [x] Year range controls with validation
+- [x] UI panel width improvements (440px)
+- [x] JavaScript scope fixes (let → var)
+- [x] Browser extension compatibility fixes
+
+### Previous: v0.5.3 - Single Instance Edition ✅
 - [x] Process management and single instance enforcement
 - [x] Cross-platform process termination
 - [x] Development guide and standards

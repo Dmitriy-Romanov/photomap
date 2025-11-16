@@ -6,8 +6,35 @@ use image::GenericImageView;
 use crate::database::PhotoMetadata;
 use crate::constants::*;
 
-/// Создает маленькую иконку маркера для изображения (40x40px PNG с прозрачностью и центрированием) в памяти.
-pub fn create_marker_icon_in_memory(source_path: &Path) -> Result<Vec<u8>> {
+/// Типы изображений для обработки
+#[derive(Debug, Clone, Copy)]
+pub enum ImageType {
+    Marker,
+    Thumbnail,
+}
+
+impl ImageType {
+    /// Возвращает размер изображения в пикселях
+    pub fn size(&self) -> u32 {
+        match self {
+            ImageType::Marker => MARKER_SIZE,
+            ImageType::Thumbnail => THUMBNAIL_SIZE,
+        }
+    }
+
+    /// Возвращает человекочитаемое название
+    pub fn name(&self) -> &'static str {
+        match self {
+            ImageType::Marker => "marker",
+            ImageType::Thumbnail => "thumbnail",
+        }
+    }
+}
+
+/// Создает масштабированное изображение с прозрачным фоном в памяти
+pub fn create_scaled_image_in_memory(source_path: &Path, image_type: ImageType) -> Result<Vec<u8>> {
+    let size = image_type.size();
+
     let mut img = image::open(source_path)
         .with_context(|| format!("Не удалось открыть изображение: {:?}", source_path))?;
 
@@ -15,17 +42,17 @@ pub fn create_marker_icon_in_memory(source_path: &Path) -> Result<Vec<u8>> {
     img = crate::exif_parser::apply_exif_orientation(source_path, img)?;
 
     // Создаем квадратное изображение с ПРОЗРАЧНЫМ фоном
-    let mut canvas = image::RgbaImage::from_fn(MARKER_SIZE, MARKER_SIZE, |_, _| {
+    let mut canvas = image::RgbaImage::from_fn(size, size, |_, _| {
         image::Rgba([0, 0, 0, 0]) // Полностью прозрачный фон
     });
 
     // Масштабируем изображение с сохранением пропорций
-    let scaled = img.resize(MARKER_SIZE, MARKER_SIZE, image::imageops::FilterType::Lanczos3);
+    let scaled = img.resize(size, size, image::imageops::FilterType::Lanczos3);
 
     // Получаем размеры и вычисляем позицию для центрирования
     let (width, height) = scaled.dimensions();
-    let x_offset = (MARKER_SIZE - width as u32) / 2;
-    let y_offset = (MARKER_SIZE - height as u32) / 2;
+    let x_offset = (size - width as u32) / 2;
+    let y_offset = (size - height as u32) / 2;
 
     // Копируем масштабированное изображение в центр
     image::imageops::overlay(&mut canvas, &scaled.to_rgba8(), x_offset as i64, y_offset as i64);
@@ -41,39 +68,14 @@ pub fn create_marker_icon_in_memory(source_path: &Path) -> Result<Vec<u8>> {
     Ok(buffer)
 }
 
+/// Создает маленькую иконку маркера для изображения (40x40px PNG с прозрачностью и центрированием) в памяти.
+pub fn create_marker_icon_in_memory(source_path: &Path) -> Result<Vec<u8>> {
+    create_scaled_image_in_memory(source_path, ImageType::Marker)
+}
+
 /// Создает миниатюру большего размера для отображения на маркерах (60x60px) в памяти.
 pub fn create_thumbnail_in_memory(source_path: &Path) -> Result<Vec<u8>> {
-    let mut img = image::open(source_path)
-        .with_context(|| format!("Не удалось открыть изображение: {:?}", source_path))?;
-
-    // Применяем EXIF-ориентацию
-    img = crate::exif_parser::apply_exif_orientation(source_path, img)?;
-
-    // Создаем квадратное изображение с ПРОЗРАЧНЫМ фоном
-    let mut canvas = image::RgbaImage::from_fn(THUMBNAIL_SIZE, THUMBNAIL_SIZE, |_, _| {
-        image::Rgba([0, 0, 0, 0]) // Полностью прозрачный фон
-    });
-
-    // Масштабируем изображение с сохранением пропорций
-    let scaled = img.resize(THUMBNAIL_SIZE, THUMBNAIL_SIZE, image::imageops::FilterType::Lanczos3);
-
-    // Получаем размеры и вычисляем позицию для центрирования
-    let (width, height) = scaled.dimensions();
-    let x_offset = (THUMBNAIL_SIZE - width as u32) / 2;
-    let y_offset = (THUMBNAIL_SIZE - height as u32) / 2;
-
-    // Копируем масштабированное изображение в центр
-    image::imageops::overlay(&mut canvas, &scaled.to_rgba8(), x_offset as i64, y_offset as i64);
-
-    // Конвертируем в PNG в память
-    let final_img = image::DynamicImage::ImageRgba8(canvas);
-    let mut buffer = Vec::new();
-    {
-        let mut cursor = Cursor::new(&mut buffer);
-        final_img.write_to(&mut cursor, image::ImageFormat::Png)?;
-    }
-
-    Ok(buffer)
+    create_scaled_image_in_memory(source_path, ImageType::Thumbnail)
 }
 
 /// Конвертирует HEIC файл в JPEG с указанными размерами

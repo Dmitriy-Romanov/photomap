@@ -67,52 +67,13 @@ impl Settings {
     }
 
     
-    fn get_app_data_dir() -> PathBuf {
-        // Cross-platform application data directory
-        if cfg!(target_os = "macos") {
-            let home_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            let mut path = PathBuf::from(home_dir);
-            path.push("Library");
-            path.push("Application Support");
-            path.push("PhotoMap");
-            path
-        } else if cfg!(target_os = "windows") {
-            // Use %APPDATA%/PhotoMap on Windows
-            if let Ok(appdata) = std::env::var("APPDATA") {
-                let mut path = PathBuf::from(appdata);
-                path.push("PhotoMap");
-                path
-            } else {
-                // Fallback to current directory
-                PathBuf::from(".").join("PhotoMap")
-            }
-        } else {
-            // Linux and others: use ~/.local/share/PhotoMap or ~/.photomap
-            let home_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            let mut path = PathBuf::from(home_dir);
-
-            // Try XDG_DATA_HOME first
-            if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
-                path = PathBuf::from(xdg_data);
-            } else {
-                path.push(".local");
-                path.push("share");
-            }
-            path.push("PhotoMap");
-            path
-        }
-    }
-
     pub fn config_path() -> PathBuf {
-        let mut app_dir = Self::get_app_data_dir();
+        let app_dir = crate::utils::get_app_data_dir();
 
         // Create directory if it doesn't exist
-        if !app_dir.exists() {
-            let _ = std::fs::create_dir_all(&app_dir);
-        }
+        let _ = crate::utils::ensure_directory_exists(&app_dir);
 
-        app_dir.push("photomap.ini");
-        app_dir
+        crate::utils::get_config_path()
     }
 }
 
