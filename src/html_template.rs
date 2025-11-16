@@ -20,7 +20,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoMap v0.4.1 - Native Browser Folder Selection</title>
+    <title>PhotoMap v0.4.4 - Height-based Panel Toggle</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
@@ -92,14 +92,17 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
         <div id="map" style="flex: 1; height: 100%;"></div>
 
         <!-- Right frame - Info panel -->
-        <div id="info-panel" style="width: 25%; min-width: 400px; height: 100vh; background: white; border-left: 2px solid #ccc; overflow-y: auto;">
-            <div style="text-align: right; padding: 5px;">
+        <div id="info-panel" style="width: 25%; min-width: 400px; height: 100vh; background: white; border-left: 2px solid #ccc; overflow: hidden;">
+            <!-- Always visible toggle bar -->
+            <div style="text-align: right; padding: 5px; background: #f8f9fa; border-bottom: 1px solid #ccc;">
                 <button id="toggle-info-panel-button" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">&uarr;&darr;</button>
             </div>
-            <!-- HEIC_WARNING_PLACEHOLDER -->
-            <!-- Control Panel -->
-            <div id="control-panel" style="position: relative; top: 10px; left: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
-                <h3 style="margin: 0 0 10px 0; color: #333;">🗺️ PhotoMap v0.4.1</h3>
+            <!-- Collapsible content area -->
+            <div id="info-panel-content" style="height: calc(100vh - 36px); overflow-y: auto;">
+                <!-- HEIC_WARNING_PLACEHOLDER -->
+                <!-- Control Panel -->
+                <div id="control-panel" style="position: relative; top: 10px; left: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+                <h3 style="margin: 0 0 10px 0; color: #333;">🗺️ PhotoMap v0.4.4</h3>
 
                 <!-- Folder Selection -->
                 <!-- Folder Path Input -->
@@ -129,6 +132,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                         <div style="margin-bottom: 4px;"><strong>Отображено:</strong> <span id="visible-photos">-</span></div>
                     </div>
                 </div>
+            </div> <!-- info-panel-content -->
 
               </div>
         </div>
@@ -468,26 +472,24 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             }, 3000);
         }
 
-        // Function to toggle info panel width
+        // Function to toggle info panel height
         function toggleInfoPanel() {
-            const infoPanel = document.getElementById('info-panel');
+            const infoPanelContent = document.getElementById('info-panel-content');
             const toggleButton = document.getElementById('toggle-info-panel-button');
 
-            // Check current state based on width
-            if (infoPanel.style.width === '20px') {
+            // Check current state based on height
+            if (infoPanelContent.style.height === '0px') {
                 // Expand the panel
-                infoPanel.style.width = '25%';
-                infoPanel.style.minWidth = '400px';
-                infoPanel.style.overflowY = 'auto'; // Restore scroll
+                infoPanelContent.style.height = 'calc(100vh - 36px)';
+                infoPanelContent.style.overflowY = 'auto'; // Restore scroll
                 toggleButton.textContent = '↑↓';
             } else {
                 // Collapse the panel
-                infoPanel.style.width = '20px';
-                infoPanel.style.minWidth = '20px'; // Ensure it collapses fully
-                infoPanel.style.overflowY = 'hidden'; // Hide scroll content
+                infoPanelContent.style.height = '0px';
+                infoPanelContent.style.overflowY = 'hidden'; // Hide scroll content
                 toggleButton.textContent = '↑↓';
             }
-            // Trigger map resize to adjust to new panel width
+            // Trigger map resize to adjust to new panel layout
             map.invalidateSize();
         }
 

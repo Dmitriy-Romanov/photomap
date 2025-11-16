@@ -1,4 +1,4 @@
-# PhotoMap Processor v0.4.3
+# PhotoMap Processor v0.4.4
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
@@ -208,7 +208,13 @@ The application is distributed as a single binary:
 
 ## 📈 Version History
 
-### v0.4.3 (Current)
+### v0.4.4 (Current)
+- ✅ **Height-based panel toggle** - Changed from width to height collapsing for better UX
+- ✅ **Always-visible toggle button** - Button remains accessible in collapsed state
+- ✅ **Fixed version display** - Updated all UI elements to show correct v0.4.4
+- ✅ **Improved panel layout** - Better visual separation with toggle bar
+
+### v0.4.3
 - ✅ **Simplified folder input** - Replaced webkitdirectory with text input for universal compatibility
 - ✅ **Stable path handling** - Fixed folder path resolution for both terminal and Finder launches
 - ✅ **Universal toggle icon** - Replaced directional arrows with intuitive ↑↓ symbol
