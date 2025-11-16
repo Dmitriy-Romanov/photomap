@@ -1,4 +1,4 @@
-# PhotoMap Processor v0.4.4
+# PhotoMap Processor v0.5.0
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
@@ -208,7 +208,15 @@ The application is distributed as a single binary:
 
 ## 📈 Version History
 
-### v0.4.4 (Current)
+### v0.5.0 (Current)
+- ✅ **Floating Info Window** - Replaced flexbox layout with floating window overlay
+- ✅ **Full-screen Map** - Map now takes entire viewport for optimal viewing
+- ✅ **Desktop-style Window** - Classic title bar with minimize/restore functionality
+- ✅ **Fixed Positioning** - Window stays in top-right corner for consistency
+- ✅ **State Persistence** - Window state saved between sessions
+- ✅ **Smooth Animations** - CSS transitions for professional UI experience
+
+### v0.4.4
 - ✅ **Height-based panel toggle** - Changed from width to height collapsing for better UX
 - ✅ **Always-visible toggle button** - Button remains accessible in collapsed state
 - ✅ **Fixed version display** - Updated all UI elements to show correct v0.4.4

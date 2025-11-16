@@ -87,22 +87,23 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             </style>
 </head>
 <body>
-    <div style="display: flex; height: 100vh; margin: 0; padding: 0;">
-        <!-- Left frame - Map -->
-        <div id="map" style="flex: 1; height: 100%;"></div>
+    <!-- Full-screen Map -->
+    <div id="map" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1;"></div>
 
-        <!-- Right frame - Info panel -->
-        <div id="info-panel" style="width: 25%; min-width: 400px; height: 100vh; background: white; border-left: 2px solid #ccc; overflow: hidden;">
-            <!-- Always visible toggle bar -->
-            <div style="text-align: right; padding: 5px; background: #f8f9fa; border-bottom: 1px solid #ccc;">
-                <button id="toggle-info-panel-button" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">&uarr;&darr;</button>
-            </div>
-            <!-- Collapsible content area -->
-            <div id="info-panel-content" style="height: calc(100vh - 36px); overflow-y: auto;">
-                <!-- HEIC_WARNING_PLACEHOLDER -->
+    <!-- Floating Info Window -->
+    <div id="floating-info-window" style="position: fixed; top: 0; right: 0; width: 400px; background: white; border-left: 2px solid #ccc; border-bottom: 2px solid #ccc; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+        <!-- Title Bar (always visible) -->
+        <div id="window-title-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #f8f9fa; border-bottom: 1px solid #ddd; cursor: default;">
+            <span style="font-size: 12px; font-weight: bold; color: #333;">🗺️ PhotoMap v0.5.0</span>
+            <button id="toggle-window-btn" style="background: #007bff; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">⌄</button>
+        </div>
+
+        <!-- Content Area (expandable) -->
+        <div id="window-content" style="height: auto; max-height: calc(100vh - 30px); overflow-y: auto;">
+            <!-- HEIC_WARNING_PLACEHOLDER -->
                 <!-- Control Panel -->
-                <div id="control-panel" style="position: relative; top: 10px; left: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
-                <h3 style="margin: 0 0 10px 0; color: #333;">🗺️ PhotoMap v0.4.4</h3>
+                <div id="control-panel" style="padding: 15px;">
+                    <h3 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">PhotoMap Controls</h3>
 
                 <!-- Folder Selection -->
                 <!-- Folder Path Input -->
@@ -132,11 +133,9 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                         <div style="margin-bottom: 4px;"><strong>Отображено:</strong> <span id="visible-photos">-</span></div>
                     </div>
                 </div>
-            </div> <!-- info-panel-content -->
-
-              </div>
-        </div>
-    </div>
+        </div> <!-- control-panel -->
+        </div> <!-- window-content -->
+    </div> <!-- floating-info-window -->
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
@@ -473,31 +472,47 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
         }
 
         // Function to toggle info panel height
-        function toggleInfoPanel() {
-            const infoPanelContent = document.getElementById('info-panel-content');
-            const toggleButton = document.getElementById('toggle-info-panel-button');
+        function toggleInfoWindow() {
+            const windowContent = document.getElementById('window-content');
+            const toggleButton = document.getElementById('toggle-window-btn');
+            const floatingWindow = document.getElementById('floating-info-window');
 
-            // Check current state based on height
-            if (infoPanelContent.style.height === '0px') {
-                // Expand the panel
-                infoPanelContent.style.height = 'calc(100vh - 36px)';
-                infoPanelContent.style.overflowY = 'auto'; // Restore scroll
-                toggleButton.textContent = '↑↓';
+            // Check current state
+            if (windowContent.style.display === 'none') {
+                // Expand the window
+                windowContent.style.display = 'block';
+                floatingWindow.style.height = 'auto';
+                toggleButton.textContent = '⌄';
+
+                // Save state to localStorage
+                localStorage.setItem('infoWindowState', 'expanded');
             } else {
-                // Collapse the panel
-                infoPanelContent.style.height = '0px';
-                infoPanelContent.style.overflowY = 'hidden'; // Hide scroll content
-                toggleButton.textContent = '↑↓';
+                // Collapse the window
+                windowContent.style.display = 'none';
+                floatingWindow.style.height = '26px';
+                toggleButton.textContent = '⌄';
+
+                // Save state to localStorage
+                localStorage.setItem('infoWindowState', 'collapsed');
             }
-            // Trigger map resize to adjust to new panel layout
-            map.invalidateSize();
+            // No need to resize map - it's always full screen
         }
 
         // Attach event listener to the button after DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
-            const toggleButton = document.getElementById('toggle-info-panel-button');
+            const toggleButton = document.getElementById('toggle-window-btn');
             if (toggleButton) {
-                toggleButton.addEventListener('click', toggleInfoPanel);
+                toggleButton.addEventListener('click', toggleInfoWindow);
+            }
+
+            // Restore saved window state
+            const savedState = localStorage.getItem('infoWindowState');
+            const windowContent = document.getElementById('window-content');
+            const floatingWindow = document.getElementById('floating-info-window');
+
+            if (savedState === 'collapsed') {
+                windowContent.style.display = 'none';
+                floatingWindow.style.height = '26px';
             }
         });
 
@@ -511,6 +526,22 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             @keyframes slideOut {
                 from { transform: translateX(0); opacity: 1; }
                 to { transform: translateX(100%); opacity: 0; }
+            }
+
+            #floating-info-window {
+                transition: height 0.3s ease, box-shadow 0.3s ease;
+            }
+
+            #window-content {
+                transition: opacity 0.3s ease, transform 0.3s ease;
+            }
+
+            #window-title-bar {
+                user-select: none;
+            }
+
+            #toggle-window-btn:hover {
+                background-color: #0056b3 !important;
             }
         `;
         document.head.appendChild(style);
