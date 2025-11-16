@@ -11,7 +11,10 @@ A modern, high-performance photo mapping application with SQLite database storag
 - **Subfolder Support** - Handle duplicate filenames from different cameras
 - **700px Popups** - Large, detailed photo previews with metadata
 - **Real-time Processing** - Parallel processing for fast performance
+- **Simplified UX** - One-click folder selection and processing
 - **Cross-platform** - Windows, macOS, Linux support
+- **Folder Dialog** - Native folder selection with Cancel support
+- **Auto-restart** - Automatically processes last selected folder on startup
 
 ## 🏗️ Architecture
 
@@ -32,6 +35,7 @@ Photos (any subfolders)
 - **Frontend**: Leaflet.js with MarkerCluster plugin
 - **Processing**: Rayon parallel processing
 - **Images**: Native parsing + ImageMagick HEIC conversion
+- **UX**: Unified folder selection with automatic processing
 
 ## 📸 Supported Formats
 
@@ -66,12 +70,13 @@ cargo build --release
 
 ### Usage
 
-1. **Place photos** in the `photos/` directory (any subfolder structure)
-2. **Run the application**:
+1. **Run the application**:
    ```bash
    ./target/release/photomap_processor
    ```
-3. **Open the map** at http://127.0.0.1:3001
+2. **Open the map** at http://127.0.0.1:3001
+3. **Click "Обзор"** to select a folder with photos
+4. **Processing starts automatically** after folder selection
 
 ## 📁 Project Structure
 
@@ -83,10 +88,14 @@ photomap/
 │   ├── server.rs            # HTTP API endpoints
 │   ├── image_processing.rs  # Image processing & HEIC conversion
 │   ├── exif_parser.rs       # EXIF data extraction
-│   └── html_template.rs     # Web interface template
+│   ├── html_template.rs     # Web interface template
+│   ├── folder_picker.rs     # Cross-platform folder selection
+│   └── settings.rs          # Configuration management
+├── folder_dialog_helper/    # External helper for macOS folder dialogs
 ├── photos/                  # Your photo collection (git-ignored)
 ├── target/                  # Build output (git-ignored)
 ├── photomap.db             # SQLite database (git-ignored)
+├── photomap.ini            # Configuration file (git-ignored)
 └── README.md
 ```
 
@@ -104,13 +113,28 @@ The application automatically detects ImageMagick:
 - **Duplicate filenames**: Files with same names from different folders are handled uniquely
 - **Relative paths**: Database uses relative paths for portability
 
+### Configuration File (photomap.ini)
+
+```
+last_folder = "/path/to/last/selected/folder"
+port = 3001
+auto_open_browser = false
+info_panel_width = 255
+show_progress = true
+```
+
 ## 🌐 API Endpoints
 
 - `GET /` - Interactive map interface
 - `GET /api/photos` - List all photos with GPS data
-- `GET /api/marker/*path` - Generate 50x50px marker icon
-- `GET /api/thumbnail/*path` - Generate 100x100px thumbnail
+- `GET /api/marker/*path` - Generate 40x40px marker icon
+- `GET /api/thumbnail/*path` - Generate 60x60px thumbnail
 - `GET /convert-heic?filename=path` - Convert HEIC to JPEG
+- `GET /api/settings` - Load current settings
+- `POST /api/settings` - Save settings
+- `POST /api/select-folder` - Select folder with automatic processing
+- `POST /api/process` - Start photo processing
+- `GET /api/events` - Real-time processing updates
 
 ## 📊 Performance
 
@@ -118,6 +142,7 @@ The application automatically detects ImageMagick:
 - **Storage**: Efficient SQLite with indexes
 - **Memory**: On-demand generation prevents memory issues
 - **Scalability**: Tested with 10,000+ photos
+- **Binary Size**: ~3-4MB (depends on platform)
 
 ## 🗺️ Map Features
 
@@ -130,7 +155,29 @@ The application automatically detects ImageMagick:
 - **Large popups** (700px) for detailed viewing
 - **Shooting date/time** from EXIF data
 - **File information** and relative paths
-- **Sector photo counts** - shows photos in current view
+- **Visible photo counts** - shows photos in current map view
+
+### User Interface
+- **Simplified workflow**: One-click folder selection and processing
+- **Real-time feedback**: Progress indicators and notifications
+- **Automatic updates**: Map refreshes after processing completion
+- **Statistics panel**: Shows total and visible photo counts
+
+## 🖥️ User Experience
+
+### New Simplified Workflow (v3.0)
+
+1. **Launch application** - automatically loads last selected folder
+2. **Click "Обзор"** - opens native folder selection dialog
+3. **Select folder** - processing starts automatically
+4. **View results** - interactive map with clustered photos
+
+### Folder Selection Features
+
+- **Native dialogs**: Uses OS-specific folder selection
+- **Cancel support**: Properly handles user cancellation
+- **Visual feedback**: Button changes to show current operation
+- **Error handling**: Clear notifications for any issues
 
 ## 🛠️ Development
 
@@ -149,6 +196,14 @@ The codebase is organized into logical modules:
 - **Image Processing**: Thumbnail generation and HEIC conversion
 - **EXIF Parsing**: GPS and metadata extraction
 - **HTML Template**: Web interface generation
+- **Folder Picker**: Cross-platform folder selection
+- **Settings**: Configuration management
+
+### Distribution
+
+The application is distributed as:
+- **Main binary**: `photomap_processor` (~3-4MB)
+- **Helper binary**: `folder_dialog_helper` (~2MB, for macOS folder dialogs)
 
 ## 📈 Version History
 
@@ -158,6 +213,10 @@ The codebase is organized into logical modules:
 - ✅ Subfolder and duplicate filename support
 - ✅ 700px popups with metadata
 - ✅ Modular codebase architecture
+- ✅ Simplified UX with unified folder selection
+- ✅ Cancel button support in folder dialogs
+- ✅ Automatic processing on folder selection
+- ✅ Cross-platform folder selection support
 
 ### v2.0
 - ✅ Native HEIC/JPEG parsers
@@ -191,6 +250,11 @@ magick --version
 convert --version
 ```
 
+### Folder Dialog Issues
+- **macOS**: The helper binary should be in `folder_dialog_helper/target/release/`
+- **Windows/Linux**: Uses native system dialogs
+- **Cancel button**: Properly handled in v3.0+
+
 ### Performance Issues
 - Ensure sufficient RAM for large photo collections
 - Consider SSD storage for faster database operations
@@ -200,3 +264,8 @@ convert --version
 - Check that the server is running on port 3001
 - Verify photos have GPS data in EXIF
 - Check browser console for JavaScript errors
+
+### Binary Size
+- Current size is ~3-4MB for main binary
+- Helper binary adds ~2MB for macOS folder dialogs
+- Optimized for distribution and portability

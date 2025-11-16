@@ -4,8 +4,9 @@ use std::path::Path;
 use std::process::Command;
 use image::GenericImageView;
 use crate::database::PhotoMetadata;
+use crate::constants::*;
 
-/// Создает маленькую иконку маркера для изображения (50x50px PNG с прозрачностью и центрированием) в памяти.
+/// Создает маленькую иконку маркера для изображения (40x40px PNG с прозрачностью и центрированием) в памяти.
 pub fn create_marker_icon_in_memory(source_path: &Path) -> Result<Vec<u8>> {
     let mut img = image::open(source_path)
         .with_context(|| format!("Не удалось открыть изображение: {:?}", source_path))?;
@@ -13,18 +14,18 @@ pub fn create_marker_icon_in_memory(source_path: &Path) -> Result<Vec<u8>> {
     // Применяем EXIF-ориентацию
     img = crate::exif_parser::apply_exif_orientation(source_path, img)?;
 
-    // Создаем квадратное изображение 50x50 с ПРОЗРАЧНЫМ фоном
-    let mut canvas = image::RgbaImage::from_fn(50, 50, |_, _| {
+    // Создаем квадратное изображение с ПРОЗРАЧНЫМ фоном
+    let mut canvas = image::RgbaImage::from_fn(MARKER_SIZE, MARKER_SIZE, |_, _| {
         image::Rgba([0, 0, 0, 0]) // Полностью прозрачный фон
     });
 
     // Масштабируем изображение с сохранением пропорций
-    let scaled = img.resize(50, 50, image::imageops::FilterType::Lanczos3);
+    let scaled = img.resize(MARKER_SIZE, MARKER_SIZE, image::imageops::FilterType::Lanczos3);
 
     // Получаем размеры и вычисляем позицию для центрирования
     let (width, height) = scaled.dimensions();
-    let x_offset = (50 - width as u32) / 2;
-    let y_offset = (50 - height as u32) / 2;
+    let x_offset = (MARKER_SIZE - width as u32) / 2;
+    let y_offset = (MARKER_SIZE - height as u32) / 2;
 
     // Копируем масштабированное изображение в центр
     image::imageops::overlay(&mut canvas, &scaled.to_rgba8(), x_offset as i64, y_offset as i64);
@@ -40,7 +41,7 @@ pub fn create_marker_icon_in_memory(source_path: &Path) -> Result<Vec<u8>> {
     Ok(buffer)
 }
 
-/// Создает миниатюру большего размера для отображения на маркерах (100x100px) в памяти.
+/// Создает миниатюру большего размера для отображения на маркерах (60x60px) в памяти.
 pub fn create_thumbnail_in_memory(source_path: &Path) -> Result<Vec<u8>> {
     let mut img = image::open(source_path)
         .with_context(|| format!("Не удалось открыть изображение: {:?}", source_path))?;
@@ -48,18 +49,18 @@ pub fn create_thumbnail_in_memory(source_path: &Path) -> Result<Vec<u8>> {
     // Применяем EXIF-ориентацию
     img = crate::exif_parser::apply_exif_orientation(source_path, img)?;
 
-    // Создаем квадратное изображение 100x100 с ПРОЗРАЧНЫМ фоном
-    let mut canvas = image::RgbaImage::from_fn(100, 100, |_, _| {
+    // Создаем квадратное изображение с ПРОЗРАЧНЫМ фоном
+    let mut canvas = image::RgbaImage::from_fn(THUMBNAIL_SIZE, THUMBNAIL_SIZE, |_, _| {
         image::Rgba([0, 0, 0, 0]) // Полностью прозрачный фон
     });
 
     // Масштабируем изображение с сохранением пропорций
-    let scaled = img.resize(100, 100, image::imageops::FilterType::Lanczos3);
+    let scaled = img.resize(THUMBNAIL_SIZE, THUMBNAIL_SIZE, image::imageops::FilterType::Lanczos3);
 
     // Получаем размеры и вычисляем позицию для центрирования
     let (width, height) = scaled.dimensions();
-    let x_offset = (100 - width as u32) / 2;
-    let y_offset = (100 - height as u32) / 2;
+    let x_offset = (THUMBNAIL_SIZE - width as u32) / 2;
+    let y_offset = (THUMBNAIL_SIZE - height as u32) / 2;
 
     // Копируем масштабированное изображение в центр
     image::imageops::overlay(&mut canvas, &scaled.to_rgba8(), x_offset as i64, y_offset as i64);
@@ -78,11 +79,16 @@ pub fn create_thumbnail_in_memory(source_path: &Path) -> Result<Vec<u8>> {
 /// Конвертирует HEIC файл в JPEG с указанными размерами
 pub fn convert_heic_to_jpeg(photo: &PhotoMetadata, size_param: &str) -> Result<Vec<u8>> {
     // Determine ImageMagick parameters based on size request
+    let thumbnail_extent = format!("{}x{}", THUMBNAIL_SIZE, THUMBNAIL_SIZE);
+    let marker_extent = format!("{}x{}", MARKER_SIZE, MARKER_SIZE);
+
     let magick_args = match size_param {
         "thumbnail" => {
             vec![
                 &photo.file_path,
-                "-resize", "100x100>",  // Only resize if larger, preserve aspect ratio
+                "-resize", THUMBNAIL_RESIZE_PARAMS,   // Only resize if larger, preserve aspect ratio
+                "-gravity", "center",
+                "-extent", thumbnail_extent.as_str(),    // Pad to exact square with transparent background
                 "-quality", "80",
                 "jpg:-"
             ]
@@ -90,7 +96,9 @@ pub fn convert_heic_to_jpeg(photo: &PhotoMetadata, size_param: &str) -> Result<V
         "marker" => {
             vec![
                 &photo.file_path,
-                "-resize", "50x50>",   // Only resize if larger, preserve aspect ratio
+                "-resize", MARKER_RESIZE_PARAMS,   // Only resize if larger, preserve aspect ratio
+                "-gravity", "center",
+                "-extent", marker_extent.as_str(),    // Pad to exact square with transparent background
                 "-quality", "80",
                 "jpg:-"
             ]

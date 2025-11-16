@@ -2,25 +2,61 @@ use anyhow::Result;
 use axum::{
     extract::{Path as AxumPath, Query, State},
     http::{header, StatusCode},
-    response::{Html, Json, Response},
-    routing::get,
+    response::{Html, Json, Response, Sse},
+    routing::{get, post},
     Router,
 };
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::convert::Infallible;
+use std::path::PathBuf;
+use std::time::Duration;
 use tokio::net::TcpListener;
+use tokio_stream::wrappers::ReceiverStream;
+use tokio::sync::broadcast;
+use tokio_stream::{StreamExt, Stream};
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
 use crate::database::{Database, ImageMetadata};
 use crate::image_processing::{create_marker_icon_in_memory, create_thumbnail_in_memory, convert_heic_to_jpeg};
 use crate::html_template::get_map_html;
+use crate::settings::Settings;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use std::sync::Mutex;
+use serde::{Deserialize, Serialize};
 
-// Application state for sharing database
+// SSE Event types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessingEvent {
+    pub event_type: String,
+    pub data: ProcessingData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProcessingData {
+    pub total_files: Option<usize>,
+    pub processed: Option<usize>,
+    pub gps_found: Option<usize>,
+    pub no_gps: Option<usize>,
+    pub heic_files: Option<usize>,
+    pub skipped: Option<usize>,
+    pub current_file: Option<String>,
+    pub speed: Option<f64>,
+    pub eta: Option<String>,
+    pub message: Option<String>,
+    pub phase: Option<String>,
+}
+
+// Application state for sharing database and settings
 #[derive(Clone)]
 pub struct AppState {
     pub db: Database,
     pub has_heic_support: bool,
+    pub settings: Arc<Mutex<Settings>>,
+    pub event_sender: broadcast::Sender<ProcessingEvent>,
+    pub folder_handler: Arc<crate::folder_picker::FolderRequestHandler>,
 }
 
 // HTTP API Handlers
@@ -51,6 +87,7 @@ pub async fn get_all_photos(State(state): State<AppState>) -> Result<Json<Vec<Im
             lng: photo.lng,
             datetime: photo.datetime,
             file_path: photo.file_path.clone(),
+            is_heic: photo.is_heic,
         }
     }).collect();
 
@@ -66,7 +103,7 @@ pub async fn get_marker_image(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let photo = photos.into_iter()
-        .find(|p| p.relative_path == filename)
+        .find(|p| p.relative_path == filename || p.filename == filename)
         .ok_or(StatusCode::NOT_FOUND)?;
 
     // For HEIC files, redirect to converted JPEG with proper size parameter
@@ -109,7 +146,7 @@ pub async fn get_thumbnail_image(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let photo = photos.into_iter()
-        .find(|p| p.relative_path == filename)
+        .find(|p| p.relative_path == filename || p.filename == filename)
         .ok_or(StatusCode::NOT_FOUND)?;
 
     // For HEIC files, redirect to converted JPEG with proper size parameter
@@ -175,19 +212,295 @@ pub async fn serve_map_html(State(state): State<AppState>) -> Html<String> {
     get_map_html(state.has_heic_support)
 }
 
+// API endpoint to get current settings
+pub async fn get_settings(State(state): State<AppState>) -> Result<Json<Settings>, StatusCode> {
+    let settings = state.settings.lock().unwrap();
+    Ok(Json((*settings).clone()))
+}
+
+// API endpoint to select a folder (uses channel-based approach to avoid macOS threading issues)
+pub async fn select_folder(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+    println!("🔍 Folder selection requested via API");
+
+    // Use the new channel-based folder selection
+    match state.folder_handler.select_folder_async().await {
+        Ok(Some(path)) => {
+            let folder_path = path.to_string_lossy().to_string();
+            println!("✅ Folder selected: {}", folder_path);
+
+            // Update settings
+            let mut settings = state.settings.lock().unwrap();
+            settings.last_folder = Some(folder_path.clone());
+
+            // Save to INI file
+            if let Err(e) = settings.save() {
+                eprintln!("Failed to save settings: {}", e);
+                // Continue without saving for now
+            }
+
+            let response = serde_json::json!({
+                "status": "success",
+                "folder_path": folder_path,
+                "message": "Folder selected successfully"
+            });
+
+            Ok(Json(response))
+        }
+        Ok(None) => {
+            println!("❌ Folder selection returned None");
+            let response = serde_json::json!({
+                "status": "cancelled",
+                "message": "Folder selection cancelled"
+            });
+
+            Ok(Json(response))
+        }
+        Err(e) => {
+            println!("❌ Folder selection error: {}", e);
+            let response = serde_json::json!({
+                "status": "error",
+                "message": format!("Folder selection failed: {}", e)
+            });
+
+            Ok(Json(response))
+        }
+    }
+}
+
+// API endpoint to update settings
+pub async fn update_settings(
+    State(state): State<AppState>,
+    Json(new_settings): Json<Settings>
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let mut settings = state.settings.lock().unwrap();
+
+    // Update settings
+    *settings = new_settings.clone();
+
+    // Save to disk
+    if let Err(e) = settings.save() {
+        eprintln!("Failed to save settings: {}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    let response = serde_json::json!({
+        "status": "success",
+        "message": "Settings updated successfully"
+    });
+
+    Ok(Json(response))
+}
+
+// API endpoint to clear database and reprocess from selected folder
+pub async fn reprocess_photos(
+    State(state): State<AppState>
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    // Get photos directory from settings
+    let photos_dir = {
+        let settings = state.settings.lock().unwrap();
+        if let Some(ref folder) = settings.last_folder {
+            std::path::Path::new(folder).to_path_buf()
+        } else {
+            // Default directory
+            std::path::Path::new("/Users/dmitriiromanov/claude/photomap/photos").to_path_buf()
+        }
+    };
+
+    let photos_dir_str = photos_dir.to_string_lossy().to_string();
+
+    // Clear the database
+    if let Err(e) = state.db.clear_all_photos() {
+        eprintln!("Failed to clear database: {}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    // Clone the sender for the async task
+    let event_sender = state.event_sender.clone();
+    let db = state.db.clone();
+
+    // Start processing in background task
+    tokio::spawn(async move {
+        // Use the synchronous processing function
+        if let Err(e) = crate::process_photos_into_database(&db, &photos_dir) {
+            eprintln!("Processing error: {}", e);
+
+            // Send error event
+            let error_event = ProcessingEvent {
+                event_type: "processing_error".to_string(),
+                data: ProcessingData {
+                    message: Some(format!("Processing failed: {}", e)),
+                    phase: Some("error".to_string()),
+                    ..Default::default()
+                },
+            };
+            let _ = event_sender.send(error_event);
+        }
+    });
+
+    let response = serde_json::json!({
+        "status": "started",
+        "message": "Database cleared and photo processing started",
+        "photos_directory": photos_dir_str
+    });
+
+    Ok(Json(response))
+}
+
+// API endpoint to start photo processing with SSE updates
+pub async fn start_processing(
+    State(state): State<AppState>
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    // Clone the sender for the async task
+    let event_sender = state.event_sender.clone();
+    let db = state.db.clone();
+
+    // Get photos directory from settings
+    let photos_dir = {
+        let settings = state.settings.lock().unwrap();
+        if let Some(ref folder) = settings.last_folder {
+            std::path::Path::new(folder).to_path_buf()
+        } else {
+            // Default directory
+            std::path::Path::new("/Users/dmitriiromanov/claude/photomap/photos").to_path_buf()
+        }
+    };
+
+    // Get photos directory from settings
+    let photos_dir = {
+        let settings = state.settings.lock().unwrap();
+        if let Some(ref folder) = settings.last_folder {
+            std::path::Path::new(folder).to_path_buf()
+        } else {
+            // Default directory
+            std::path::Path::new("/Users/dmitriiromanov/claude/photomap/photos").to_path_buf()
+        }
+    };
+
+    // Start processing in background task
+    tokio::spawn(async move {
+        // Use the new processing function that works with selected directory
+        match crate::process_photos_from_directory(&db, &photos_dir) {
+            Ok((total_files, processed_count, gps_count, no_gps_count, heic_count)) => {
+                // Send completion event
+                let completion_event = ProcessingEvent {
+                    event_type: "processing_complete".to_string(),
+                    data: ProcessingData {
+                        total_files: Some(total_files),
+                        processed: Some(processed_count),
+                        gps_found: Some(gps_count),
+                        no_gps: Some(no_gps_count),
+                        heic_files: Some(heic_count),
+                        skipped: Some(total_files - processed_count),
+                        message: Some(format!("Обработка завершена! Обработано {} фотографий из {}", processed_count, total_files)),
+                        phase: Some("completed".to_string()),
+                        ..Default::default()
+                    },
+                };
+                let _ = event_sender.send(completion_event);
+            }
+            Err(e) => {
+                eprintln!("Processing error: {}", e);
+
+                // Send error event
+                let error_event = ProcessingEvent {
+                    event_type: "processing_error".to_string(),
+                    data: ProcessingData {
+                        message: Some(format!("Processing failed: {}", e)),
+                        phase: Some("error".to_string()),
+                        ..Default::default()
+                    },
+                };
+                let _ = event_sender.send(error_event);
+            }
+        }
+    });
+
+    let response = serde_json::json!({
+        "status": "started",
+        "message": "Photo processing started with real-time updates"
+    });
+
+    Ok(Json(response))
+}
+
+// SSE endpoint for real-time processing updates
+pub async fn processing_events_stream(
+    State(state): State<AppState>,
+) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
+    let (tx, rx) = mpsc::channel(100);
+
+    // Subscribe to the main event sender
+    let mut event_receiver = state.event_sender.subscribe();
+
+    // Forward events from main sender to SSE stream
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                event = event_receiver.recv() => {
+                    match event {
+                        Ok(processing_event) => {
+                            let sse_event = SseEvent::default()
+                                .json_data(&processing_event)
+                                .unwrap_or_else(|_| SseEvent::default().data("Error serializing event"));
+
+                            if tx.send(Ok(sse_event)).await.is_err() {
+                                break; // Client disconnected
+                            }
+                        }
+                        Err(_) => break, // Channel closed
+                    }
+                }
+                _ = tokio::time::sleep(Duration::from_secs(30)) => {
+                    // Send periodic heartbeat
+                    let heartbeat = ProcessingEvent {
+                        event_type: "heartbeat".to_string(),
+                        data: ProcessingData {
+                            message: Some("SSE connection alive".to_string()),
+                            ..Default::default()
+                        },
+                    };
+
+                    let sse_event = SseEvent::default()
+                        .json_data(&heartbeat)
+                        .unwrap_or_else(|_| SseEvent::default().data("Error serializing heartbeat"));
+
+                    if tx.send(Ok(sse_event)).await.is_err() {
+                        break; // Client disconnected
+                    }
+                }
+            }
+        }
+    });
+
+    let stream = ReceiverStream::new(rx);
+
+    Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("keepalive-message".to_string()),
+    )
+}
+
+// Helper struct for SSE events
+use axum::response::sse::Event as SseEvent;
+
 // Create the main application router
-pub fn create_app(state: AppState) -> Router {
-    // Используем абсолютный путь к папке с фотографиями
-    let photos_path = std::env::current_dir()
-        .unwrap_or_default()
-        .join("photos");
-    
+pub async fn create_app(state: AppState) -> Router {
+    // Use default photos directory for serving static files
+    let photos_path = PathBuf::from("photos");
+
     Router::new()
         .route("/", get(serve_map_html))
         .route("/api/photos", get(get_all_photos))
         .route("/api/marker/*filename", get(get_marker_image))
         .route("/api/thumbnail/*filename", get(get_thumbnail_image))
         .route("/convert-heic", get(convert_heic))
+        .route("/api/settings", get(get_settings))
+        .route("/api/select-folder", post(select_folder))
+        .route("/api/settings", axum::routing::post(update_settings))
+        .route("/api/events", get(processing_events_stream))
+        .route("/api/process", axum::routing::post(start_processing))
+        .route("/api/reprocess", axum::routing::post(reprocess_photos))
         .nest_service("/photos", ServeDir::new(photos_path))
         .layer(
             ServiceBuilder::new()
@@ -197,18 +510,24 @@ pub fn create_app(state: AppState) -> Router {
 }
 
 pub async fn start_server(state: AppState) -> Result<()> {
-    let app = create_app(state);
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3001));
+    start_server_with_port(state, 3001).await
+}
+
+pub async fn start_server_with_port(state: AppState, port: u16) -> Result<()> {
+    let app = create_app(state).await;
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = TcpListener::bind(addr).await?;
 
-    println!("   🌐 Server running at http://127.0.0.1:3001");
-    println!("   📸 Enhanced map with clustering available at http://127.0.0.1:3001");
-    println!("   🗺️  API endpoints:");
+    println!("   ✅ HTTP server started successfully");
+    println!("   🗺️  API endpoints available:");
     println!("      - GET /api/photos - List all photos with GPS data");
-    println!("      - GET /api/marker/<filename> - Generate 50x50px marker icon");
-    println!("      - GET /api/thumbnail/<filename> - Generate 100x100px thumbnail");
+    println!("      - GET /api/marker/<filename> - Generate 40x40px marker icon");
+    println!("      - GET /api/thumbnail/<filename> - Generate 60x60px thumbnail");
     println!("      - GET /convert-heic?filename=<name> - Convert HEIC to JPEG");
-    println!("   ✅ Enhanced: 700px popups + sector photo count + HEIC support!");
+    println!("      - GET/POST /api/settings - Load/save application settings");
+    println!("      - GET /api/events - Real-time processing updates (SSE)");
+    println!("      - POST /api/process - Start photo processing with SSE updates");
+    println!("   🎯 Features: 700px popups + HEIC support + folder selection + real-time processing");
 
     axum::serve(listener, app).await?;
     Ok(())

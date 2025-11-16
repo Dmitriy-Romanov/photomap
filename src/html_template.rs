@@ -86,8 +86,50 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
     </style>
 </head>
 <body>
-    <!-- HEIC_WARNING_PLACEHOLDER -->
-    <div id="map"></div>
+    <div style="display: flex; height: 100vh; margin: 0; padding: 0;">
+        <!-- Left frame - Map -->
+        <div id="map" style="flex: 1; height: 100%;"></div>
+
+        <!-- Right frame - Info panel -->
+        <div id="info-panel" style="width: 25%; min-width: 400px; height: 100vh; background: white; border-left: 2px solid #ccc; overflow-y: auto;">
+            <!-- HEIC_WARNING_PLACEHOLDER -->
+            <!-- Control Panel -->
+            <div id="control-panel" style="position: relative; top: 10px; left: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+                <h3 style="margin: 0 0 10px 0; color: #333;">🗺️ PhotoMap v3.0</h3>
+                <div style="font-size: 0.9em; color: #666; margin-bottom: 15px;">
+                    SQLite + Clustering + On-demand
+                </div>
+
+                <!-- Folder Selection -->
+                <div style="margin-bottom: 10px;">
+                    <input type="text" id="folder-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" readonly placeholder="Выберите папку...">
+                </div>
+
+                <!-- Processing Controls -->
+                <div style="margin-bottom: 10px;">
+                    <button id="browse-button" onclick="browseAndProcessFolder()" style="background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                        📁 Обзор
+                    </button>
+                </div>
+
+                <!-- Processing Status -->
+                <div id="processing-status" style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; display: none;">
+                    <div id="status-text" style="font-weight: bold;">Обработка...</div>
+                    <div id="progress-text" style="font-size: 0.9em; color: #666;"></div>
+                </div>
+
+                <!-- Statistics Display -->
+                <div id="statistics-panel" style="margin-bottom: 10px; padding: 12px; background: #f0f8ff; border-radius: 6px; border: 1px solid #ddd;">
+                    <h4 style="margin: 0 0 8px 0; color: #333; font-size: 1.0em;">📊 Статистика</h4>
+                    <div style="font-size: 0.9em; line-height: 1.6;">
+                        <div style="margin-bottom: 4px;"><strong>Всего фото:</strong> <span id="total-photos">-</span></div>
+                        <div style="margin-bottom: 4px;"><strong>Отображено:</strong> <span id="visible-photos">-</span></div>
+                    </div>
+                </div>
+
+              </div>
+        </div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
@@ -145,6 +187,10 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
 
         async function loadPhotos() {
             try {
+                // Clear existing markers before loading new ones
+                markerClusterGroup.clearLayers();
+                photoData = [];
+
                 const response = await fetch('/api/photos');
                 photoData = await response.json();
                 console.log(`Loaded ${photoData.length} photos from database`);
@@ -159,7 +205,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             const apiUrl = useThumbnail ? '/api/thumbnail' : '/api/marker';
 
             return L.icon({
-                iconUrl: apiUrl + '/' + photo.filename,
+                iconUrl: apiUrl + '/' + photo.relative_path,
                 iconSize: [iconSize, iconSize],
                 iconAnchor: [iconSize/2, iconSize/2],
                 popupAnchor: [0, -iconSize/2],
@@ -196,42 +242,226 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                 map.fitBounds(markerClusterGroup.getBounds(), { padding: [20, 20] });
             }
 
-            // Update info
-            const info = L.control();
-            info.onAdd = function (map) {
-                this._div = L.DomUtil.create('div', 'info');
-                this.update();
-                return this._div;
-            };
-            info.update = function (state) {
-                const bounds = map.getBounds();
-                const visiblePhotos = photoData.filter(photo =>
-                    bounds.contains([photo.lat, photo.lng])
-                );
+            // Update statistics
+            updateStatistics();
 
-                this._div.innerHTML = '<h4>🗺️ PhotoMap v3.0</h4>' +
-                    '<b>SQLite + Clustering + On-demand</b><br />' +
-                    `Всего фото с GPS: ${photoData.length}<br/>` +
-                    `В текущем секторе: ${visiblePhotos.length}<br/>` +
-                    `<small>Путь к фото: /Users/dmitriiromanov/claude/photomap/photos</small><br/>` +
-                    `<small>Кластеры: автоматическая группировка</small>`;
-            };
-            info.addTo(map);
-
-            // Update info when map moves or zooms
-            map.on('moveend zoomend', function() {
-                info.update();
+            // Add zoom and move controls info
+            map.on('zoomend', function() {
+                console.log('Zoom ended, updating statistics');
+                updateStatistics();
             });
 
-            // Add zoom controls info
-            map.on('zoomend', function() {
-                const zoom = map.getZoom();
-                console.log('Current zoom level:', zoom);
+            map.on('moveend', function() {
+                console.log('Move ended, updating statistics');
+                updateStatistics();
             });
         }
 
+        function updateStatistics() {
+            const totalPhotos = photoData.length;
+
+            // Calculate visible photos by counting markers within current map bounds
+            const bounds = map.getBounds();
+            let visiblePhotos = 0;
+
+            markerClusterGroup.eachLayer(function(layer) {
+                const layerBounds = layer.getBounds ? layer.getBounds() : null;
+
+                if (layerBounds && bounds.intersects(layerBounds)) {
+                    // Layer (cluster or marker) is within current view
+                    if (layer.getChildCount) {
+                        // It's a cluster - count all markers in it
+                        visiblePhotos += layer.getChildCount();
+                    } else {
+                        // It's a single marker
+                        visiblePhotos++;
+                    }
+                } else if (!layerBounds && layer.getLatLng) {
+                    // Single marker without bounds - check if its position is in view
+                    const latlng = layer.getLatLng();
+                    if (bounds.contains(latlng)) {
+                        visiblePhotos++;
+                    }
+                }
+            });
+
+            document.getElementById('total-photos').textContent = totalPhotos;
+            document.getElementById('visible-photos').textContent = visiblePhotos;
+            console.log('Statistics updated - Total:', totalPhotos, 'Visible:', visiblePhotos);
+        }
+
+        // Load settings when page loads
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const settings = await response.json();
+                if (settings.last_folder) {
+                    document.getElementById('folder-input').value = settings.last_folder;
+                } else {
+                    document.getElementById('folder-input').value = 'Выберите папку...';
+                }
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                document.getElementById('folder-input').value = 'Выберите папку...';
+            }
+        }
+
         // Load photos when page loads
+        loadSettings();
         loadPhotos();
+
+        // === UI Control Functions ===
+
+        // Browse for folder and immediately start processing
+        async function browseAndProcessFolder() {
+            const browseButton = document.getElementById('browse-button');
+            const folderInput = document.getElementById('folder-input');
+            const statusDiv = document.getElementById('processing-status');
+            const statusText = document.getElementById('status-text');
+            const progressText = document.getElementById('progress-text');
+
+            try {
+                // Step 1: Select folder
+                browseButton.disabled = true;
+                browseButton.textContent = '📂 Выбор папки...';
+                folderInput.value = 'Выбор папки...';
+
+                const response = await fetch('/api/select-folder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'cancelled') {
+                    // User cancelled - restore button state
+                    browseButton.disabled = false;
+                    browseButton.textContent = '📁 Обзор';
+                    folderInput.value = 'Папка не выбрана';
+                    showNotification('🚫 Выбор папки отменен', 'info');
+                    return;
+                }
+
+                if (result.status !== 'success') {
+                    // Error occurred - restore button state
+                    browseButton.disabled = false;
+                    browseButton.textContent = '📁 Обзор';
+                    folderInput.value = 'Ошибка выбора папки';
+                    showNotification('❌ Ошибка выбора папки: ' + result.message, 'error');
+                    return;
+                }
+
+                // Step 2: Start processing (folder was selected successfully)
+                folderInput.value = result.folder_path || 'Папка выбрана';
+                browseButton.textContent = '⏳ Обработка...';
+                statusDiv.style.display = 'block';
+                statusText.textContent = 'Обработка фотографий...';
+                progressText.textContent = 'Анализ папки...';
+
+                // Start processing
+                const processResponse = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const processResult = await processResponse.json();
+
+                if (processResult.status === 'started') {
+                    showNotification('✅ Обработка запущена: ' + result.folder_path, 'success');
+
+                    // Check for completion periodically
+                    const checkCompletion = setInterval(async () => {
+                        try {
+                            const photosResponse = await fetch('/api/photos');
+                            const photos = await photosResponse.json();
+
+                            if (photos.length > 0) {
+                                clearInterval(checkCompletion);
+                                statusDiv.style.display = 'none';
+                                browseButton.disabled = false;
+                                browseButton.textContent = '📁 Обзор';
+                                loadPhotos(); // Refresh map
+                                updateStatistics();
+                                showNotification(`🎉 Обработка завершена! Найдено ${photos.length} фотографий`, 'success');
+                            }
+                        } catch (error) {
+                            console.error('Error checking completion:', error);
+                        }
+                    }, 1000);
+                } else {
+                    // Processing failed
+                    statusDiv.style.display = 'none';
+                    browseButton.disabled = false;
+                    browseButton.textContent = '📁 Обзор';
+                    showNotification('❌ Ошибка запуска обработки: ' + (processResult.message || 'Неизвестная ошибка'), 'error');
+                }
+
+            } catch (error) {
+                // Network or other error - restore button state
+                statusDiv.style.display = 'none';
+                browseButton.disabled = false;
+                browseButton.textContent = '📁 Обзор';
+                folderInput.value = 'Ошибка сети';
+                showNotification('❌ Сетевая ошибка: ' + error.message, 'error');
+            }
+        }
+
+    
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                padding: 15px 20px;
+                border-radius: 5px;
+                color: white;
+                font-weight: bold;
+                max-width: 300px;
+                word-wrap: break-word;
+                animation: slideIn 0.3s ease-out;
+            `;
+
+            if (type === 'success') {
+                notification.style.background = '#28a745';
+            } else if (type === 'error') {
+                notification.style.background = '#dc3545';
+            } else {
+                notification.style.background = '#007bff';
+            }
+
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+  
     </script>
 </body>
 </html>"#;

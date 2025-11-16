@@ -1,5 +1,4 @@
 // Simple helper program to open folder dialog and return selected path
-use std::path::PathBuf;
 
 fn main() {
     // Try to open a folder dialog

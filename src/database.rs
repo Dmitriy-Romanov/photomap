@@ -26,6 +26,7 @@ pub struct ImageMetadata {
     pub lng: f64,
     pub datetime: String,
     pub file_path: String,
+    pub is_heic: bool,
 }
 
 // Database connection wrapper
@@ -78,6 +79,16 @@ impl Database {
             "CREATE INDEX IF NOT EXISTS idx_photos_filename ON photos(filename)",
             [],
         ).with_context(|| "Failed to create filename index")?;
+
+        Ok(())
+    }
+
+    pub fn clear_all_photos(&self) -> Result<()> {
+        let conn = Connection::open(&self.db_path)
+            .with_context(|| "Failed to open database for clearing")?;
+
+        conn.execute("DELETE FROM photos", params![])
+            .with_context(|| "Failed to clear photos table")?;
 
         Ok(())
     }
