@@ -95,6 +95,8 @@ photomap/
 │   └── constants.rs         # Application constants
 ├── photos/                  # Your photo collection (git-ignored)
 ├── target/                  # Build output (git-ignored)
+├── DEVELOPMENT_GUIDE.md     # Development standards and workflows
+├── ROADMAP.md              # Future development plans and priorities
 └── README.md
 
 ## 📁 Configuration and Database Storage
@@ -308,6 +310,21 @@ Pull requests are welcome! Please ensure:
 - All comments and documentation are in English
 - Tests pass for new features
 - Update documentation for API changes
+
+### Development Guidelines
+Please read [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) for detailed development standards, including:
+- Development workflow and planning process
+- Code review checklist
+- Dependency management principles
+- Testing strategies
+- Documentation standards
+
+### Future Development
+See [ROADMAP.md](ROADMAP.md) for planned features and development priorities:
+- Windows compatibility improvements
+- Performance optimization for large collections
+- Advanced UI features and clustering
+- Cross-platform enhancement strategies
 
 ## 📄 License
 
