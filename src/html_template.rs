@@ -83,7 +83,8 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             border: 2px solid white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
-    </style>
+
+            </style>
 </head>
 <body>
     <div style="display: flex; height: 100vh; margin: 0; padding: 0;">
@@ -139,6 +140,35 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
+
+        // Hide SVG path elements that look like flags
+        function hideSvgFlags() {
+            // Hide SVG elements with flag class (most reliable method)
+            const flagSvgs = document.querySelectorAll('svg.leaflet-attribution-flag');
+            flagSvgs.forEach(svg => {
+                svg.style.display = 'none';
+                svg.style.width = '0px';
+                svg.style.height = '0px';
+                svg.style.visibility = 'hidden';
+                svg.style.opacity = '0';
+                svg.setAttribute('width', '0');
+                svg.setAttribute('height', '0');
+            });
+        }
+
+        // Run initially and when tiles are loaded
+        setTimeout(() => {
+            hideSvgFlags();
+        }, 1000);
+
+        map.on('tileload', () => {
+            hideSvgFlags();
+        });
+
+        // Run periodically to catch late-loading elements
+        setInterval(() => {
+            hideSvgFlags();
+        }, 2000);
 
         // Initialize marker cluster group
         const markerClusterGroup = L.markerClusterGroup({

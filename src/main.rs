@@ -117,7 +117,7 @@ fn process_photos_into_database(db: &Database, photos_dir: &Path) -> Result<()> 
     println!("   🗺️  С GPS-данными: {}", final_count);
     println!("   ❌ Без GPS: {}", total_files - final_count);
     println!("   📱 HEIC файлов: {}", heic_count);
-    println!("   📷 JPEG/другие: {}", final_count - heic_count);
+    println!("   📷 JPEG/другие: {}", if final_count >= heic_count { final_count - heic_count } else { 0 });
     println!("   ⏱️  Время обработки: {:.2} сек", processing_secs);
     println!("   📈 Среднее время на файл: {:.1} мс", avg_time_per_file_ms);
 
@@ -253,7 +253,7 @@ fn process_photos_from_directory(db: &Database, photos_dir: &Path) -> Result<(us
     println!("   🗺️  С GPS-данными: {}", final_count);
     println!("   ❌ Без GPS: {}", total_files - final_count);
     println!("   📱 HEIC файлов: {}", heic_count);
-    println!("   📷 JPEG/другие: {}", final_count - heic_count);
+    println!("   📷 JPEG/другие: {}", if final_count >= heic_count { final_count - heic_count } else { 0 });
     println!("   ⏱️  Время обработки: {:.2} сек", processing_secs);
     println!("   📈 Среднее время на файл: {:.1} мс", avg_time_per_file_ms);
 
@@ -378,7 +378,7 @@ fn process_file_to_database(path: &Path, db: &Database) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🗺️  PhotoMap Processor v0.4.0 - SQLite + On-demand markers starting...");
+    println!("🗺️  PhotoMap Processor v0.4.2 - SQLite + On-demand markers starting...");
 
     // Check ImageMagick availability for HEIC support
     let has_imagemagick = check_imagemagick();
