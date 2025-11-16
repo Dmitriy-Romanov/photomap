@@ -225,8 +225,8 @@ pub async fn set_folder(
     println!("🔍 Setting folder from browser dialog");
 
     // Extract folder_path from payload
-    let folder_path = match payload.get("folder_path").and_then(|v| v.as_str()) {
-        Some(path) => path.to_string(),
+    let raw_folder_path = match payload.get("folder_path").and_then(|v| v.as_str()) {
+        Some(path) => path,
         None => {
             println!("❌ No folder_path provided");
             let response = serde_json::json!({
@@ -237,29 +237,9 @@ pub async fn set_folder(
         }
     };
 
-    // Update settings - convert folder name to full path if needed
-    let full_path = if folder_path.starts_with('/') {
-        // Already an absolute path
-        folder_path.clone()
-    } else {
-        // Relative path - make it relative to current directory or photos directory
-        let base_path = std::env::current_dir().unwrap_or_else(|_| std::path::Path::new(".").to_path_buf());
-        let candidate_path = base_path.join(&folder_path);
-
-        // Try the path directly and also in a photos subdirectory
-        if candidate_path.exists() {
-            candidate_path.to_string_lossy().to_string()
-        } else {
-            // Try in photos directory
-            let photos_path = base_path.join("photos").join(&folder_path);
-            if photos_path.exists() {
-                photos_path.to_string_lossy().to_string()
-            } else {
-                // Fallback to the relative path as-is
-                folder_path.clone()
-            }
-        }
-    };
+    // Use the path as provided by the user
+    let folder_path = raw_folder_path.to_string();
+    let full_path = folder_path.clone();
 
     let mut settings = state.settings.lock().unwrap();
     settings.last_folder = Some(full_path.clone());

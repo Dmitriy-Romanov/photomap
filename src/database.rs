@@ -38,11 +38,27 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Result<Self> {
+        let db_path = Self::database_path();
         let db = Database {
-            db_path: "photomap.db".to_string(),
+            db_path,
         };
         db.init_tables()?;
         Ok(db)
+    }
+
+    pub fn database_path() -> String {
+        let mut path = std::env::current_exe()
+            .unwrap_or_default()
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .to_path_buf();
+
+        if path.ends_with("target/debug") || path.ends_with("target/release") {
+            path.pop();
+            path.pop();
+        }
+        path.push("photomap.db");
+        path.to_string_lossy().to_string()
     }
 
     pub fn init_tables(&self) -> Result<()> {

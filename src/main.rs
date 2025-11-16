@@ -378,7 +378,7 @@ fn process_file_to_database(path: &Path, db: &Database) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🗺️  PhotoMap Processor v0.4.2 - SQLite + On-demand markers starting...");
+    println!("🗺️  PhotoMap Processor v0.4.3 - SQLite + On-demand markers starting...");
 
     // Check ImageMagick availability for HEIC support
     let has_imagemagick = check_imagemagick();

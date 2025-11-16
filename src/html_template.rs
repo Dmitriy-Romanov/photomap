@@ -93,21 +93,25 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
 
         <!-- Right frame - Info panel -->
         <div id="info-panel" style="width: 25%; min-width: 400px; height: 100vh; background: white; border-left: 2px solid #ccc; overflow-y: auto;">
+            <div style="text-align: right; padding: 5px;">
+                <button id="toggle-info-panel-button" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">&uarr;&darr;</button>
+            </div>
             <!-- HEIC_WARNING_PLACEHOLDER -->
             <!-- Control Panel -->
             <div id="control-panel" style="position: relative; top: 10px; left: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
                 <h3 style="margin: 0 0 10px 0; color: #333;">🗺️ PhotoMap v0.4.1</h3>
 
                 <!-- Folder Selection -->
+                <!-- Folder Path Input -->
                 <div style="margin-bottom: 10px;">
-                    <input type="text" id="folder-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" readonly placeholder="Выберите папку...">
-                    <input type="file" id="folder-input-hidden" style="display: none;" webkitdirectory directory multiple>
+                    <label for="folder-input" style="display: block; margin-bottom: 5px; font-weight: bold;">📁 Folder Path:</label>
+                    <input type="text" id="folder-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="/Users/user/Photos/my_folder">
                 </div>
 
                 <!-- Processing Controls -->
                 <div style="margin-bottom: 10px;">
-                    <button id="browse-button" onclick="browseAndProcessFolder()" style="background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
-                        📁 Обзор
+                    <button id="process-button" onclick="processFolder()" style="background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; width: 100%;">
+                        🚀 Process Photos
                     </button>
                 </div>
 
@@ -326,11 +330,11 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                 if (settings.last_folder) {
                     document.getElementById('folder-input').value = settings.last_folder;
                 } else {
-                    document.getElementById('folder-input').value = 'Выберите папку...';
+                    document.getElementById('folder-input').value = '';
                 }
             } catch (error) {
                 console.error('Failed to load settings:', error);
-                document.getElementById('folder-input').value = 'Выберите папку...';
+                document.getElementById('folder-input').value = '';
             }
         }
 
@@ -341,49 +345,31 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
         // === UI Control Functions ===
 
         // Browse for folder and immediately start processing
-        async function browseAndProcessFolder() {
-            const browseButton = document.getElementById('browse-button');
+        async function processFolder() {
+            const processButton = document.getElementById('process-button');
             const folderInput = document.getElementById('folder-input');
             const statusDiv = document.getElementById('processing-status');
             const statusText = document.getElementById('status-text');
             const progressText = document.getElementById('progress-text');
 
+            // Get folder path from input
+            const folderPath = folderInput.value.trim();
+
+            // Validate folder path
+            if (!folderPath) {
+                showNotification('❌ Please enter a folder path', 'error');
+                return;
+            }
+
             try {
-                // Step 1: Select folder using native browser dialog
-                browseButton.disabled = true;
-                browseButton.textContent = '📂 Выбор папки...';
-                folderInput.value = 'Выбор папки...';
+                // Disable button and show processing status
+                processButton.disabled = true;
+                processButton.textContent = '⏳ Processing...';
+                statusDiv.style.display = 'block';
+                statusText.textContent = 'Processing photos...';
+                progressText.textContent = 'Analyzing folder...';
 
-                // Create a promise to handle folder selection
-                const folderSelection = new Promise((resolve, reject) => {
-                    const hiddenInput = document.getElementById('folder-input-hidden');
-
-                    hiddenInput.onchange = function(e) {
-                        const files = e.target.files;
-                        if (files && files.length > 0) {
-                            // Get the folder path from the first file
-                            const firstFile = files[0];
-                            const fullPath = firstFile.webkitRelativePath;
-                            const folderPath = fullPath.split('/')[0];
-                            resolve(folderPath);
-                        } else {
-                            reject(new Error('Folder selection cancelled'));
-                        }
-                        // Reset the input so we can select the same folder again
-                        hiddenInput.value = '';
-                    };
-
-                    hiddenInput.click();
-                });
-
-                // Wait for folder selection
-                const folderPath = await folderSelection;
-
-                showNotification(`✅ Папка выбрана: ${folderPath}`, 'success');
-
-                // Step 2: Send folder path to server
-                browseButton.textContent = '📂 Установка папки...';
-
+                // Step 1: Send folder path to server
                 const response = await fetch('/api/set-folder', {
                     method: 'POST',
                     headers: {
@@ -395,18 +381,12 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                 const result = await response.json();
 
                 if (result.status !== 'success') {
-                    throw new Error(result.message || 'Ошибка установки папки');
+                    throw new Error(result.message || 'Error setting folder');
                 }
 
-                // Update folder input with the path from server response
-                folderInput.value = result.folder_path;
+                showNotification(`✅ Folder set: ${folderPath}`, 'success');
 
-                // Step 3: Start processing
-                browseButton.textContent = '⏳ Обработка...';
-                statusDiv.style.display = 'block';
-                statusText.textContent = 'Обработка фотографий...';
-                progressText.textContent = 'Анализ папки...';
-
+                // Step 2: Start processing
                 const processResponse = await fetch('/api/process', {
                     method: 'POST',
                     headers: {
@@ -417,7 +397,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                 const processResult = await processResponse.json();
 
                 if (processResult.status === 'started') {
-                    showNotification('✅ Обработка запущена: ' + folderPath, 'success');
+                    showNotification('✅ Processing started: ' + folderPath, 'success');
 
                     // Check for completion periodically
                     const checkCompletion = setInterval(async () => {
@@ -428,33 +408,26 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                             if (photos.length > 0) {
                                 clearInterval(checkCompletion);
                                 statusDiv.style.display = 'none';
-                                browseButton.disabled = false;
-                                browseButton.textContent = '📁 Обзор';
+                                processButton.disabled = false;
+                                processButton.textContent = '🚀 Process Photos';
                                 loadPhotos(); // Refresh map
                                 updateStatistics();
-                                showNotification(`🎉 Обработка завершена! Найдено ${photos.length} фотографий`, 'success');
+                                showNotification(`🎉 Processing completed! Found ${photos.length} photos`, 'success');
                             }
                         } catch (error) {
                             console.error('Error checking completion:', error);
                         }
                     }, 1000);
                 } else {
-                    throw new Error(processResult.message || 'Ошибка запуска обработки');
+                    throw new Error(processResult.message || 'Error starting processing');
                 }
 
             } catch (error) {
-                // Handle errors (including cancellation)
+                // Handle errors
                 statusDiv.style.display = 'none';
-                browseButton.disabled = false;
-                browseButton.textContent = '📁 Обзор';
-
-                if (error.message === 'Folder selection cancelled') {
-                    folderInput.value = 'Папка не выбрана';
-                    showNotification('🚫 Выбор папки отменен', 'info');
-                } else {
-                    folderInput.value = 'Ошибка выбора папки';
-                    showNotification('❌ Ошибка: ' + error.message, 'error');
-                }
+                processButton.disabled = false;
+                processButton.textContent = '🚀 Process Photos';
+                showNotification('❌ Error: ' + error.message, 'error');
             }
         }
 
@@ -494,6 +467,37 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                 }, 300);
             }, 3000);
         }
+
+        // Function to toggle info panel width
+        function toggleInfoPanel() {
+            const infoPanel = document.getElementById('info-panel');
+            const toggleButton = document.getElementById('toggle-info-panel-button');
+
+            // Check current state based on width
+            if (infoPanel.style.width === '20px') {
+                // Expand the panel
+                infoPanel.style.width = '25%';
+                infoPanel.style.minWidth = '400px';
+                infoPanel.style.overflowY = 'auto'; // Restore scroll
+                toggleButton.textContent = '↑↓';
+            } else {
+                // Collapse the panel
+                infoPanel.style.width = '20px';
+                infoPanel.style.minWidth = '20px'; // Ensure it collapses fully
+                infoPanel.style.overflowY = 'hidden'; // Hide scroll content
+                toggleButton.textContent = '↑↓';
+            }
+            // Trigger map resize to adjust to new panel width
+            map.invalidateSize();
+        }
+
+        // Attach event listener to the button after DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleButton = document.getElementById('toggle-info-panel-button');
+            if (toggleButton) {
+                toggleButton.addEventListener('click', toggleInfoPanel);
+            }
+        });
 
         // Add CSS animations
         const style = document.createElement('style');

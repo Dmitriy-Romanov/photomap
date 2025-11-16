@@ -105,7 +105,12 @@ impl Settings {
     }
 
     pub fn config_path() -> PathBuf {
-        let mut path = std::env::current_dir().unwrap_or_default();
+        let mut path = std::env::current_exe()
+            .unwrap_or_default()
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .to_path_buf();
+
         if path.ends_with("target/debug") || path.ends_with("target/release") {
             path.pop();
             path.pop();
