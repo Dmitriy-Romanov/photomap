@@ -21,7 +21,6 @@ use server::{AppState, start_server};
 use settings::Settings;
 
 // Global HEIC support flag
-static mut HAS_IMAGEMAGICK: bool = false;
 static mut HEIC_SUPPORTED: bool = false;
 
 /// Обрабатывает фотографии и сохраняет метаданные в базу данных
@@ -186,25 +185,7 @@ fn process_photos_from_directory(db: &Database, photos_dir: &Path) -> Result<(us
     let total_files = files.len();
     println!("✅ Found {} files in photos directory. Starting processing...", total_files);
 
-    // Send initial progress event
-    let initial_event = server::ProcessingEvent {
-        event_type: "processing_progress".to_string(),
-        data: server::ProcessingData {
-            total_files: Some(total_files),
-            processed: Some(0),
-            gps_found: Some(0),
-            no_gps: Some(0),
-            heic_files: Some(0),
-            skipped: Some(0),
-            current_file: Some("Анализ папки...".to_string()),
-            message: Some("Начало обработки...".to_string()),
-            phase: Some("scanning".to_string()),
-            ..Default::default()
-        },
-    };
-
-    // Note: We can't send async events from sync code, so this will be handled in the server
-
+    
     // Process files in parallel using Rayon with timing
     let start_time = std::time::Instant::now();
 
@@ -378,12 +359,11 @@ fn process_file_to_database(path: &Path, db: &Database) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🗺️  PhotoMap Processor v0.5.0 - SQLite + On-demand markers starting...");
+    println!("🗺️  PhotoMap Processor v0.5.2 - Clean Code Edition starting...");
 
     // Check ImageMagick availability for HEIC support
     let has_imagemagick = check_imagemagick();
     unsafe {
-        HAS_IMAGEMAGICK = has_imagemagick;
         HEIC_SUPPORTED = has_imagemagick;
     }
 

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
@@ -8,22 +8,12 @@ use std::fs::{File, OpenOptions};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub last_folder: Option<String>,
-    pub port: u16,
-    #[serde(default)]
-    pub auto_open_browser: bool,
-    pub info_panel_width: u8,
-    #[serde(default)]
-    pub show_progress: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             last_folder: None,
-            port: 3001,
-            auto_open_browser: false,
-            info_panel_width: 20,
-            show_progress: true,
         }
     }
 }
@@ -53,27 +43,7 @@ impl Settings {
         if let Some(last_folder) = config_map.get("last_folder") {
             settings.last_folder = Some(last_folder.trim_matches('"').to_string());
         }
-                if let Some(port_str) = config_map.get("port") {
-            if let Ok(port) = port_str.parse::<u16>() {
-                settings.port = port;
-            }
-        }
-        if let Some(width_str) = config_map.get("info_panel_width") {
-            if let Ok(width) = width_str.parse::<u8>() {
-                settings.info_panel_width = width;
-            }
-        }
-        if let Some(auto_open_str) = config_map.get("auto_open_browser") {
-            if let Ok(auto_open) = auto_open_str.parse::<bool>() {
-                settings.auto_open_browser = auto_open;
-            }
-        }
-         if let Some(show_progress_str) = config_map.get("show_progress") {
-            if let Ok(show_progress) = show_progress_str.parse::<bool>() {
-                settings.show_progress = show_progress;
-            }
-        }
-
+                                         
         Ok(settings)
     }
 
@@ -91,32 +61,58 @@ impl Settings {
         if let Some(ref last_folder) = self.last_folder {
             content.push_str(&format!("last_folder = \"{}\"\n", last_folder));
         }
-                content.push_str(&format!("port = {}\n", self.port));
-        content.push_str(&format!("info_panel_width = {}\n", self.info_panel_width));
-        content.push_str(&format!("auto_open_browser = {}\n", self.auto_open_browser));
-        content.push_str(&format!("show_progress = {}\n", self.show_progress));
-
+                
         std::fs::write(&config_path, content).context("Failed to write to config file")?;
         Ok(())
     }
 
-    pub fn update_last_folder<P: AsRef<Path>>(&mut self, folder_path: P) {
-        self.last_folder = folder_path.as_ref().to_str().map(|s| s.to_string());
+    
+    fn get_app_data_dir() -> PathBuf {
+        // Cross-platform application data directory
+        if cfg!(target_os = "macos") {
+            let home_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            let mut path = PathBuf::from(home_dir);
+            path.push("Library");
+            path.push("Application Support");
+            path.push("PhotoMap");
+            path
+        } else if cfg!(target_os = "windows") {
+            // Use %APPDATA%/PhotoMap on Windows
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                let mut path = PathBuf::from(appdata);
+                path.push("PhotoMap");
+                path
+            } else {
+                // Fallback to current directory
+                PathBuf::from(".").join("PhotoMap")
+            }
+        } else {
+            // Linux and others: use ~/.local/share/PhotoMap or ~/.photomap
+            let home_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            let mut path = PathBuf::from(home_dir);
+
+            // Try XDG_DATA_HOME first
+            if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
+                path = PathBuf::from(xdg_data);
+            } else {
+                path.push(".local");
+                path.push("share");
+            }
+            path.push("PhotoMap");
+            path
+        }
     }
 
     pub fn config_path() -> PathBuf {
-        let mut path = std::env::current_exe()
-            .unwrap_or_default()
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
-            .to_path_buf();
+        let mut app_dir = Self::get_app_data_dir();
 
-        if path.ends_with("target/debug") || path.ends_with("target/release") {
-            path.pop();
-            path.pop();
+        // Create directory if it doesn't exist
+        if !app_dir.exists() {
+            let _ = std::fs::create_dir_all(&app_dir);
         }
-        path.push("photomap.ini");
-        path
+
+        app_dir.push("photomap.ini");
+        app_dir
     }
 }
 

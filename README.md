@@ -1,4 +1,4 @@
-# PhotoMap Processor v0.5.0
+# PhotoMap Processor v0.5.2
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
@@ -93,10 +93,26 @@ photomap/
 │   └── settings.rs          # Configuration management
 ├── photos/                  # Your photo collection (git-ignored)
 ├── target/                  # Build output (git-ignored)
-├── photomap.db             # SQLite database (git-ignored)
-├── photomap.ini            # Configuration file (git-ignored)
 └── README.md
-```
+
+## 📁 Configuration and Database Storage
+
+**v0.5.1 Update**: Configuration and database files are now stored in standard application directories:
+
+### Cross-Platform Storage Locations
+- **macOS**: `~/Library/Application Support/PhotoMap/`
+- **Windows**: `%APPDATA%/PhotoMap/`
+- **Linux**: `~/.local/share/PhotoMap/` (or `$XDG_DATA_HOME/PhotoMap/`)
+
+### Stored Files
+- `photomap.ini` - Application configuration and settings
+- `photomap.db` - SQLite database with photo metadata and GPS data
+
+This change ensures:
+- ✅ **Clean project directory** - No more config/database files in your project folder
+- ✅ **Cross-platform compatibility** - Works consistently across operating systems
+- ✅ **Production deployment** - Executable can be moved anywhere without breaking paths
+- ✅ **Standard practices** - Follows OS-specific application storage conventions
 
 ## 🔧 Configuration
 
@@ -208,7 +224,21 @@ The application is distributed as a single binary:
 
 ## 📈 Version History
 
-### v0.5.0 (Current)
+### v0.5.2 (Current) - Clean Code Edition
+- ✅ **Code Cleanup** - Removed unused dependencies, variables, and configuration fields
+- ✅ **Improved Toggle Button** - Restored intuitive up/down arrows for window collapse
+- ✅ **Reduced Binary Size** - Eliminated unused dependencies (tokio-stream, futures-util)
+- ✅ **Simplified Configuration** - Streamlined settings structure to essential fields only
+- ✅ **Cleaner Codebase** - Removed dead code and unused constants for better maintainability
+
+### v0.5.1
+- ✅ **Standard Application Directories** - Configuration and database moved to OS-standard locations
+- ✅ **Clean Project Structure** - No more config/database files in project directory
+- ✅ **Cross-Platform File Storage** - macOS: `~/Library/Application Support/PhotoMap/`
+- ✅ **Production Deployment Ready** - Executable can be moved anywhere without breaking paths
+- ✅ **Windows & Linux Support** - Uses appropriate app directories on all platforms
+
+### v0.5.0
 - ✅ **Floating Info Window** - Replaced flexbox layout with floating window overlay
 - ✅ **Full-screen Map** - Map now takes entire viewport for optimal viewing
 - ✅ **Desktop-style Window** - Classic title bar with minimize/restore functionality

@@ -46,19 +46,52 @@ impl Database {
         Ok(db)
     }
 
-    pub fn database_path() -> String {
-        let mut path = std::env::current_exe()
-            .unwrap_or_default()
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
-            .to_path_buf();
+    fn get_app_data_dir() -> std::path::PathBuf {
+        // Cross-platform application data directory
+        if cfg!(target_os = "macos") {
+            let home_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            let mut path = std::path::PathBuf::from(home_dir);
+            path.push("Library");
+            path.push("Application Support");
+            path.push("PhotoMap");
+            path
+        } else if cfg!(target_os = "windows") {
+            // Use %APPDATA%/PhotoMap on Windows
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                let mut path = std::path::PathBuf::from(appdata);
+                path.push("PhotoMap");
+                path
+            } else {
+                // Fallback to current directory
+                std::path::PathBuf::from(".").join("PhotoMap")
+            }
+        } else {
+            // Linux and others: use ~/.local/share/PhotoMap or ~/.photomap
+            let home_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            let mut path = std::path::PathBuf::from(home_dir);
 
-        if path.ends_with("target/debug") || path.ends_with("target/release") {
-            path.pop();
-            path.pop();
+            // Try XDG_DATA_HOME first
+            if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
+                path = std::path::PathBuf::from(xdg_data);
+            } else {
+                path.push(".local");
+                path.push("share");
+            }
+            path.push("PhotoMap");
+            path
         }
-        path.push("photomap.db");
-        path.to_string_lossy().to_string()
+    }
+
+    pub fn database_path() -> String {
+        let mut app_dir = Self::get_app_data_dir();
+
+        // Create directory if it doesn't exist
+        if !app_dir.exists() {
+            let _ = std::fs::create_dir_all(&app_dir);
+        }
+
+        app_dir.push("photomap.db");
+        app_dir.to_string_lossy().to_string()
     }
 
     pub fn init_tables(&self) -> Result<()> {
