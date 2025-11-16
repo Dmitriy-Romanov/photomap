@@ -94,7 +94,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
     <div id="floating-info-window" style="position: fixed; top: 0; right: 0; width: 400px; background: white; border-left: 2px solid #ccc; border-bottom: 2px solid #ccc; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
         <!-- Title Bar (always visible) -->
         <div id="window-title-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #f8f9fa; border-bottom: 1px solid #ddd; cursor: default;">
-            <span style="font-size: 12px; font-weight: bold; color: #333;">🗺️ PhotoMap v0.5.2</span>
+            <span style="font-size: 12px; font-weight: bold; color: #333;">🗺️ PhotoMap v0.5.3</span>
             <button id="toggle-window-btn" style="background: #007bff; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">⌄</button>
         </div>
 

@@ -1,4 +1,4 @@
-# PhotoMap Processor v0.5.2
+# PhotoMap Processor v0.5.3
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
@@ -90,7 +90,9 @@ photomap/
 │   ├── exif_parser.rs       # EXIF data extraction
 │   ├── html_template.rs     # Web interface template
 │   ├── folder_picker.rs     # Legacy folder selection (deprecated)
-│   └── settings.rs          # Configuration management
+│   ├── settings.rs          # Configuration management
+│   ├── process_manager.rs   # Single instance enforcement
+│   └── constants.rs         # Application constants
 ├── photos/                  # Your photo collection (git-ignored)
 ├── target/                  # Build output (git-ignored)
 └── README.md
@@ -224,10 +226,16 @@ The application is distributed as a single binary:
 
 ## 📈 Version History
 
-### v0.5.2 (Current) - Clean Code Edition
+### v0.5.3 (Current) - Single Instance Edition
+- ✅ **Single Instance Enforcement** - Automatically kills existing processes on startup
+- ✅ **Process Management** - Clean termination with SIGTERM followed by SIGKILL if needed
+- ✅ **Better User Experience** - No more port conflicts or multiple instances
+- ✅ **Automatic Cleanup** - Handles gracefully stopping old processes before starting new ones
+
+### v0.5.2 - Clean Code Edition
 - ✅ **Code Cleanup** - Removed unused dependencies, variables, and configuration fields
 - ✅ **Improved Toggle Button** - Restored intuitive up/down arrows for window collapse
-- ✅ **Reduced Binary Size** - Eliminated unused dependencies (tokio-stream, futures-util)
+- ✅ **Reduced Binary Size** - Eliminated unused dependencies (futures-util)
 - ✅ **Simplified Configuration** - Streamlined settings structure to essential fields only
 - ✅ **Cleaner Codebase** - Removed dead code and unused constants for better maintainability
 
