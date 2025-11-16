@@ -20,7 +20,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoMap v0.4.0 - SQLite + Clustering + On-demand</title>
+    <title>PhotoMap v0.4.1 - Native Browser Folder Selection</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
@@ -95,14 +95,12 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             <!-- HEIC_WARNING_PLACEHOLDER -->
             <!-- Control Panel -->
             <div id="control-panel" style="position: relative; top: 10px; left: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
-                <h3 style="margin: 0 0 10px 0; color: #333;">🗺️ PhotoMap v3.0</h3>
-                <div style="font-size: 0.9em; color: #666; margin-bottom: 15px;">
-                    SQLite + Clustering + On-demand
-                </div>
+                <h3 style="margin: 0 0 10px 0; color: #333;">🗺️ PhotoMap v0.4.1</h3>
 
                 <!-- Folder Selection -->
                 <div style="margin-bottom: 10px;">
                     <input type="text" id="folder-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" readonly placeholder="Выберите папку...">
+                    <input type="file" id="folder-input-hidden" style="display: none;" webkitdirectory directory multiple>
                 </div>
 
                 <!-- Processing Controls -->
@@ -225,7 +223,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                         <img src="${photo.url}"
                              onerror="this.src='${photo.fallback_url}'"
                              alt="${photo.filename}" />
-                        <div class="filename">${photo.filename}</div>
+                        <div class="filename">${photo.file_path}</div>
                         <div class="datetime">${photo.datetime}</div>
                     </div>
                 `;
@@ -321,46 +319,64 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             const progressText = document.getElementById('progress-text');
 
             try {
-                // Step 1: Select folder
+                // Step 1: Select folder using native browser dialog
                 browseButton.disabled = true;
                 browseButton.textContent = '📂 Выбор папки...';
                 folderInput.value = 'Выбор папки...';
 
-                const response = await fetch('/api/select-folder', {
+                // Create a promise to handle folder selection
+                const folderSelection = new Promise((resolve, reject) => {
+                    const hiddenInput = document.getElementById('folder-input-hidden');
+
+                    hiddenInput.onchange = function(e) {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                            // Get the folder path from the first file
+                            const firstFile = files[0];
+                            const fullPath = firstFile.webkitRelativePath;
+                            const folderPath = fullPath.split('/')[0];
+                            resolve(folderPath);
+                        } else {
+                            reject(new Error('Folder selection cancelled'));
+                        }
+                        // Reset the input so we can select the same folder again
+                        hiddenInput.value = '';
+                    };
+
+                    hiddenInput.click();
+                });
+
+                // Wait for folder selection
+                const folderPath = await folderSelection;
+
+                showNotification(`✅ Папка выбрана: ${folderPath}`, 'success');
+
+                // Step 2: Send folder path to server
+                browseButton.textContent = '📂 Установка папки...';
+
+                const response = await fetch('/api/set-folder', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                    }
+                    },
+                    body: JSON.stringify({ folder_path: folderPath })
                 });
 
                 const result = await response.json();
 
-                if (result.status === 'cancelled') {
-                    // User cancelled - restore button state
-                    browseButton.disabled = false;
-                    browseButton.textContent = '📁 Обзор';
-                    folderInput.value = 'Папка не выбрана';
-                    showNotification('🚫 Выбор папки отменен', 'info');
-                    return;
-                }
-
                 if (result.status !== 'success') {
-                    // Error occurred - restore button state
-                    browseButton.disabled = false;
-                    browseButton.textContent = '📁 Обзор';
-                    folderInput.value = 'Ошибка выбора папки';
-                    showNotification('❌ Ошибка выбора папки: ' + result.message, 'error');
-                    return;
+                    throw new Error(result.message || 'Ошибка установки папки');
                 }
 
-                // Step 2: Start processing (folder was selected successfully)
-                folderInput.value = result.folder_path || 'Папка выбрана';
+                // Update folder input with the path from server response
+                folderInput.value = result.folder_path;
+
+                // Step 3: Start processing
                 browseButton.textContent = '⏳ Обработка...';
                 statusDiv.style.display = 'block';
                 statusText.textContent = 'Обработка фотографий...';
                 progressText.textContent = 'Анализ папки...';
 
-                // Start processing
                 const processResponse = await fetch('/api/process', {
                     method: 'POST',
                     headers: {
@@ -371,7 +387,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                 const processResult = await processResponse.json();
 
                 if (processResult.status === 'started') {
-                    showNotification('✅ Обработка запущена: ' + result.folder_path, 'success');
+                    showNotification('✅ Обработка запущена: ' + folderPath, 'success');
 
                     // Check for completion periodically
                     const checkCompletion = setInterval(async () => {
@@ -393,20 +409,22 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                         }
                     }, 1000);
                 } else {
-                    // Processing failed
-                    statusDiv.style.display = 'none';
-                    browseButton.disabled = false;
-                    browseButton.textContent = '📁 Обзор';
-                    showNotification('❌ Ошибка запуска обработки: ' + (processResult.message || 'Неизвестная ошибка'), 'error');
+                    throw new Error(processResult.message || 'Ошибка запуска обработки');
                 }
 
             } catch (error) {
-                // Network or other error - restore button state
+                // Handle errors (including cancellation)
                 statusDiv.style.display = 'none';
                 browseButton.disabled = false;
                 browseButton.textContent = '📁 Обзор';
-                folderInput.value = 'Ошибка сети';
-                showNotification('❌ Сетевая ошибка: ' + error.message, 'error');
+
+                if (error.message === 'Folder selection cancelled') {
+                    folderInput.value = 'Папка не выбрана';
+                    showNotification('🚫 Выбор папки отменен', 'info');
+                } else {
+                    folderInput.value = 'Ошибка выбора папки';
+                    showNotification('❌ Ошибка: ' + error.message, 'error');
+                }
             }
         }
 

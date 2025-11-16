@@ -1,6 +1,6 @@
 [package]
 name = "photomap_processor"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "Параллельная обработка фотографий: извлечение GPS из EXIF, создание миниатюр и генерация интерактивной карты"
 authors = ["PhotoMap Contributors"]
@@ -24,7 +24,6 @@ tower-http = { version = "0.5", features = ["fs", "cors"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 tokio-stream = "0.1"
 futures-util = "0.3"
-dirs = "5.0"
 
 
 [profile.release]

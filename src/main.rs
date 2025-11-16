@@ -4,7 +4,6 @@ use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
 
 // Import modules
 mod constants;
@@ -409,8 +408,6 @@ async fn main() -> Result<()> {
 
     // Start HTTP server
     let (event_sender, _event_receiver) = tokio::sync::broadcast::channel(100);
-    let (folder_request_tx, folder_request_rx) = mpsc::channel::<String>(1);
-    let folder_handler = Arc::new(crate::folder_picker::FolderRequestHandler::new());
 
     let settings = Arc::new(Mutex::new(Settings::load()?));
 
@@ -437,7 +434,6 @@ async fn main() -> Result<()> {
         has_heic_support: has_imagemagick,
         settings,
         event_sender,
-        folder_handler,
     };
 
     start_server(app_state).await?;

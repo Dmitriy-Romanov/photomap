@@ -1,4 +1,4 @@
-# PhotoMap Processor v0.4.0
+# PhotoMap Processor v0.4.1
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
@@ -89,9 +89,8 @@ photomap/
 │   ├── image_processing.rs  # Image processing & HEIC conversion
 │   ├── exif_parser.rs       # EXIF data extraction
 │   ├── html_template.rs     # Web interface template
-│   ├── folder_picker.rs     # Cross-platform folder selection
+│   ├── folder_picker.rs     # Legacy folder selection (deprecated)
 │   └── settings.rs          # Configuration management
-├── folder_dialog_helper/    # External helper for macOS folder dialogs
 ├── photos/                  # Your photo collection (git-ignored)
 ├── target/                  # Build output (git-ignored)
 ├── photomap.db             # SQLite database (git-ignored)
@@ -132,7 +131,7 @@ show_progress = true
 - `GET /convert-heic?filename=path` - Convert HEIC to JPEG
 - `GET /api/settings` - Load current settings
 - `POST /api/settings` - Save settings
-- `POST /api/select-folder` - Select folder with automatic processing
+- `POST /api/set-folder` - Set folder path from browser dialog
 - `POST /api/process` - Start photo processing
 - `GET /api/events` - Real-time processing updates
 
@@ -154,7 +153,7 @@ show_progress = true
 ### Photo Information
 - **Large popups** (700px) for detailed viewing
 - **Shooting date/time** from EXIF data
-- **File information** and relative paths
+- **Full file path** for easy file location
 - **Visible photo counts** - shows photos in current map view
 
 ### User Interface
@@ -174,10 +173,12 @@ show_progress = true
 
 ### Folder Selection Features
 
-- **Native dialogs**: Uses OS-specific folder selection
+- **Browser native dialogs**: Uses HTML5 File API with webkitdirectory
+- **Cross-platform**: Works on Windows, macOS, Linux without external dependencies
 - **Cancel support**: Properly handles user cancellation
 - **Visual feedback**: Button changes to show current operation
 - **Error handling**: Clear notifications for any issues
+- **Automatic processing**: Starts immediately after folder selection
 
 ## 🛠️ Development
 
@@ -201,13 +202,21 @@ The codebase is organized into logical modules:
 
 ### Distribution
 
-The application is distributed as:
+The application is distributed as a single binary:
 - **Main binary**: `photomap_processor` (~3-4MB)
-- **Helper binary**: `folder_dialog_helper` (~2MB, for macOS folder dialogs)
+- **No external dependencies**: Uses browser native folder selection
 
 ## 📈 Version History
 
-### v3.0 (Current)
+### v0.4.1 (Current)
+- ✅ **Browser native folder selection** - Uses HTML5 File API with webkitdirectory
+- ✅ **Full path display** - Shows complete folder path in input field
+- ✅ **Eliminated external dependencies** - No more folder_dialog_helper needed
+- ✅ **Cross-platform compatibility** - Works on Windows, macOS, Linux without helper programs
+- ✅ **Improved path resolution** - Smart conversion of relative folder names to full paths
+- ✅ **Simplified architecture** - Single binary without external processes
+
+### v0.4.0
 - ✅ SQLite database storage
 - ✅ On-demand marker generation
 - ✅ Subfolder and duplicate filename support
@@ -251,9 +260,9 @@ convert --version
 ```
 
 ### Folder Dialog Issues
-- **macOS**: The helper binary should be in `folder_dialog_helper/target/release/`
-- **Windows/Linux**: Uses native system dialogs
-- **Cancel button**: Properly handled in v3.0+
+- **All platforms**: Uses browser native HTML5 File API with webkitdirectory
+- **Browser compatibility**: Works in all modern browsers (Chrome, Firefox, Safari, Edge)
+- **Cancel button**: Properly handled in v4.0+
 
 ### Performance Issues
 - Ensure sufficient RAM for large photo collections
@@ -267,5 +276,5 @@ convert --version
 
 ### Binary Size
 - Current size is ~3-4MB for main binary
-- Helper binary adds ~2MB for macOS folder dialogs
+- No external dependencies or helper binaries required
 - Optimized for distribution and portability

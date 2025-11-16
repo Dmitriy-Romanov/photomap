@@ -14,7 +14,7 @@ use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio::sync::broadcast;
-use tokio_stream::{StreamExt, Stream};
+use tokio_stream::Stream;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
@@ -56,7 +56,6 @@ pub struct AppState {
     pub has_heic_support: bool,
     pub settings: Arc<Mutex<Settings>>,
     pub event_sender: broadcast::Sender<ProcessingEvent>,
-    pub folder_handler: Arc<crate::folder_picker::FolderRequestHandler>,
 }
 
 // HTTP API Handlers
@@ -218,53 +217,68 @@ pub async fn get_settings(State(state): State<AppState>) -> Result<Json<Settings
     Ok(Json((*settings).clone()))
 }
 
-// API endpoint to select a folder (uses channel-based approach to avoid macOS threading issues)
-pub async fn select_folder(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
-    println!("🔍 Folder selection requested via API");
+// API endpoint to set a folder path (receives path from browser's native dialog)
+pub async fn set_folder(
+    State(state): State<AppState>,
+    Json(payload): Json<serde_json::Value>
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    println!("🔍 Setting folder from browser dialog");
 
-    // Use the new channel-based folder selection
-    match state.folder_handler.select_folder_async().await {
-        Ok(Some(path)) => {
-            let folder_path = path.to_string_lossy().to_string();
-            println!("✅ Folder selected: {}", folder_path);
-
-            // Update settings
-            let mut settings = state.settings.lock().unwrap();
-            settings.last_folder = Some(folder_path.clone());
-
-            // Save to INI file
-            if let Err(e) = settings.save() {
-                eprintln!("Failed to save settings: {}", e);
-                // Continue without saving for now
-            }
-
-            let response = serde_json::json!({
-                "status": "success",
-                "folder_path": folder_path,
-                "message": "Folder selected successfully"
-            });
-
-            Ok(Json(response))
-        }
-        Ok(None) => {
-            println!("❌ Folder selection returned None");
-            let response = serde_json::json!({
-                "status": "cancelled",
-                "message": "Folder selection cancelled"
-            });
-
-            Ok(Json(response))
-        }
-        Err(e) => {
-            println!("❌ Folder selection error: {}", e);
+    // Extract folder_path from payload
+    let folder_path = match payload.get("folder_path").and_then(|v| v.as_str()) {
+        Some(path) => path.to_string(),
+        None => {
+            println!("❌ No folder_path provided");
             let response = serde_json::json!({
                 "status": "error",
-                "message": format!("Folder selection failed: {}", e)
+                "message": "No folder_path provided"
             });
-
-            Ok(Json(response))
+            return Ok(Json(response));
         }
+    };
+
+    // Update settings - convert folder name to full path if needed
+    let full_path = if folder_path.starts_with('/') {
+        // Already an absolute path
+        folder_path.clone()
+    } else {
+        // Relative path - make it relative to current directory or photos directory
+        let base_path = std::env::current_dir().unwrap_or_else(|_| std::path::Path::new(".").to_path_buf());
+        let candidate_path = base_path.join(&folder_path);
+
+        // Try the path directly and also in a photos subdirectory
+        if candidate_path.exists() {
+            candidate_path.to_string_lossy().to_string()
+        } else {
+            // Try in photos directory
+            let photos_path = base_path.join("photos").join(&folder_path);
+            if photos_path.exists() {
+                photos_path.to_string_lossy().to_string()
+            } else {
+                // Fallback to the relative path as-is
+                folder_path.clone()
+            }
+        }
+    };
+
+    let mut settings = state.settings.lock().unwrap();
+    settings.last_folder = Some(full_path.clone());
+
+    // Save to INI file
+    if let Err(e) = settings.save() {
+        eprintln!("Failed to save settings: {}", e);
+        // Continue without saving for now
     }
+
+    println!("✅ Folder set: {} -> {}", folder_path, full_path);
+
+    let response = serde_json::json!({
+        "status": "success",
+        "folder_path": full_path,
+        "message": "Folder set successfully"
+    });
+
+    Ok(Json(response))
 }
 
 // API endpoint to update settings
@@ -353,17 +367,6 @@ pub async fn start_processing(
     // Clone the sender for the async task
     let event_sender = state.event_sender.clone();
     let db = state.db.clone();
-
-    // Get photos directory from settings
-    let photos_dir = {
-        let settings = state.settings.lock().unwrap();
-        if let Some(ref folder) = settings.last_folder {
-            std::path::Path::new(folder).to_path_buf()
-        } else {
-            // Default directory
-            std::path::Path::new("/Users/dmitriiromanov/claude/photomap/photos").to_path_buf()
-        }
-    };
 
     // Get photos directory from settings
     let photos_dir = {
@@ -496,7 +499,7 @@ pub async fn create_app(state: AppState) -> Router {
         .route("/api/thumbnail/*filename", get(get_thumbnail_image))
         .route("/convert-heic", get(convert_heic))
         .route("/api/settings", get(get_settings))
-        .route("/api/select-folder", post(select_folder))
+        .route("/api/set-folder", post(set_folder))
         .route("/api/settings", axum::routing::post(update_settings))
         .route("/api/events", get(processing_events_stream))
         .route("/api/process", axum::routing::post(start_processing))

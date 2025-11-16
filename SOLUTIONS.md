@@ -1,119 +1,111 @@
 # PhotoMap Critical Solutions Documentation
 
-## 1. 🗂️ Системный визард выбора папок (RFD Threading Problem)
+## 1. 🗂️ Выбор папок через браузер (HTML5 File API)
 
 ### Проблема
-На macOS rfd crate не может вызывать системные диалоги из async контекста:
-```
-You are running RFD in NonWindowed environment, it is impossible to spawn dialog from thread different than main in this env.
-```
+Нужен кроссплатформенный способ выбора папок, который работает без внешних зависимостей и сложной архитектуры.
 
-### ❌ РЕШЕНИЯ, КОТОРЫЕ НЕ РАБОТАЮТ (ЗАПРЕЩЕНЫ)
-
-1. **Прямой вызов rfd в async HTTP handler**
-   ```rust
-   // НЕ РАБОТАЕТ - падает с паникой
-   async fn select_folder() -> Result<Json<FolderResponse>, StatusCode> {
-       match rfd::FileDialog::new().pick_folder() {
-           // Panic на macOS
-       }
-   }
-   ```
-
-2. **Использование spawn_blocking**
-   ```rust
-   // НЕ РАБОТАЕТ - та же ошибка
-   let result = tokio::task::spawn_blocking(|| {
-       rfd::FileDialog::new().pick_folder()
-   }).await;
-   ```
-
-3. **Channel-based подход без внешнего процесса**
-   ```rust
-   // НЕ РАБОТАЕТ - все еще в async контексте
-   let (tx, rx) = mpsc::channel();
-   tokio::spawn(async move {
-       rfd::FileDialog::new().pick_folder() // Still panic
-   });
-   ```
-
-### ✅ РАБОЧЕЕ РЕШЕНИЕ: Внешний Helper Process
+### ✅ РЕШЕНИЕ: HTML5 File API с webkitdirectory
 
 #### Архитектура
-1. **Helper Program**: `folder_dialog_helper/src/main.rs` - отдельная программа
-2. **Process Execution**: `tokio::process::Command` для вызова helper
-3. **Channel Communication**: для асинхронной обработки
+1. **Browser Native**: Использует HTML5 File API с атрибутом `webkitdirectory`
+2. **JavaScript Integration**: JavaScript функция вызывает системный диалог
+3. **Server Communication**: Путь отправляется на сервер через REST API
+4. **Automatic Processing**: Обработка запускается сразу после выбора папки
 
-#### Helper Program (`folder_dialog_helper/src/main.rs`)
-```rust
-use std::path::PathBuf;
+#### HTML Template (`src/html_template.rs`)
+```html
+<!-- Скрытый input для выбора папки -->
+<input type="file" id="folder-input-hidden" style="display: none;" webkitdirectory directory multiple>
 
-fn main() {
-    match rfd::FileDialog::new()
-        .set_title("Select folder for PhotoMap")
-        .pick_folder()
-    {
-        Some(path) => {
-            println!("{}", path.display()); // Вывод в stdout
-        }
-        None => {
-            std::process::exit(1); // User cancelled
-        }
+<!-- Кнопка для вызова диалога -->
+<button id="browse-button" onclick="browseAndProcessFolder()">📁 Обзор</button>
+```
+
+#### JavaScript Implementation
+```javascript
+async function browseAndProcessFolder() {
+    // Создаем Promise для обработки выбора папки
+    const folderSelection = new Promise((resolve, reject) => {
+        const hiddenInput = document.getElementById('folder-input-hidden');
+
+        hiddenInput.onchange = function(e) {
+            const files = e.target.files;
+            if (files && files.length > 0) {
+                // Извлекаем имя папки из первого файла
+                const firstFile = files[0];
+                const fullPath = firstFile.webkitRelativePath;
+                const folderPath = fullPath.split('/')[0];
+                resolve(folderPath);
+            } else {
+                reject(new Error('Folder selection cancelled'));
+            }
+        };
+
+        hiddenInput.click();
+    });
+
+    try {
+        // Ждем выбора папки
+        const folderPath = await folderSelection;
+
+        // Отправляем путь на сервер
+        const response = await fetch('/api/set-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder_path: folderPath })
+        });
+
+        // Запускаем обработку
+        await fetch('/api/process', { method: 'POST' });
+    } catch (error) {
+        // Обработка ошибок или отмены
+        console.error('Folder selection error:', error);
     }
 }
 ```
 
-#### Server Integration (`src/folder_picker.rs`)
+#### Server Integration (`src/server.rs`)
 ```rust
-async fn handle_folder_selection_async() -> Option<PathBuf> {
-    let helper_path = {
-        let mut path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        path.push("folder_dialog_helper");
-        path.push("target");
-        path.push("release");
-        path.push("folder_dialog_helper");
-        path
-    };
+// API endpoint для установки пути папки
+pub async fn set_folder(
+    State(state): State<AppState>,
+    Json(payload): Json<serde_json::Value>
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let folder_path = payload.get("folder_path")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            Json(serde_json::json!({
+                "status": "error",
+                "message": "No folder_path provided"
+            }))
+        })?;
 
-    if helper_path.exists() {
-        match tokio::process::Command::new(&helper_path)
-            .output()
-            .await
-        {
-            Ok(output) => {
-                if output.status.success() {
-                    let path_str_owned = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                    if !path_str_owned.is_empty() {
-                        let selected_path = PathBuf::from(path_str_owned);
-                        return Some(selected_path);
-                    }
-                }
-            }
-            Err(e) => {
-                println!("❌ Failed to execute folder dialog helper: {}", e);
-            }
-        }
-    }
+    // Сохраняем в настройки
+    let mut settings = state.settings.lock().unwrap();
+    settings.last_folder = Some(folder_path.to_string());
+    let _ = settings.save();
 
-    // Fallback к обычным директориям
-    // ...
+    Ok(Json(serde_json::json!({
+        "status": "success",
+        "folder_path": folder_path
+    })))
 }
 ```
 
 #### Ключевые моменты
-- **Helper runs on main thread** - может использовать rfd без проблем
-- **Process isolation** - async контекст не влияет на helper
-- **Stdout communication** - простой способ передачи пути обратно
-- **Graceful fallback** - если helper недоступен, используются стандартные директории
+- **Zero dependencies**: Работает без внешних программ
+- **Cross-platform**: Работает во всех современных браузерах
+- **Native UX**: Использует системные диалоги выбора папки
+- **Automatic processing**: Запускает обработку сразу после выбора
+- **Error handling**: Корректно обрабатывает отмену выбора
 
 #### Результат работы
 ```
-🔍 Folder selection requested via API
-📁 Received folder request: request_1763232665461
-🗂️  Launching external folder dialog helper
-🚀 Executing folder dialog helper: /Users/dmitriiromanov/claude/photomap/folder_dialog_helper/target/release/folder_dialog_helper
-✅ Folder selected via helper: /Users/dmitriiromanov/Movies/Полиглот. Немецкий с нуля за 16 часов! (2014)
-✅ Folder selected: /Users/dmitriiromanov/Movies/Полиглот. Немецкий с нуля за 16 часов! (2014)
+✅ Папка выбрана: Photos
+🔍 Setting folder from browser dialog
+✅ Folder set: Photos
+✅ Обработка запущена: Photos
 ```
 
 ---
@@ -202,12 +194,11 @@ photomap/
 │   ├── main.rs              # Основная логика и запуск
 │   ├── server.rs            # HTTP API эндпоинты
 │   ├── database.rs          # SQLite операции
-│   ├── folder_picker.rs     # Выбор папок (ВАЖНО: helper approach)
+│   ├── folder_picker.rs     # Устаревший модуль выбора папок
 │   ├── image_processing.rs  # Обработка изображений (ВАЖНО: HEIC параметры)
-│   ├── html_template.rs     # HTML и JavaScript
+│   ├── html_template.rs     # HTML и JavaScript с webkitdirectory
 │   ├── settings.rs          # INI настройки
-│   └── port_manager.rs      # Управление портами
-├── folder_dialog_helper/    # Helper для RFD (ВАЖНО: отделен)
+│   └── exif_parser.rs       # EXIF парсинг
 └── photos/                  # Директория с фотографиями
 ```
 
@@ -237,33 +228,32 @@ pub const HEIC_THUMBNAIL_SIZE: &str = "60x60>";
 
 ## 4. 🚫 Запрещенные подходы (никогда не использовать)
 
-1. **Прямой вызов rfd в async контексте**
-2. **Параметры ImageMagick с `^` для принудительного квадрата**
-3. **Изменение размеров на клиенте без синхронизации с сервером**
-4. **Использование spawn_blocking для rfd на macOS**
-5. **Типа `Vec<u8>` без `Cursor` для image encoding**
+1. **Параметры ImageMagick с `^` для принудительного квадрата**
+2. **Изменение размеров на клиенте без синхронизации с сервером**
+3. **Типа `Vec<u8>` без `Cursor` для image encoding**
 
 ---
 
 ## 5. ✅ Выжные проверки перед каждым запуском
 
-1. **Проверить helper program**:
-   ```bash
-   cd folder_dialog_helper && cargo build --release
-   ./target/release/folder_dialog_helper
-   ```
-
-2. **Проверить HEIC конвертацию**:
+1. **Проверить HEIC конвертацию**:
    ```bash
    # Убедиться что в image_processing.rs используются параметры "40x40>" и "60x60>"
    ```
 
-3. **Проверить сервер**:
+2. **Проверить сервер**:
    ```bash
    cargo run
-   curl http://127.0.0.1:3001/api/select-folder
+   # Открыть http://127.0.0.1:3001
+   # Нажать кнопку "Обзор" для проверки выбора папки
    ```
 
-4. **Проверить миниатюры**:
+3. **Проверить миниатюры**:
    - Открыть HEIC файл в браузере
    - Убедиться что пропорции сохранены
+
+4. **Проверить API**:
+   ```bash
+   curl http://127.0.0.1:3001/api/photos
+   # Должен вернуть список фотографий с GPS
+   ```
