@@ -18,12 +18,9 @@ mod process_manager;
 mod utils;
 
 use database::{Database, PhotoMetadata};
-use image_processing::check_imagemagick;
+use libheif_rs::integration::image::register_all_decoding_hooks;
 use server::{AppState, start_server};
 use settings::Settings;
-
-// Global HEIC support flag
-static mut HEIC_SUPPORTED: bool = false;
 
 /// Обрабатывает фотографии и сохраняет метаданные в базу данных
 /// Возвращает статистику обработки: (total_files, processed_count, gps_count, no_gps_count, heic_count)
@@ -105,7 +102,7 @@ fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: bool
     let processed_photos: Vec<_> = files
         .par_iter()
         .map(|path| {
-            let result = process_file_to_database(path, db);
+            let result = process_file_to_database(path, db, photos_dir);
             result
         })
         .collect();
@@ -171,31 +168,23 @@ fn process_photos_from_directory(db: &Database, photos_dir: &Path) -> Result<(us
 }
 
 /// Обрабатывает один файл и сохраняет в базу данных
-fn process_file_to_database(path: &Path, db: &Database) -> Result<()> {
-    // Проверяем расширение файла
-    let ext = path
+fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Result<()> {
+    // Проверяем расширение файла, сохраняя его в нижнем регистре для проверок
+    let ext_lower = path
         .extension()
         .and_then(|s| s.to_str())
-        .map(|s| s.to_lowercase());
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
 
     // Базовый список поддерживаемых форматов
     let supported_formats = ["jpg", "jpeg", "png", "tiff", "tif", "webp", "bmp", "gif", "heic", "heif", "avif"];
 
-    if !supported_formats.contains(&ext.as_deref().unwrap_or("")) {
+    if !supported_formats.contains(&ext_lower.as_str()) {
         anyhow::bail!("Файл не является поддерживаемым изображением");
     }
 
-    // Проверяем, это HEIC или нет
-    let is_heif = matches!(ext.as_deref(), Some("heic") | Some("heif") | Some("avif"));
-
-    // Пропускаем HEIC файлы если ImageMagick не доступен
-    if is_heif {
-        unsafe {
-            if !HEIC_SUPPORTED {
-                anyhow::bail!("HEIC файл пропущен - ImageMagick не установлен");
-            }
-        }
-    }
+    // Проверяем, это HEIC или нет, используя версию в нижнем регистре
+    let is_heif = matches!(ext_lower.as_str(), "heic" | "heif" | "avif");
 
     // --- Извлечение GPS и даты ---
     let (lat, lng, datetime) = if is_heif {
@@ -208,12 +197,7 @@ fn process_file_to_database(path: &Path, db: &Database) -> Result<()> {
         }
     } else {
         // Для стандартных форматов используем наши парсеры
-        let ext = path.extension()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_lowercase())
-            .unwrap_or_default();
-
-        if ext == "jpg" || ext == "jpeg" {
+        if ext_lower == "jpg" || ext_lower == "jpeg" {
             // Используем наш собственный JPEG парсер
             match exif_parser::extract_metadata_from_jpeg_custom(path) {
                 Ok(data) => data,
@@ -248,7 +232,6 @@ fn process_file_to_database(path: &Path, db: &Database) -> Result<()> {
         .ok_or_else(|| anyhow::Error::msg("Некорректное имя файла"))?;
 
     // Generate relative path from photos directory
-    let photos_dir = Path::new("/Users/dmitriiromanov/claude/photomap/photos");
     let relative_path = path
         .strip_prefix(photos_dir)
         .map(|p| p.to_string_lossy().to_string())
@@ -272,23 +255,15 @@ fn process_file_to_database(path: &Path, db: &Database) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🗺️  PhotoMap Processor v0.5.4 - Enhanced UI Edition starting...");
+    println!("🗺️  PhotoMap Processor v0.6.0 - Enhanced UI Edition starting...");
+
+    // Register HEIC/HEIF decoder
+    register_all_decoding_hooks();
 
     // Ensure single instance - kill existing processes
     process_manager::ensure_single_instance()?;
 
-    // Check ImageMagick availability for HEIC support
-    let has_imagemagick = check_imagemagick();
-    unsafe {
-        HEIC_SUPPORTED = has_imagemagick;
-    }
-
-    if has_imagemagick {
-        println!("✅ ImageMagick detected - HEIC files supported");
-    } else {
-        println!("⚠️  ImageMagick not found - HEIC files will be skipped");
-        println!("   Install ImageMagick to enable HEIC processing: brew install imagemagick");
-    }
+    println!("✅ Native HEIC/HEIF support enabled");
 
     // Initialize database
     println!("🗄️  Initializing database...");
@@ -327,7 +302,6 @@ async fn main() -> Result<()> {
 
     let app_state = AppState {
         db,
-        has_heic_support: has_imagemagick,
         settings,
         event_sender,
     };

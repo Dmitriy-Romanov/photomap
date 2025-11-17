@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::io::Cursor;
-use std::path::Path;
-use std::process::Command;
+use std::path::{Path, PathBuf};
+use image::ImageReader;
 use image::GenericImageView;
 use crate::database::PhotoMetadata;
 use crate::constants::*;
@@ -68,93 +68,93 @@ pub fn create_scaled_image_in_memory(source_path: &Path, image_type: ImageType) 
     Ok(buffer)
 }
 
-/// Создает маленькую иконку маркера для изображения (40x40px PNG с прозрачностью и центрированием) в памяти.
-pub fn create_marker_icon_in_memory(source_path: &Path) -> Result<Vec<u8>> {
-    create_scaled_image_in_memory(source_path, ImageType::Marker)
-}
+/// Конвертирует HEIC файл в JPEG с указанными размерами, используя нативный код
+fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Result<Vec<u8>> {
+    let max_dimension = match size_param {
+        "thumbnail" => THUMBNAIL_SIZE,
+        "marker" => MARKER_SIZE,
+        _ => 4096, // A reasonable default for 'full size'
+    };
 
-/// Создает миниатюру большего размера для отображения на маркерах (60x60px) в памяти.
-pub fn create_thumbnail_in_memory(source_path: &Path) -> Result<Vec<u8>> {
-    create_scaled_image_in_memory(source_path, ImageType::Thumbnail)
+    let original_path = Path::new(&photo.file_path);
+    let mut path_to_decode = original_path.to_path_buf();
+    let mut temp_symlink_path: Option<PathBuf> = None;
+
+    // Проверяем расширение файла
+    let ext_lower = original_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+
+    // Если это HEIC/HEIF и расширение не в нижнем регистре, создаем временную симлинк
+    if (ext_lower == "heic" || ext_lower == "heif") && original_path.extension().map_or(false, |ext| ext.to_ascii_lowercase() != ext) {
+        let parent = original_path.parent().unwrap_or_else(|| Path::new("."));
+        let filename_stem = original_path.file_stem().and_then(|s| s.to_str()).unwrap_or("temp_heic");
+
+
+
+        // Создаем уникальное имя для симлинка, чтобы избежать коллизий
+        let mut counter = 0;
+        let final_symlink_path = loop {
+            let current_symlink_name = format!("{}_{}.{}", filename_stem, counter, ext_lower);
+            let current_symlink_path = parent.join(current_symlink_name);
+            if !current_symlink_path.exists() {
+                break current_symlink_path;
+            }
+            counter += 1;
+        };
+
+        std::os::unix::fs::symlink(original_path, &final_symlink_path)
+            .with_context(|| format!("Не удалось создать симлинк для HEIC файла: {:?}", original_path))?;
+        path_to_decode = final_symlink_path.clone();
+        temp_symlink_path = Some(final_symlink_path);
+    }
+
+    let img = ImageReader::open(&path_to_decode)?
+        .with_guessed_format()?
+        .decode()
+        .with_context(|| format!("Не удалось декодировать изображение: {:?}", &path_to_decode))?;
+
+    // Масштабируем изображение с сохранением пропорций
+    let thumbnail = img.thumbnail(max_dimension, max_dimension);
+    let rgb_image = thumbnail.to_rgb8();
+
+    // Кодируем в JPEG с помощью turbojpeg
+    let jpeg_data = turbojpeg::compress_image(&rgb_image, 85, turbojpeg::Subsamp::None)
+        .with_context(|| "Не удалось сжать изображение с помощью turbojpeg")?;
+
+    // Удаляем временную симлинк, если она была создана
+    if let Some(symlink) = temp_symlink_path {
+        let _ = std::fs::remove_file(&symlink);
+    }
+
+    Ok(jpeg_data.to_vec())
 }
 
 /// Конвертирует HEIC файл в JPEG с указанными размерами
 pub fn convert_heic_to_jpeg(photo: &PhotoMetadata, size_param: &str) -> Result<Vec<u8>> {
-    // Determine ImageMagick parameters based on size request
-    let thumbnail_extent = format!("{}x{}", THUMBNAIL_SIZE, THUMBNAIL_SIZE);
-    let marker_extent = format!("{}x{}", MARKER_SIZE, MARKER_SIZE);
-
-    let magick_args = match size_param {
-        "thumbnail" => {
-            vec![
-                &photo.file_path,
-                "-resize", THUMBNAIL_RESIZE_PARAMS,   // Only resize if larger, preserve aspect ratio
-                "-gravity", "center",
-                "-extent", thumbnail_extent.as_str(),    // Pad to exact square with transparent background
-                "-quality", "80",
-                "jpg:-"
-            ]
-        }
-        "marker" => {
-            vec![
-                &photo.file_path,
-                "-resize", MARKER_RESIZE_PARAMS,   // Only resize if larger, preserve aspect ratio
-                "-gravity", "center",
-                "-extent", marker_extent.as_str(),    // Pad to exact square with transparent background
-                "-quality", "80",
-                "jpg:-"
-            ]
-        }
-        _ => {
-            // Full size
-            vec![
-                &photo.file_path,
-                "jpg:-"
-            ]
-        }
-    };
-
-    // Use ImageMagick if available, otherwise return error
-    let mut cmd = std::process::Command::new("magick");
-    for arg in magick_args {
-        cmd.arg(arg);
+    // Сначала пробуем нативный метод
+    if let Ok(data) = convert_heic_to_jpeg_native(photo, size_param) {
+        return Ok(data);
     }
 
-    if let Ok(output) = cmd.output() {
-        if output.status.success() {
-            return Ok(output.stdout);
+    // В качестве запасного варианта на macOS используем sips
+    if cfg!(target_os = "macos") {
+        if let Ok(output) = std::process::Command::new("sips")
+            .arg("-s")
+            .arg("format")
+            .arg("jpeg")
+            .arg(&photo.file_path)
+            .arg("--out")
+            .arg("-")
+            .output()
+        {
+            if output.status.success() {
+                return Ok(output.stdout);
+            }
         }
     }
 
-    // Try sips on macOS
-    if let Ok(output) = std::process::Command::new("sips")
-        .arg("-s")
-        .arg("format")
-        .arg("jpeg")
-        .arg(&photo.file_path)
-        .arg("--out")
-        .arg("-")
-        .output()
-    {
-        if output.status.success() {
-            return Ok(output.stdout);
-        }
-    }
-
-    anyhow::bail!("Failed to convert HEIC file using ImageMagick or sips")
-}
-
-/// Проверяет доступность ImageMagick для обработки HEIC
-pub fn check_imagemagick() -> bool {
-    Command::new("magick")
-        .arg("--version")
-        .output()
-        .map(|_| true)
-        .or_else(|_| {
-            Command::new("convert")
-                .arg("-version")
-                .output()
-                .map(|_| true)
-        })
-        .unwrap_or(false)
+    anyhow::bail!("Не удалось конвертировать HEIC файл: {}", photo.file_path)
 }

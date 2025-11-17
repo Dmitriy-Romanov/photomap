@@ -10,6 +10,10 @@
 
 ## 📅 Release Planning
 
+### v0.6.0 - Native HEIC Processing
+- Removed dependency on ImageMagick.
+- HEIC processing is now handled by a native Rust-based solution.
+
 ### Current: v0.5.4 - Enhanced UI Edition ✅
 - [x] ImageMagick status display in info panel
 - [x] Year range controls with validation

@@ -9,14 +9,13 @@ use axum::{
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::convert::Infallible;
-use std::path::PathBuf;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio::sync::broadcast;
 use tokio_stream::Stream;
 use tower::ServiceBuilder;
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::cors::CorsLayer;
 
 use crate::database::{Database, ImageMetadata};
 use crate::image_processing::{create_scaled_image_in_memory, convert_heic_to_jpeg, ImageType};
@@ -53,7 +52,6 @@ pub struct ProcessingData {
 #[derive(Clone)]
 pub struct AppState {
     pub db: Database,
-    pub has_heic_support: bool,
     pub settings: Arc<Mutex<Settings>>,
     pub event_sender: broadcast::Sender<ProcessingEvent>,
 }
@@ -109,19 +107,15 @@ async fn serve_processed_image(
 
     // For HEIC files, redirect to converted JPEG with proper size parameter
     if photo.is_heic {
-        if state.has_heic_support {
-            // Redirect to the converted HEIC image (served as JPEG)
-            let size_param = image_type.name();
-            let redirect_url = format!("/convert-heic?filename={}&size={}", filename, size_param);
-            return Ok(Response::builder()
-                .status(StatusCode::FOUND)
-                .header(header::LOCATION, redirect_url)
-                .header(header::CACHE_CONTROL, "public, max-age=3600")
-                .body("Redirecting to converted image".into())
-                .unwrap());
-        } else {
-            return Err(StatusCode::NOT_FOUND);
-        }
+        // Redirect to the converted HEIC image (served as JPEG)
+        let size_param = image_type.name();
+        let redirect_url = format!("/convert-heic?filename={}&size={}", filename, size_param);
+        return Ok(Response::builder()
+            .status(StatusCode::FOUND)
+            .header(header::LOCATION, redirect_url)
+            .header(header::CACHE_CONTROL, "public, max-age=3600")
+            .body("Redirecting to converted image".into())
+            .unwrap());
     }
 
     // Generate image on-demand for non-HEIC files
@@ -183,8 +177,36 @@ pub async fn convert_heic(
         .unwrap())
 }
 
-pub async fn serve_map_html(State(state): State<AppState>) -> Html<String> {
-    get_map_html(state.has_heic_support)
+pub async fn serve_photo(
+    State(state): State<AppState>,
+    AxumPath(filepath): AxumPath<String>,
+) -> Result<Response, StatusCode> {
+    let base_dir = {
+        let settings = state.settings.lock().unwrap();
+        settings.last_folder.clone().unwrap_or_default()
+    };
+
+    let path = std::path::Path::new(&base_dir).join(&filepath);
+
+    if !path.exists() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let content_type = mime_guess::from_path(&path).first_or_octet_stream();
+
+    match std::fs::read(&path) {
+        Ok(data) => Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, content_type.as_ref())
+            .body(data.into())
+            .unwrap()),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
+}
+
+
+pub async fn serve_map_html() -> Html<String> {
+    get_map_html()
 }
 
 // API endpoint to get current settings
@@ -445,17 +467,6 @@ use axum::response::sse::Event as SseEvent;
 
 // Create the main application router
 pub async fn create_app(state: AppState) -> Router {
-    // Get photos directory from settings or use default
-    let photos_path = {
-        let settings = state.settings.lock().unwrap();
-        if let Some(ref folder) = settings.last_folder {
-            std::path::Path::new(folder).to_path_buf()
-        } else {
-            // Default directory
-            std::path::Path::new("/Users/dmitriiromanov/claude/photomap/photos").to_path_buf()
-        }
-    };
-
     Router::new()
         .route("/", get(serve_map_html))
         .route("/api/photos", get(get_all_photos))
@@ -468,7 +479,7 @@ pub async fn create_app(state: AppState) -> Router {
         .route("/api/events", get(processing_events_stream))
         .route("/api/process", axum::routing::post(start_processing))
         .route("/api/reprocess", axum::routing::post(reprocess_photos))
-        .nest_service("/photos", ServeDir::new(photos_path))
+        .route("/photos/*filepath", get(serve_photo))
         .layer(
             ServiceBuilder::new()
                 .layer(CorsLayer::permissive())

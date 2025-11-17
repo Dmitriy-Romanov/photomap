@@ -1,4 +1,6 @@
-# PhotoMap Processor v0.5.4
+# PhotoMap Processor v0.6.0
+
+This version removes the dependency on ImageMagick for HEIC processing and now uses a native Rust-based solution.
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 

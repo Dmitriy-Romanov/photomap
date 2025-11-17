@@ -153,51 +153,58 @@ pub fn extract_metadata_from_jpeg_custom(path: &Path) -> Result<(f64, f64, Strin
 
     // Ищем EXIF сегмент в JPEG файле
     // EXIF хранится в APP1 сегменте (FF E1)
-    let mut i = 0;
-    let mut _found_exif_segment = false;
+    let mut i = 2; // Начинаем после SOI маркера (FF D8)
 
     while i < data.len().saturating_sub(4) {
-        if data[i] == 0xFF && data[i+1] == 0xE1 {
-            // Нашли APP1 сегмент, читаем его длину
-            if i + 4 < data.len() {
-                let segment_length = ((data[i+2] as u16) << 8) | (data[i+3] as u16);
+        // Ищем начало следующего сегмента (маркер FF)
+        if data[i] != 0xFF {
+            i += 1;
+            continue;
+        }
 
-                // Проверяем, что это EXIF сегмент
-                if i + 8 < data.len() &&
-                   data[i+4] == b'E' && data[i+5] == b'x' &&
-                   data[i+6] == b'i' && data[i+7] == b'f' {
+        let marker = data[i+1];
 
-                    // EXIF segment found
-                    // EXIF данные начинаются после 6 байт (FF E1 + 2 байта длины + 4 байта "Exif")
-                    let mut exif_start = i + 8;
-                    let exif_end = i + segment_length as usize;
+        // APP1 сегмент
+        if marker == 0xE1 {
+            let segment_length = ((data[i+2] as u16) << 8) | (data[i+3] as u16);
+            let segment_end = i + segment_length as usize + 2;
 
-                    // Пропускаем возможные нулевые байты перед TIFF заголовком
-                    while exif_start < exif_end && data[exif_start] == 0 {
-                        exif_start += 1;
-                    }
+            // Проверяем, что это EXIF сегмент
+            if i + 10 < data.len() &&
+               &data[i+4..i+10] == b"Exif\0\0" {
 
-                    if exif_end <= data.len() && exif_start + 2 < data.len() {
-                        // Проверяем наличие TIFF заголовка
-                        if (data[exif_start] == b'I' && data[exif_start + 1] == b'I') ||
-                           (data[exif_start] == b'M' && data[exif_start + 1] == b'M') {
+                let exif_start = i + 10;
 
-                            // Используем стандартную библиотеку exif для парсинга
-                            if let Ok(exif) = exif::Reader::new().read_raw(data[exif_start..exif_end].to_vec()) {
-                                let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
-                                let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
-                                let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+                // Проверяем наличие TIFF заголовка
+                if exif_start + 2 < data.len() &&
+                   ((data[exif_start] == b'I' && data[exif_start + 1] == b'I') ||
+                    (data[exif_start] == b'M' && data[exif_start + 1] == b'M')) {
 
-                                if lat.is_some() && lng.is_some() {
-                                    return Ok((lat.unwrap(), lng.unwrap(), datetime));
-                                }
-                            }
+                    // Используем стандартную библиотеку exif для парсинга
+                    if let Ok(exif) = exif::Reader::new().read_raw(data[exif_start..segment_end].to_vec()) {
+                        let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
+                        let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
+                        let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+
+                        if lat.is_some() && lng.is_some() {
+                            return Ok((lat.unwrap(), lng.unwrap(), datetime));
                         }
                     }
                 }
             }
+            // Переходим к следующему сегменту
+            i += segment_length as usize + 2;
+        } else if (marker >= 0xE0 && marker <= 0xEF) || marker == 0xDB || marker == 0xC4 || marker == 0xC0 {
+            // Другие сегменты с длиной (APPn, DQT, DHT, SOF0)
+            let segment_length = ((data[i+2] as u16) << 8) | (data[i+3] as u16);
+            i += segment_length as usize + 2;
+        } else if marker == 0xDA { // SOS (Start of Scan)
+            // После SOS идут данные изображения до следующего маркера, просто выходим
+            break;
         }
-        i += 1;
+        else {
+            i += 1;
+        }
     }
 
     anyhow::bail!("GPS-данные не найдены в JPEG файле")

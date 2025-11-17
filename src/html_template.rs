@@ -1,19 +1,7 @@
 use axum::response::Html;
 
-pub fn get_map_html(has_heic_support: bool) -> Html<String> {
-    let heic_warning = if !has_heic_support {
-        r#"<div style="background-color: #ff6b6b; color: white; padding: 8px; text-align: center; font-weight: bold; margin-bottom: 5px;">
-            ⚠️ ImageMagick не установлен - HEIC файлы не обрабатываются
-            <br><small>Установите: brew install imagemagick</small>
-        </div>"#
-    } else {
-        ""
-    };
-
-    let html = MAP_HTML
-        .replace("<!-- HEIC_WARNING_PLACEHOLDER -->", heic_warning)
-        .replace("{has_heic_support}", if has_heic_support { "true" } else { "false" });
-    Html(html)
+pub fn get_map_html() -> Html<String> {
+    Html(MAP_HTML.to_string())
 }
 
 // HTML template for the map page
@@ -22,7 +10,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoMap v0.5.4 - Enhanced UI Edition</title>
+    <title>PhotoMap v0.6.0 - Enhanced UI Edition</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
@@ -96,7 +84,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
     <div id="floating-info-window" style="position: fixed; top: 0; right: 0; width: 440px; background: white; border-left: 2px solid #ccc; border-bottom: 2px solid #ccc; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
         <!-- Title Bar (always visible) -->
         <div id="window-title-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #f8f9fa; border-bottom: 1px solid #ddd; cursor: default;">
-            <span style="font-size: 12px; font-weight: bold; color: #333;">🗺️ PhotoMap v0.5.4</span>
+            <span style="font-size: 12px; font-weight: bold; color: #333;">🗺️ PhotoMap v0.6.0</span>
             <button id="toggle-window-btn" style="background: #007bff; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">⌄</button>
         </div>
 
@@ -143,7 +131,6 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
                     <div style="font-size: 0.9em; line-height: 1.6;">
                         <div style="margin-bottom: 4px;"><strong>Всего фото:</strong> <span id="total-photos">-</span></div>
                         <div style="margin-bottom: 4px;"><strong>Отображено:</strong> <span id="visible-photos">-</span></div>
-                        <div style="margin-bottom: 4px;"><strong>ImageMagick:</strong> <span id="imagemagick-status">-</span></div>
                     </div>
                 </div>
         </div> <!-- control-panel -->
@@ -229,9 +216,6 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             showCoverageOnHover: true,
             zoomToBoundsOnClick: true
         });
-
-        // Set global HEIC support flag
-        window.hasHeicSupport = {has_heic_support};
 
         // Load photo data from API
         var photoData = [];
@@ -340,12 +324,7 @@ const MAP_HTML: &str = r#"<!DOCTYPE html>
             document.getElementById('total-photos').textContent = totalPhotos;
             document.getElementById('visible-photos').textContent = visiblePhotos;
 
-            // Update ImageMagick status
-            const imagemagickStatus = document.getElementById('imagemagick-status');
-            imagemagickStatus.textContent = window.hasHeicSupport ? 'есть' : 'нет';
-            imagemagickStatus.style.color = window.hasHeicSupport ? '#28a745' : '#dc3545';
-
-            console.log('Statistics updated - Total:', totalPhotos, 'Visible:', visiblePhotos, 'ImageMagick:', window.hasHeicSupport ? 'yes' : 'no');
+            console.log('Statistics updated - Total:', totalPhotos, 'Visible:', visiblePhotos);
         }
 
         // Load settings when page loads
