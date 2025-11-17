@@ -19,7 +19,11 @@ use tower_http::cors::CorsLayer;
 
 use crate::database::{Database, ImageMetadata};
 use crate::image_processing::{create_scaled_image_in_memory, convert_heic_to_jpeg, ImageType};
-use crate::html_template::get_map_html;
+use rust_embed::RustEmbed;
+
+#[derive(RustEmbed)]
+#[folder = "frontend/"]
+struct Asset;
 use crate::settings::Settings;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -57,7 +61,7 @@ pub struct AppState {
 }
 
 // HTTP API Handlers
-pub async fn get_all_photos(State(state): State<AppState>) -> Result<Json<Vec<ImageMetadata>>, StatusCode> {
+async fn get_all_photos(State(state): State<AppState>) -> Result<Json<Vec<ImageMetadata>>, StatusCode> {
     let photos = state.db.get_all_photos()
         .map_err(|e| {
             eprintln!("Database error: {}", e);
@@ -134,7 +138,7 @@ async fn serve_processed_image(
 }
 
 /// Обработчик для маркеров изображений (40x40px)
-pub async fn get_marker_image(
+async fn get_marker_image(
     state: State<AppState>,
     filename: AxumPath<String>
 ) -> Result<Response, StatusCode> {
@@ -142,14 +146,14 @@ pub async fn get_marker_image(
 }
 
 /// Обработчик для превью изображений (60x60px)
-pub async fn get_thumbnail_image(
+async fn get_thumbnail_image(
     state: State<AppState>,
     filename: AxumPath<String>
 ) -> Result<Response, StatusCode> {
     serve_processed_image(state, filename, ImageType::Thumbnail).await
 }
 
-pub async fn convert_heic(
+async fn convert_heic(
     State(state): State<AppState>,
     Query(query_params): Query<HashMap<String, String>>
 ) -> Result<Response, StatusCode> {
@@ -177,7 +181,7 @@ pub async fn convert_heic(
         .unwrap())
 }
 
-pub async fn serve_photo(
+async fn serve_photo(
     State(state): State<AppState>,
     AxumPath(filepath): AxumPath<String>,
 ) -> Result<Response, StatusCode> {
@@ -205,18 +209,15 @@ pub async fn serve_photo(
 }
 
 
-pub async fn serve_map_html() -> Html<String> {
-    get_map_html()
-}
 
 // API endpoint to get current settings
-pub async fn get_settings(State(state): State<AppState>) -> Result<Json<Settings>, StatusCode> {
+async fn get_settings(State(state): State<AppState>) -> Result<Json<Settings>, StatusCode> {
     let settings = state.settings.lock().unwrap();
     Ok(Json((*settings).clone()))
 }
 
 // API endpoint to set a folder path (receives path from browser's native dialog)
-pub async fn set_folder(
+async fn set_folder(
     State(state): State<AppState>,
     Json(payload): Json<serde_json::Value>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
@@ -260,7 +261,7 @@ pub async fn set_folder(
 }
 
 // API endpoint to update settings
-pub async fn update_settings(
+async fn update_settings(
     State(state): State<AppState>,
     Json(new_settings): Json<Settings>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
@@ -284,7 +285,7 @@ pub async fn update_settings(
 }
 
 // API endpoint to clear database and reprocess from selected folder
-pub async fn reprocess_photos(
+async fn reprocess_photos(
     State(state): State<AppState>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     // Get photos directory from settings
@@ -339,7 +340,7 @@ pub async fn reprocess_photos(
 }
 
 // API endpoint to start photo processing with SSE updates
-pub async fn start_processing(
+async fn start_processing(
     State(state): State<AppState>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     // Clone the sender for the async task
@@ -405,7 +406,7 @@ pub async fn start_processing(
 }
 
 // SSE endpoint for real-time processing updates
-pub async fn processing_events_stream(
+async fn processing_events_stream(
     State(state): State<AppState>,
 ) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
     let (tx, rx) = mpsc::channel(100);
@@ -466,9 +467,11 @@ pub async fn processing_events_stream(
 use axum::response::sse::Event as SseEvent;
 
 // Create the main application router
-pub async fn create_app(state: AppState) -> Router {
+async fn create_app(state: AppState) -> Router {
     Router::new()
-        .route("/", get(serve_map_html))
+        .route("/", get(index_html))
+        .route("/style.css", get(style_css))
+        .route("/script.js", get(script_js))
         .route("/api/photos", get(get_all_photos))
         .route("/api/marker/*filename", get(get_marker_image))
         .route("/api/thumbnail/*filename", get(get_thumbnail_image))
@@ -491,7 +494,27 @@ pub async fn start_server(state: AppState) -> Result<()> {
     start_server_with_port(state, 3001).await
 }
 
-pub async fn start_server_with_port(state: AppState, port: u16) -> Result<()> {
+async fn index_html() -> Html<Vec<u8>> {
+    Html(Asset::get("index.html").unwrap().data.into_owned())
+}
+
+async fn style_css() -> Response {
+    let content = Asset::get("style.css").unwrap().data;
+    Response::builder()
+        .header(header::CONTENT_TYPE, "text/css")
+        .body(content.into_owned().into())
+        .unwrap()
+}
+
+async fn script_js() -> Response {
+    let content = Asset::get("script.js").unwrap().data;
+    Response::builder()
+        .header(header::CONTENT_TYPE, "application/javascript")
+        .body(content.into_owned().into())
+        .unwrap()
+}
+
+async fn start_server_with_port(state: AppState, port: u16) -> Result<()> {
     let app = create_app(state).await;
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = TcpListener::bind(addr).await?;

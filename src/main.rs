@@ -11,7 +11,7 @@ mod database;
 mod folder_picker;
 mod image_processing;
 mod exif_parser;
-mod html_template;
+
 mod settings;
 mod server;
 mod process_manager;
@@ -19,8 +19,9 @@ mod utils;
 
 use database::{Database, PhotoMetadata};
 use libheif_rs::integration::image::register_all_decoding_hooks;
-use server::{AppState, start_server};
+use server::AppState;
 use settings::Settings;
+use rust_embed::RustEmbed;
 
 /// Обрабатывает фотографии и сохраняет метаданные в базу данных
 /// Возвращает статистику обработки: (total_files, processed_count, gps_count, no_gps_count, heic_count)
@@ -306,7 +307,11 @@ async fn main() -> Result<()> {
         event_sender,
     };
 
-    start_server(app_state).await?;
+    server::start_server(app_state).await?;
 
     Ok(())
 }
+
+#[derive(RustEmbed)]
+#[folder = "frontend/"] // This folder doesn't need to exist yet
+struct Assets;
