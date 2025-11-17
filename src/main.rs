@@ -21,7 +21,7 @@ use database::{Database, PhotoMetadata};
 use libheif_rs::integration::image::register_all_decoding_hooks;
 use server::AppState;
 use settings::Settings;
-use rust_embed::RustEmbed;
+
 
 /// Обрабатывает фотографии и сохраняет метаданные в базу данных
 /// Возвращает статистику обработки: (total_files, processed_count, gps_count, no_gps_count, heic_count)
@@ -311,7 +311,3 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
-#[derive(RustEmbed)]
-#[folder = "frontend/"] // This folder doesn't need to exist yet
-struct Assets;
