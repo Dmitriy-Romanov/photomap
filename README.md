@@ -1,363 +1,79 @@
-# PhotoMap Processor v0.6.0
-
-This version removes the dependency on ImageMagick for HEIC processing and now uses a native Rust-based solution.
+# PhotoMap Processor v0.6.1
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
 ## ✨ Features
 
-- **SQLite Database Storage** - Scalable storage for thousands of photos
-- **On-demand Generation** - No static thumbnail files, markers generated as needed
-- **HEIC Support** - Full HEIC/HEIF support with ImageMagick integration
-- **Interactive Clustering** - Smart photo clustering with numbered markers
-- **Subfolder Support** - Handle duplicate filenames from different cameras
-- **700px Popups** - Large, detailed photo previews with metadata
-- **Real-time Processing** - Parallel processing for fast performance
-- **Simplified UX** - One-click folder selection and processing
-- **Cross-platform** - Windows, macOS, Linux support
-- **Folder Dialog** - Native folder selection with Cancel support
-- **Auto-restart** - Automatically processes last selected folder on startup
-
-## 🏗️ Architecture
-
-### Modern Design (v0.4.0)
-
-```
-Photos (any subfolders)
-  → Parallel EXIF extraction
-  → SQLite database storage
-  → HTTP server with API endpoints
-  → Interactive web map with clustering
-```
-
-### Key Components
-
-- **Database**: SQLite with optimized indexes for performance
-- **Server**: Axum HTTP framework with async/await
-- **Frontend**: Leaflet.js with MarkerCluster plugin
-- **Processing**: Rayon parallel processing
-- **Images**: Native parsing + ImageMagick HEIC conversion
-- **UX**: Unified folder selection with automatic processing
-
-## 📸 Supported Formats
-
-- **Images**: JPG, JPEG, PNG, WebP, TIFF, BMP, GIF, HEIC, HEIF, AVIF
-- **GPS Data**: EXIF GPS coordinate extraction
-- **Output**: Interactive web map with real-time markers
+- **SQLite Database Storage**: Scalable storage for thousands of photos.
+- **On-demand Generation**: No static thumbnail files are created; markers are generated as needed.
+- **Native HEIC Support**: Full HEIC/HEIF support using a native Rust solution (no ImageMagick required).
+- **Embedded Frontend**: The entire web interface is embedded in the binary for a true single-file executable.
+- **Interactive Clustering**: Smart photo clustering with numbered markers.
+- **Subfolder Support**: Handles duplicate filenames from different cameras.
+- **700px Popups**: Large, detailed photo previews with metadata.
+- **Real-time Processing**: Parallel processing for fast performance.
+- **Simplified UX**: One-click folder selection and processing.
+- **Cross-platform**: Works on Windows, macOS, and Linux.
+- **Auto-restart**: Automatically processes the last selected folder on startup.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - **Rust 1.70+**
-- **ImageMagick** (for HEIC support, optional):
-  ```bash
-  # macOS
-  brew install imagemagick
 
-  # Ubuntu/Debian
-  sudo apt-get install imagemagick
+### Installation & Usage
 
-  # Windows
-  # Download from https://imagemagick.org/script/download.php
-  ```
-
-### Installation
-
-```bash
-git clone https://github.com/your-repo/photomap.git
-cd photomap
-cargo build --release
-```
-
-### Usage
-
-1. **Run the application**:
-   ```bash
-   ./target/release/photomap_processor
-   ```
-2. **Open the map** at http://127.0.0.1:3001
-3. **Click "Обзор"** to select a folder with photos
-4. **Processing starts automatically** after folder selection
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/Dmitriy-Romanov/photomap.git
+    cd photomap
+    ```
+2.  **Build the application**:
+    ```bash
+    cargo build --release
+    ```
+3.  **Run the application**:
+    ```bash
+    ./target/release/photomap_processor
+    ```
+4.  **Open the map** in your browser at [http://127.0.0.1:3001](http://127.0.0.1:3001).
+5.  **Select a folder** with photos to start processing.
 
 ## 📁 Project Structure
 
 ```
 photomap/
-├── src/
-│   ├── main.rs              # Application entry point
-│   ├── database.rs          # SQLite database operations
-│   ├── server.rs            # HTTP API endpoints
-│   ├── image_processing.rs  # Image processing & HEIC conversion
-│   ├── exif_parser.rs       # EXIF data extraction
-│   ├── html_template.rs     # Web interface template
-│   ├── folder_picker.rs     # Legacy folder selection (deprecated)
-│   ├── settings.rs          # Configuration management
-│   ├── process_manager.rs   # Single instance enforcement
-│   └── constants.rs         # Application constants
-├── photos/                  # Your photo collection (git-ignored)
-├── target/                  # Build output (git-ignored)
-├── DEVELOPMENT_GUIDE.md     # Development standards and workflows
-├── ROADMAP.md              # Future development plans and priorities
+├── src/                 # Rust source code
+│   ├── main.rs          # Application entry point
+│   ├── database.rs      # SQLite database operations
+│   ├── server.rs        # HTTP API endpoints
+│   ├── image_processing.rs # Image processing & thumbnail generation
+│   ├── exif_parser.rs   # EXIF data extraction
+│   ├── settings.rs      # Configuration management
+│   └── ...
+├── frontend/            # Embedded web interface files
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+├── photos/              # Your photo collection (git-ignored)
 └── README.md
-
-## 📁 Configuration and Database Storage
-
-**v0.5.1 Update**: Configuration and database files are now stored in standard application directories:
-
-### Cross-Platform Storage Locations
-- **macOS**: `~/Library/Application Support/PhotoMap/`
-- **Windows**: `%APPDATA%/PhotoMap/`
-- **Linux**: `~/.local/share/PhotoMap/` (or `$XDG_DATA_HOME/PhotoMap/`)
-
-### Stored Files
-- `photomap.ini` - Application configuration and settings
-- `photomap.db` - SQLite database with photo metadata and GPS data
-
-This change ensures:
-- ✅ **Clean project directory** - No more config/database files in your project folder
-- ✅ **Cross-platform compatibility** - Works consistently across operating systems
-- ✅ **Production deployment** - Executable can be moved anywhere without breaking paths
-- ✅ **Standard practices** - Follows OS-specific application storage conventions
-
-## 🔧 Configuration
-
-### HEIC Support
-
-The application automatically detects ImageMagick:
-- ✅ **With ImageMagick**: Full HEIC processing with thumbnails
-- ⚠️ **Without ImageMagick**: HEIC files are skipped
-
-### Photo Organization
-
-- **Subfolders supported**: Photos can be organized in any folder structure
-- **Duplicate filenames**: Files with same names from different folders are handled uniquely
-- **Relative paths**: Database uses relative paths for portability
-
-### Configuration File (photomap.ini)
-
 ```
-last_folder = "/path/to/last/selected/folder"
-port = 3001
-auto_open_browser = false
-info_panel_width = 255
-show_progress = true
-```
-
-## 🌐 API Endpoints
-
-- `GET /` - Interactive map interface
-- `GET /api/photos` - List all photos with GPS data
-- `GET /api/marker/*path` - Generate 40x40px marker icon
-- `GET /api/thumbnail/*path` - Generate 60x60px thumbnail
-- `GET /convert-heic?filename=path` - Convert HEIC to JPEG
-- `GET /api/settings` - Load current settings
-- `POST /api/settings` - Save settings
-- `POST /api/set-folder` - Set folder path from browser dialog
-- `POST /api/process` - Start photo processing
-- `GET /api/events` - Real-time processing updates
-
-## 📊 Performance
-
-- **Processing**: ~1.5ms per photo with parallel processing
-- **Storage**: Efficient SQLite with indexes
-- **Memory**: On-demand generation prevents memory issues
-- **Scalability**: Tested with 10,000+ photos
-- **Binary Size**: ~3-4MB (depends on platform)
-
-## 🗺️ Map Features
-
-### Interactive Clustering
-- **Numbered clusters** show photo counts
-- **Progressive detail** - zoom in to see individual photos
-- **Smart grouping** based on proximity
-
-### Photo Information
-- **Large popups** (700px) for detailed viewing
-- **Shooting date/time** from EXIF data
-- **Full file path** for easy file location
-- **Visible photo counts** - shows photos in current map view
-
-### User Interface
-- **Simplified workflow**: One-click folder selection and processing
-- **Real-time feedback**: Progress indicators and notifications
-- **Automatic updates**: Map refreshes after processing completion
-- **Statistics panel**: Shows total and visible photo counts
-
-## 🖥️ User Experience
-
-### New Simplified Workflow (v3.0)
-
-1. **Launch application** - automatically loads last selected folder
-2. **Click "Обзор"** - opens native folder selection dialog
-3. **Select folder** - processing starts automatically
-4. **View results** - interactive map with clustered photos
-
-### Folder Selection Features
-
-- **Browser native dialogs**: Uses HTML5 File API with webkitdirectory
-- **Cross-platform**: Works on Windows, macOS, Linux without external dependencies
-- **Cancel support**: Properly handles user cancellation
-- **Visual feedback**: Button changes to show current operation
-- **Error handling**: Clear notifications for any issues
-- **Automatic processing**: Starts immediately after folder selection
-
-## 🛠️ Development
-
-### Building
-
-```bash
-cargo build --release    # Optimized build
-cargo run --release      # Run with release optimizations
-```
-
-### Code Organization
-
-The codebase is organized into logical modules:
-- **Database**: All SQLite operations and schema
-- **Server**: HTTP handlers and API logic
-- **Image Processing**: Thumbnail generation and HEIC conversion
-- **EXIF Parsing**: GPS and metadata extraction
-- **HTML Template**: Web interface generation
-- **Folder Picker**: Cross-platform folder selection
-- **Settings**: Configuration management
-
-### Distribution
-
-The application is distributed as a single binary:
-- **Main binary**: `photomap_processor` (~3-4MB)
-- **No external dependencies**: Uses browser native folder selection
 
 ## 📈 Version History
 
-### v0.5.3 (Current) - Single Instance Edition
-- ✅ **Single Instance Enforcement** - Automatically kills existing processes on startup
-- ✅ **Process Management** - Clean termination with SIGTERM followed by SIGKILL if needed
-- ✅ **Better User Experience** - No more port conflicts or multiple instances
-- ✅ **Automatic Cleanup** - Handles gracefully stopping old processes before starting new ones
+### v0.6.1
+- **Refactored Thumbnail Generation**: Now creates high-quality 120x120px JPG thumbnails with white padding for HiDPI/Retina displays.
+- **Fixed HEIC Orientation**: Corrected a bug that caused some HEIC images to be rotated incorrectly.
+- **Embedded Frontend**: The HTML, CSS, and JS are now embedded into the final binary using `rust-embed`.
+- **Cleaned Up UI**: Removed unnecessary console output on startup.
+- **Cleaned Up Documentation**: Removed several outdated markdown files.
 
-### v0.5.2 - Clean Code Edition
-- ✅ **Code Cleanup** - Removed unused dependencies, variables, and configuration fields
-- ✅ **Improved Toggle Button** - Restored intuitive up/down arrows for window collapse
-- ✅ **Reduced Binary Size** - Eliminated unused dependencies (futures-util)
-- ✅ **Simplified Configuration** - Streamlined settings structure to essential fields only
-- ✅ **Cleaner Codebase** - Removed dead code and unused constants for better maintainability
+### v0.6.0
+- **Native HEIC Processing**: Replaced ImageMagick dependency with a pure Rust solution for HEIC processing.
 
-### v0.5.1
-- ✅ **Standard Application Directories** - Configuration and database moved to OS-standard locations
-- ✅ **Clean Project Structure** - No more config/database files in project directory
-- ✅ **Cross-Platform File Storage** - macOS: `~/Library/Application Support/PhotoMap/`
-- ✅ **Production Deployment Ready** - Executable can be moved anywhere without breaking paths
-- ✅ **Windows & Linux Support** - Uses appropriate app directories on all platforms
-
-### v0.5.0
-- ✅ **Floating Info Window** - Replaced flexbox layout with floating window overlay
-- ✅ **Full-screen Map** - Map now takes entire viewport for optimal viewing
-- ✅ **Desktop-style Window** - Classic title bar with minimize/restore functionality
-- ✅ **Fixed Positioning** - Window stays in top-right corner for consistency
-- ✅ **State Persistence** - Window state saved between sessions
-- ✅ **Smooth Animations** - CSS transitions for professional UI experience
-
-### v0.4.4
-- ✅ **Height-based panel toggle** - Changed from width to height collapsing for better UX
-- ✅ **Always-visible toggle button** - Button remains accessible in collapsed state
-- ✅ **Fixed version display** - Updated all UI elements to show correct v0.4.4
-- ✅ **Improved panel layout** - Better visual separation with toggle bar
-
-### v0.4.3
-- ✅ **Simplified folder input** - Replaced webkitdirectory with text input for universal compatibility
-- ✅ **Stable path handling** - Fixed folder path resolution for both terminal and Finder launches
-- ✅ **Universal toggle icon** - Replaced directional arrows with intuitive ↑↓ symbol
-- ✅ **Cross-platform reliability** - Eliminated browser-specific limitations for folder selection
-
-### v0.4.2
-- ✅ **Integer overflow fix** - Resolved statistics calculation panic
-- ✅ **Performance optimization** - Improved processing speed by ~10%
-- ✅ **Code cleanup** - Removed redundant SVG flag hiding logic
-- ✅ **Enhanced stability** - Better error handling for edge cases
-
-### v0.4.1
-- ✅ **Browser native folder selection** - Uses HTML5 File API with webkitdirectory
-- ✅ **Full path display** - Shows complete folder path in input field
-- ✅ **Eliminated external dependencies** - No more folder_dialog_helper needed
-- ✅ **Cross-platform compatibility** - Works on Windows, macOS, Linux without helper programs
-- ✅ **Improved path resolution** - Smart conversion of relative folder names to full paths
-- ✅ **Simplified architecture** - Single binary without external processes
-
-### v0.4.0
-- ✅ SQLite database storage
-- ✅ On-demand marker generation
-- ✅ Subfolder and duplicate filename support
-- ✅ 700px popups with metadata
-- ✅ Modular codebase architecture
-- ✅ Simplified UX with unified folder selection
-- ✅ Cancel button support in folder dialogs
-- ✅ Automatic processing on folder selection
-- ✅ Cross-platform folder selection support
-
-### v2.0
-- ✅ Native HEIC/JPEG parsers
-- ✅ Static HTML/JSON output
-- ✅ Basic clustering support
-
-### v1.0
-- ✅ Basic GPS extraction
-- ✅ Simple map generation
-
-## 🤝 Contributing
-
-Pull requests are welcome! Please ensure:
-
-- Code follows Rust conventions
-- All comments and documentation are in English
-- Tests pass for new features
-- Update documentation for API changes
-
-### Development Guidelines
-Please read [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) for detailed development standards, including:
-- Development workflow and planning process
-- Code review checklist
-- Dependency management principles
-- Testing strategies
-- Documentation standards
-
-### Future Development
-See [ROADMAP.md](ROADMAP.md) for planned features and development priorities:
-- Windows compatibility improvements
-- Performance optimization for large collections
-- Advanced UI features and clustering
-- Cross-platform enhancement strategies
+*(Older version history has been condensed for brevity. See git history for full details.)*
 
 ## 📄 License
 
-MIT License - see LICENSE file for details
-
-## 🆘 Troubleshooting
-
-### HEIC Files Not Processing
-```bash
-# Check if ImageMagick is installed
-magick --version
-# or
-convert --version
-```
-
-### Folder Dialog Issues
-- **All platforms**: Uses browser native HTML5 File API with webkitdirectory
-- **Browser compatibility**: Works in all modern browsers (Chrome, Firefox, Safari, Edge)
-- **Cancel button**: Properly handled in v4.0+
-
-### Performance Issues
-- Ensure sufficient RAM for large photo collections
-- Consider SSD storage for faster database operations
-- Use release builds: `cargo build --release`
-
-### Map Not Loading
-- Check that the server is running on port 3001
-- Verify photos have GPS data in EXIF
-- Check browser console for JavaScript errors
-
-### Binary Size
-- Current size is ~3-4MB for main binary
-- No external dependencies or helper binaries required
-- Optimized for distribution and portability
+MIT License
