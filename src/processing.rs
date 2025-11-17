@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 use crate::database::{Database, PhotoMetadata};
-use crate::exif_parser;
+use crate::exif_parser::{extract_metadata_from_heif_custom, extract_metadata_from_jpeg_custom, get_gps_coord, get_datetime_from_exif};
 
 /// Обрабатывает фотографии и сохраняет метаданные в базу данных
 /// Возвращает статистику обработки: (total_files, processed_count, gps_count, no_gps_count, heic_count)
@@ -173,7 +173,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
     // --- Извлечение GPS и даты ---
     let (lat, lng, datetime) = if is_heif {
         // Пытаемся извлечь метаданные из HEIC
-        match exif_parser::extract_metadata_from_heif_custom(path) {
+        match extract_metadata_from_heif_custom(path) {
             Ok(data) => data,
             Err(e) => {
                 anyhow::bail!("HEIC GPS данные не найдены: {}", e);
@@ -183,7 +183,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
         // Для стандартных форматов используем наши парсеры
         if ext_lower == "jpg" || ext_lower == "jpeg" {
             // Используем наш собственный JPEG парсер
-            match exif_parser::extract_metadata_from_jpeg_custom(path) {
+            match extract_metadata_from_jpeg_custom(path) {
                 Ok(data) => data,
                 Err(e) => {
                     anyhow::bail!("JPEG GPS данные не найдены: {}", e);
@@ -196,14 +196,14 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
             let exifreader = exif::Reader::new();
             let exif = exifreader.read_from_container(&mut bufreader)?;
 
-            let lat = exif_parser::get_gps_coord(&exif, exif::Tag::GPSLatitude, exif::Tag::GPSLatitudeRef)?;
-            let lng = exif_parser::get_gps_coord(&exif, exif::Tag::GPSLongitude, exif::Tag::GPSLongitudeRef)?;
+            let lat = get_gps_coord(&exif, exif::Tag::GPSLatitude, exif::Tag::GPSLatitudeRef)?;
+            let lng = get_gps_coord(&exif, exif::Tag::GPSLongitude, exif::Tag::GPSLongitudeRef)?;
 
             if lat.is_none() || lng.is_none() {
                 anyhow::bail!("GPS-данные не найдены");
             }
 
-            let datetime = exif_parser::get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+            let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
 
             (lat.unwrap(), lng.unwrap(), datetime)
         }
