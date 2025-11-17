@@ -34,7 +34,7 @@ pub async fn get_all_photos(State(state): State<AppState>) -> Result<Json<Vec<Im
 
     let api_photos: Vec<ImageMetadata> = photos.into_iter().map(|photo| {
         let (url, fallback_url) = if photo.is_heic {
-            // Для HEIC файлов основной URL - это конвертированный JPG
+            // For HEIC files, the main URL is the converted JPG
             let jpg_url = format!("/convert-heic?filename={}", photo.relative_path);
             (jpg_url.clone(), jpg_url)
         } else {
@@ -59,7 +59,7 @@ pub async fn get_all_photos(State(state): State<AppState>) -> Result<Json<Vec<Im
     Ok(Json(api_photos))
 }
 
-/// Универсальная функция для обработки изображений (маркеры или превью)
+/// Universal function for image processing (markers or thumbnails)
 pub async fn serve_processed_image(
     State(state): State<AppState>,
     AxumPath(filename): AxumPath<String>,
@@ -101,7 +101,7 @@ pub async fn serve_processed_image(
         .unwrap())
 }
 
-/// Обработчик для маркеров изображений (40x40px)
+/// Handler for image markers (40x40px)
 pub async fn get_marker_image(
     state: State<AppState>,
     filename: AxumPath<String>
@@ -109,7 +109,7 @@ pub async fn get_marker_image(
     serve_processed_image(state, filename, ImageType::Marker).await
 }
 
-/// Обработчик для превью изображений (60x60px)
+/// Handler for image thumbnails (60x60px)
 pub async fn get_thumbnail_image(
     state: State<AppState>,
     filename: AxumPath<String>

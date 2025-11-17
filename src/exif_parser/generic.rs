@@ -3,7 +3,7 @@ use exif::{In, Reader, Tag, Value};
 use std::fs;
 use std::path::Path;
 
-/// Применяет EXIF-ориентацию к изображению
+/// Applies EXIF orientation to the image
 pub fn apply_exif_orientation(source_path: &Path, img: image::DynamicImage) -> Result<image::DynamicImage> {
     let file = match fs::File::open(source_path) {
         Ok(f) => f,
@@ -54,7 +54,7 @@ pub fn get_gps_coord(
                 let s = vec[2].to_f64();
                 let mut decimal = d + (m / 60.0) + (s / 3600.0);
 
-                // Применяем референс (S/W - отрицательные значения)
+                // Apply reference (S/W are negative values)
                 if let Some(ref_val) = ref_val.display_value().to_string().chars().next() {
                     if ref_val == 'S' || ref_val == 'W' {
                         decimal *= -1.0;
@@ -68,15 +68,15 @@ pub fn get_gps_coord(
 }
 
 pub fn get_datetime_from_exif(exif: &exif::Exif) -> Option<String> {
-    // Сначала пробуем стандартный тег DateTimeOriginal (если он есть),
-    // затем пробуем более общий тег DateTime.
+    // First, try the standard DateTimeOriginal tag (if it exists),
+    // then try the more general DateTime tag.
     let try_tags = [Tag::DateTimeOriginal, Tag::DateTime];
 
     for &tag in &try_tags {
         if let Some(field) = exif.get_field(tag, In::PRIMARY) {
             if let exif::Value::Ascii(ref vec) = field.value {
                 if let Some(datetime_str) = vec.first() {
-                    // Формат EXIF обычно: "YYYY:MM:DD HH:MM:SS"
+                    // EXIF format is usually: "YYYY:MM:DD HH:MM:SS"
                     if let Ok(s) = std::str::from_utf8(datetime_str) {
                         let parts: Vec<&str> = s.split(' ').collect();
                         if parts.len() == 2 {
@@ -90,7 +90,7 @@ pub fn get_datetime_from_exif(exif: &exif::Exif) -> Option<String> {
                                 let hour = time_parts[0];
                                 let min = time_parts[1];
 
-                                return Some(format!("Дата съемки: {}.{}.{} {}:{}", day, month, year, hour, min));
+                                return Some(format!("Shooting date: {}.{}.{} {}:{}", day, month, year, hour, min));
                             }
                         }
                     }

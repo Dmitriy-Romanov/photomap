@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use crate::database::{Database, PhotoMetadata};
 use crate::exif_parser::{extract_metadata_from_heif_custom, extract_metadata_from_jpeg_custom, get_gps_coord, get_datetime_from_exif};
 
-/// Обрабатывает фотографии и сохраняет метаданные в базу данных
-/// Возвращает статистику обработки: (total_files, processed_count, gps_count, no_gps_count, heic_count)
+/// Processes photos and saves metadata to the database
+/// Returns processing statistics: (total_files, processed_count, gps_count, no_gps_count, heic_count)
 pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: bool) -> Result<(usize, usize, usize, usize, usize)> {
     if !silent_mode {
         println!("🔍 Scanning photos directory: {}", photos_dir.display());
@@ -137,60 +137,60 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
     Ok((total_files, final_count, gps_count, no_gps_count, heic_count))
 }
 
-/// Упрощенная версия функции для обратной совместимости
+/// Simplified version of the function for backward compatibility
 pub fn process_photos_into_database(db: &Database, photos_dir: &Path) -> Result<()> {
     process_photos_with_stats(db, photos_dir, true)?;
     Ok(())
 }
 
-/// Обрабатывает фотографии из указанной папки и отправляет события о прогрессе
+/// Processes photos from the specified folder and sends progress events
 pub fn process_photos_from_directory(db: &Database, photos_dir: &Path) -> Result<(usize, usize, usize, usize, usize)> {
     println!("🔍 Processing photos from directory: {}", photos_dir.display());
 
-    // Используем новую объединенную функцию, но без silent_mode
+    // Use the new combined function, but without silent_mode
     process_photos_with_stats(db, photos_dir, false)
 }
 
-/// Обрабатывает один файл и сохраняет в базу данных
+/// Processes a single file and saves it to the database
 fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Result<()> {
-    // Проверяем расширение файла, сохраняя его в нижнем регистре для проверок
+    // Check the file extension, saving it in lowercase for checks
     let ext_lower = path
         .extension()
         .and_then(|s| s.to_str())
         .map(|s| s.to_lowercase())
         .unwrap_or_default();
 
-    // Базовый список поддерживаемых форматов
+    // Basic list of supported formats
     let supported_formats = ["jpg", "jpeg", "png", "tiff", "tif", "webp", "bmp", "gif", "heic", "heif", "avif"];
 
     if !supported_formats.contains(&ext_lower.as_str()) {
-        anyhow::bail!("Файл не является поддерживаемым изображением");
+        anyhow::bail!("File is not a supported image");
     }
 
-    // Проверяем, это HEIC или нет, используя версию в нижнем регистре
+    // Check if it's HEIC or not, using the lowercase version
     let is_heif = matches!(ext_lower.as_str(), "heic" | "heif" | "avif");
 
-    // --- Извлечение GPS и даты ---
+    // --- GPS and date extraction ---
     let (lat, lng, datetime) = if is_heif {
-        // Пытаемся извлечь метаданные из HEIC
+        // Try to extract metadata from HEIC
         match extract_metadata_from_heif_custom(path) {
             Ok(data) => data,
             Err(e) => {
-                anyhow::bail!("HEIC GPS данные не найдены: {}", e);
+                anyhow::bail!("HEIC GPS data not found: {}", e);
             }
         }
     } else {
-        // Для стандартных форматов используем наши парсеры
+        // For standard formats, use our parsers
         if ext_lower == "jpg" || ext_lower == "jpeg" {
-            // Используем наш собственный JPEG парсер
+            // Use our own JPEG parser
             match extract_metadata_from_jpeg_custom(path) {
                 Ok(data) => data,
                 Err(e) => {
-                    anyhow::bail!("JPEG GPS данные не найдены: {}", e);
+                    anyhow::bail!("JPEG GPS data not found: {}", e);
                 }
             }
         } else {
-            // Для остальных форматов (PNG, TIFF и т.д.) оставляем старый метод
+            // For other formats (PNG, TIFF, etc.), keep the old method
             let file = fs::File::open(path)?;
             let mut bufreader = std::io::BufReader::new(&file);
             let exifreader = exif::Reader::new();
@@ -200,7 +200,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
             let lng = get_gps_coord(&exif, exif::Tag::GPSLongitude, exif::Tag::GPSLongitudeRef)?;
 
             if lat.is_none() || lng.is_none() {
-                anyhow::bail!("GPS-данные не найдены");
+                anyhow::bail!("GPS data not found");
             }
 
             let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
@@ -209,11 +209,11 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
         }
     };
 
-    // --- Создание записи в базе данных ---
+    // --- Create a database record ---
     let filename = path
         .file_name()
         .and_then(|n| n.to_str())
-        .ok_or_else(|| anyhow::Error::msg("Некорректное имя файла"))?;
+        .ok_or_else(|| anyhow::Error::msg("Invalid file name"))?;
 
     // Generate relative path from photos directory
     let relative_path = path
@@ -231,7 +231,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
         is_heic: is_heif,
     };
 
-    // Сохраняем в базу данных
+    // Save to the database
     db.insert_photo(&photo_metadata)?;
 
     Ok(())
