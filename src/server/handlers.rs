@@ -17,6 +17,7 @@ use rust_embed::RustEmbed;
 #[derive(RustEmbed)]
 #[folder = "frontend/"]
 struct Asset;
+use crate::processing::{process_photos_from_directory, process_photos_into_database};
 use crate::settings::Settings;
 use tokio::sync::mpsc;
 
@@ -277,7 +278,7 @@ pub async fn reprocess_photos(
     // Start processing in background task
     tokio::spawn(async move {
         // Use the synchronous processing function
-        if let Err(e) = crate::process_photos_into_database(&db, &photos_dir) {
+        if let Err(e) = process_photos_into_database(&db, &photos_dir) {
             eprintln!("Processing error: {}", e);
 
             // Send error event
@@ -324,7 +325,7 @@ pub async fn start_processing(
     // Start processing in background task
     tokio::spawn(async move {
         // Use the new processing function that works with selected directory
-        match crate::process_photos_from_directory(&db, &photos_dir) {
+        match process_photos_from_directory(&db, &photos_dir) {
             Ok((total_files, processed_count, gps_count, no_gps_count, heic_count)) => {
                 // Send completion event
                 let completion_event = ProcessingEvent {
