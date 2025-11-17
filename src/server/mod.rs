@@ -14,9 +14,9 @@ pub mod state;
 
 use self::state::AppState;
 use handlers::{
-    convert_heic, get_all_photos, get_marker_image, get_settings, get_thumbnail_image,
-    index_html, processing_events_stream, reprocess_photos, script_js, serve_photo, set_folder,
-    start_processing, style_css, update_settings,
+    convert_heic, get_all_photos, get_marker_image, get_popup_image, get_settings,
+    get_thumbnail_image, index_html, processing_events_stream, reprocess_photos, script_js,
+    serve_photo, set_folder, start_processing, style_css, update_settings,
 };
 
 // Create the main application router
@@ -28,6 +28,7 @@ async fn create_app(state: AppState) -> Router {
         .route("/api/photos", get(get_all_photos))
         .route("/api/marker/*filename", get(get_marker_image))
         .route("/api/thumbnail/*filename", get(get_thumbnail_image))
+        .route("/api/popup/*filename", get(get_popup_image))
         .route("/convert-heic", get(convert_heic))
         .route("/api/settings", get(get_settings))
         .route("/api/set-folder", post(set_folder))

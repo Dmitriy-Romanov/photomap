@@ -38,7 +38,7 @@ pub async fn get_all_photos(State(state): State<AppState>) -> Result<Json<Vec<Im
             let jpg_url = format!("/convert-heic?filename={}", photo.relative_path);
             (jpg_url.clone(), jpg_url)
         } else {
-            let photo_url = format!("/photos/{}", photo.relative_path);
+            let photo_url = format!("/api/popup/{}", photo.relative_path);
             (photo_url.clone(), photo_url)
         };
 
@@ -117,12 +117,20 @@ pub async fn get_thumbnail_image(
     serve_processed_image(state, filename, ImageType::Thumbnail).await
 }
 
+/// Handler for popup images (700px)
+pub async fn get_popup_image(
+    state: State<AppState>,
+    filename: AxumPath<String>
+) -> Result<Response, StatusCode> {
+    serve_processed_image(state, filename, ImageType::Popup).await
+}
+
 pub async fn convert_heic(
     State(state): State<AppState>,
     Query(query_params): Query<HashMap<String, String>>
 ) -> Result<Response, StatusCode> {
     let filename = query_params.get("filename").ok_or(StatusCode::BAD_REQUEST)?;
-    let default_size = "full".to_string();
+    let default_size = "popup".to_string();
     let size_param = query_params.get("size").unwrap_or(&default_size);
 
     // Get full file path from database
