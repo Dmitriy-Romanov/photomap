@@ -13,13 +13,13 @@ mod image_processing;
 mod exif_parser;
 
 mod settings;
-mod server;
+pub mod server;
 mod process_manager;
 mod utils;
 
 use database::{Database, PhotoMetadata};
 use libheif_rs::integration::image::register_all_decoding_hooks;
-use server::AppState;
+use server::state::AppState;
 use settings::Settings;
 
 
