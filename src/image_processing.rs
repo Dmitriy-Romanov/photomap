@@ -1,10 +1,46 @@
 use anyhow::{Context, Result};
-use std::io::Cursor;
+
 use std::path::{Path, PathBuf};
-use image::ImageReader;
-use image::GenericImageView;
+use image::{DynamicImage, GenericImageView, ImageReader};
 use crate::database::PhotoMetadata;
 use crate::constants::*;
+
+/// Создает квадратную JPG миниатюру с белым фоном из уже загруженного изображения
+fn create_padded_thumbnail(img: DynamicImage, size: u32) -> Result<Vec<u8>> {
+    // Создаем квадратное изображение с БЕЛЫМ фоном
+    let mut canvas = image::RgbImage::from_fn(size, size, |_, _| {
+        image::Rgb([255, 255, 255]) // Белый фон
+    });
+
+    // Масштабируем изображение с сохранением пропорций
+    let scaled = img.resize(size, size, image::imageops::FilterType::Lanczos3);
+
+    // Получаем размеры и вычисляем позицию для центрирования
+    let (width, height) = scaled.dimensions();
+    let x_offset = (size - width) / 2;
+    let y_offset = (size - height) / 2;
+
+    // Копируем масштабированное изображение в центр
+    image::imageops::overlay(&mut canvas, &scaled.to_rgb8(), x_offset as i64, y_offset as i64);
+
+    // Кодируем в JPEG с помощью turbojpeg
+    let jpeg_data = turbojpeg::compress_image(&canvas, 85, turbojpeg::Subsamp::None)
+        .with_context(|| "Не удалось сжать изображение с помощью turbojpeg")?;
+
+    Ok(jpeg_data.to_vec())
+}
+
+pub fn create_scaled_image_in_memory(source_path: &Path, image_type: ImageType) -> Result<Vec<u8>> {
+    let size = image_type.size();
+
+    let mut img = image::open(source_path)
+        .with_context(|| format!("Не удалось открыть изображение: {:?}", source_path))?;
+
+    // Применяем EXIF-ориентацию
+    img = crate::exif_parser::apply_exif_orientation(source_path, img)?;
+
+    create_padded_thumbnail(img, size)
+}
 
 /// Типы изображений для обработки
 #[derive(Debug, Clone, Copy)]
@@ -29,43 +65,6 @@ impl ImageType {
             ImageType::Thumbnail => "thumbnail",
         }
     }
-}
-
-/// Создает масштабированное изображение с прозрачным фоном в памяти
-pub fn create_scaled_image_in_memory(source_path: &Path, image_type: ImageType) -> Result<Vec<u8>> {
-    let size = image_type.size();
-
-    let mut img = image::open(source_path)
-        .with_context(|| format!("Не удалось открыть изображение: {:?}", source_path))?;
-
-    // Применяем EXIF-ориентацию
-    img = crate::exif_parser::apply_exif_orientation(source_path, img)?;
-
-    // Создаем квадратное изображение с ПРОЗРАЧНЫМ фоном
-    let mut canvas = image::RgbaImage::from_fn(size, size, |_, _| {
-        image::Rgba([0, 0, 0, 0]) // Полностью прозрачный фон
-    });
-
-    // Масштабируем изображение с сохранением пропорций
-    let scaled = img.resize(size, size, image::imageops::FilterType::Lanczos3);
-
-    // Получаем размеры и вычисляем позицию для центрирования
-    let (width, height) = scaled.dimensions();
-    let x_offset = (size - width as u32) / 2;
-    let y_offset = (size - height as u32) / 2;
-
-    // Копируем масштабированное изображение в центр
-    image::imageops::overlay(&mut canvas, &scaled.to_rgba8(), x_offset as i64, y_offset as i64);
-
-    // Конвертируем в PNG в память
-    let final_img = image::DynamicImage::ImageRgba8(canvas);
-    let mut buffer = Vec::new();
-    {
-        let mut cursor = Cursor::new(&mut buffer);
-        final_img.write_to(&mut cursor, image::ImageFormat::Png)?;
-    }
-
-    Ok(buffer)
 }
 
 /// Конвертирует HEIC файл в JPEG с указанными размерами, используя нативный код
@@ -116,20 +115,12 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
         .decode()
         .with_context(|| format!("Не удалось декодировать изображение: {:?}", &path_to_decode))?;
 
-    // Масштабируем изображение с сохранением пропорций
-    let thumbnail = img.thumbnail(max_dimension, max_dimension);
-    let rgb_image = thumbnail.to_rgb8();
-
-    // Кодируем в JPEG с помощью turbojpeg
-    let jpeg_data = turbojpeg::compress_image(&rgb_image, 85, turbojpeg::Subsamp::None)
-        .with_context(|| "Не удалось сжать изображение с помощью turbojpeg")?;
-
     // Удаляем временную симлинк, если она была создана
     if let Some(symlink) = temp_symlink_path {
         let _ = std::fs::remove_file(&symlink);
     }
 
-    Ok(jpeg_data.to_vec())
+    create_padded_thumbnail(img, max_dimension)
 }
 
 /// Конвертирует HEIC файл в JPEG с указанными размерами

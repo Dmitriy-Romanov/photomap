@@ -123,7 +123,7 @@ async fn serve_processed_image(
     }
 
     // Generate image on-demand for non-HEIC files
-    let png_data = create_scaled_image_in_memory(std::path::Path::new(&photo.file_path), image_type)
+    let jpeg_data = create_scaled_image_in_memory(std::path::Path::new(&photo.file_path), image_type)
         .map_err(|e| {
             eprintln!("Failed to create {:?} for {}: {}", image_type, filename, e);
             StatusCode::INTERNAL_SERVER_ERROR
@@ -131,9 +131,9 @@ async fn serve_processed_image(
 
     Ok(Response::builder()
         .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "image/png")
+        .header(header::CONTENT_TYPE, "image/jpeg")
         .header(header::CACHE_CONTROL, "public, max-age=3600")
-        .body(png_data.into())
+        .body(jpeg_data.into())
         .unwrap())
 }
 
@@ -519,16 +519,8 @@ async fn start_server_with_port(state: AppState, port: u16) -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = TcpListener::bind(addr).await?;
 
-    println!("   ✅ HTTP server started successfully");
-    println!("   🗺️  API endpoints available:");
-    println!("      - GET /api/photos - List all photos with GPS data");
-    println!("      - GET /api/marker/<filename> - Generate 40x40px marker icon");
-    println!("      - GET /api/thumbnail/<filename> - Generate 60x60px thumbnail");
-    println!("      - GET /convert-heic?filename=<name> - Convert HEIC to JPEG");
-    println!("      - GET/POST /api/settings - Load/save application settings");
-    println!("      - GET /api/events - Real-time processing updates (SSE)");
-    println!("      - POST /api/process - Start photo processing with SSE updates");
-    println!("   🎯 Features: 700px popups + HEIC support + folder selection + real-time processing");
+    println!("   ✅ HTTP server started successfully at http://127.0.0.1:{}", port);
+
 
     axum::serve(listener, app).await?;
     Ok(())

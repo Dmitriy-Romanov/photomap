@@ -256,7 +256,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🗺️  PhotoMap Processor v0.6.0 - Enhanced UI Edition starting...");
+    println!("🗺️  PhotoMap Processor v0.6.1 - Enhanced UI Edition starting...");
 
     // Register HEIC/HEIF decoder
     register_all_decoding_hooks();
