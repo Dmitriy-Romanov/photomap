@@ -332,11 +332,11 @@ pub async fn start_processing(
 
     // Start processing in background task
     tokio::spawn(async move {
-        // Use the new processing function that works with selected directory
-        match process_photos_from_directory(&db, &photos_dir) {
+        let result = process_photos_from_directory(&db, &photos_dir);
+
+        let completion_event = match result {
             Ok((total_files, processed_count, gps_count, no_gps_count, heic_count)) => {
-                // Send completion event
-                let completion_event = ProcessingEvent {
+                ProcessingEvent {
                     event_type: "processing_complete".to_string(),
                     data: ProcessingData {
                         total_files: Some(total_files),
@@ -345,28 +345,25 @@ pub async fn start_processing(
                         no_gps: Some(no_gps_count),
                         heic_files: Some(heic_count),
                         skipped: Some(total_files - processed_count),
-                        message: Some(format!("Обработка завершена! Обработано {} фотографий из {}", processed_count, total_files)),
+                        message: Some(format!("Processing finished! Processed {} photos out of {}", processed_count, total_files)),
                         phase: Some("completed".to_string()),
                         ..Default::default()
                     },
-                };
-                let _ = event_sender.send(completion_event);
+                }
             }
             Err(e) => {
                 eprintln!("Processing error: {}", e);
-
-                // Send error event
-                let error_event = ProcessingEvent {
+                ProcessingEvent {
                     event_type: "processing_error".to_string(),
                     data: ProcessingData {
                         message: Some(format!("Processing failed: {}", e)),
                         phase: Some("error".to_string()),
                         ..Default::default()
                     },
-                };
-                let _ = event_sender.send(error_event);
+                }
             }
-        }
+        };
+        let _ = event_sender.send(completion_event);
     });
 
     let response = serde_json::json!({
