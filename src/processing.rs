@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 use crate::database::{Database, PhotoMetadata};
-use crate::exif_parser::{extract_metadata_from_heif_custom, extract_metadata_from_jpeg_custom, get_gps_coord, get_datetime_from_exif};
+use crate::exif_parser::{extract_metadata_from_heic, extract_metadata_from_jpeg, get_gps_coord, get_datetime_from_exif};
 
 /// Processes photos and saves metadata to the database
 /// Returns processing statistics: (total_files, processed_count, gps_count, no_gps_count, heic_count)
@@ -173,7 +173,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
     // --- GPS and date extraction ---
     let (lat, lng, datetime) = if is_heif {
         // Try to extract metadata from HEIC
-        match extract_metadata_from_heif_custom(path) {
+        match extract_metadata_from_heic(path) {
             Ok(data) => data,
             Err(e) => {
                 anyhow::bail!("HEIC GPS data not found: {}", e);
@@ -183,7 +183,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
         // For standard formats, use our parsers
         if ext_lower == "jpg" || ext_lower == "jpeg" {
             // Use our own JPEG parser
-            match extract_metadata_from_jpeg_custom(path) {
+            match extract_metadata_from_jpeg(path) {
                 Ok(data) => data,
                 Err(e) => {
                     anyhow::bail!("JPEG GPS data not found: {}", e);
