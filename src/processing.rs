@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 use crate::database::{Database, PhotoMetadata};
 use crate::exif_parser::{extract_metadata_from_heic, extract_metadata_from_jpeg, get_gps_coord, get_datetime_from_exif};
-use tracing::{info, error};
+use tracing::{info, error, warn};
 
 /// Processes photos and saves metadata to the database
 /// Returns processing statistics: (total_files, processed_count, gps_count, no_gps_count, heic_count)
@@ -81,6 +81,9 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
                 }
 
                 let result = process_file_to_database(&path, db, photos_dir);
+                if let Err(e) = &result {
+                    warn!("Failed to process file {}: {}", path.display(), e);
+                }
                 acc.0.push(result); // Collect the processing result
                 acc
             },
