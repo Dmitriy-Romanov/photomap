@@ -11,15 +11,13 @@ pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, Option<DateT
     let primary_image_handle = ctx.primary_image_handle()
         .map_err(|e| anyhow::anyhow!("Failed to get primary image handle: {}", e))?;
 
-    // Pre-allocate a vector to store the metadata block IDs.
-    let mut metadata_ids = Vec::with_capacity(5);
-    let count = primary_image_handle.metadata_block_ids(&mut metadata_ids, b"Exif");
+    let metadata_ids = primary_image_handle.metadata_block_ids(b"Exif");
 
-    if count == 0 {
+    if metadata_ids.is_empty() {
         bail!("No Exif metadata found in HEIF file");
     }
 
-    for id in metadata_ids.iter().take(count) {
+    for id in metadata_ids {
         let exif_data = primary_image_handle.metadata(*id)
             .map_err(|e| anyhow::anyhow!("Failed to get metadata for ID {}: {}", id, e))?;
 
