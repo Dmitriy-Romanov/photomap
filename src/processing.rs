@@ -8,7 +8,7 @@ use crate::exif_parser::{extract_metadata_from_heic, extract_metadata_from_jpeg,
 
 /// Processes photos and saves metadata to the database
 /// Returns processing statistics: (total_files, processed_count, gps_count, no_gps_count, heic_count)
-pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: bool) -> Result<(usize, usize, usize, usize, usize)> {
+pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: bool, clear_database: bool) -> Result<(usize, usize, usize, usize, usize)> {
     if !silent_mode {
         println!("🔍 Scanning photos directory: {}", photos_dir.display());
     }
@@ -24,12 +24,14 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
     }
 
     // Clear existing photos from database before processing new folder
-    if !silent_mode {
-        println!("🗑️  Clearing existing photos from database...");
-    }
-    db.clear_all_photos()?;
-    if !silent_mode {
-        println!("✅ Database cleared successfully");
+    if clear_database {
+        if !silent_mode {
+            println!("🗑️  Clearing existing photos from database...");
+        }
+        db.clear_all_photos()?;
+        if !silent_mode {
+            println!("✅ Database cleared successfully");
+        }
     }
 
     // Create walker for photos directory only
@@ -139,7 +141,7 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
 
 /// Simplified version of the function for backward compatibility
 pub fn process_photos_into_database(db: &Database, photos_dir: &Path) -> Result<()> {
-    process_photos_with_stats(db, photos_dir, true)?;
+    process_photos_with_stats(db, photos_dir, true, true)?;
     Ok(())
 }
 
@@ -148,7 +150,7 @@ pub fn process_photos_from_directory(db: &Database, photos_dir: &Path) -> Result
     println!("🔍 Processing photos from directory: {}", photos_dir.display());
 
     // Use the new combined function, but without silent_mode
-    process_photos_with_stats(db, photos_dir, false)
+    process_photos_with_stats(db, photos_dir, false, true)
 }
 
 /// Processes a single file and saves it to the database
