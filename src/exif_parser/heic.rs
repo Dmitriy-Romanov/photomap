@@ -3,6 +3,7 @@ use exif::Tag;
 use std::path::Path;
 use super::generic::{get_gps_coord, get_datetime_from_exif};
 use chrono::{DateTime, Utc};
+use libheif_rs::ItemId;
 
 pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, Option<DateTime<Utc>>)> {
     let ctx = libheif_rs::HeifContext::read_from_file(path.to_str().unwrap())
@@ -11,13 +12,15 @@ pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, Option<DateT
     let primary_image_handle = ctx.primary_image_handle()
         .map_err(|e| anyhow::anyhow!("Failed to get primary image handle: {}", e))?;
 
-    let metadata_ids = primary_image_handle.metadata_block_ids(b"Exif");
+    // Corrected usage for metadata_block_ids based on compiler's implied signature
+    let mut metadata_ids_buffer: [ItemId; 10] = [0; 10]; // Pre-allocate a buffer for up to 10 ItemIds
+    let count = primary_image_handle.metadata_block_ids(&mut metadata_ids_buffer[..], b"Exif");
 
-    if metadata_ids.is_empty() {
+    if count == 0 {
         bail!("No Exif metadata found in HEIF file");
     }
 
-    for id in metadata_ids {
+    for id in metadata_ids_buffer.iter().take(count) {
         let exif_data = primary_image_handle.metadata(*id)
             .map_err(|e| anyhow::anyhow!("Failed to get metadata for ID {}: {}", id, e))?;
 
