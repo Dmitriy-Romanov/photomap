@@ -5,8 +5,6 @@ use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::Layer;
-use chrono::Local;
 
 // Import modules
 mod constants;

@@ -2,11 +2,10 @@ use anyhow::Result;
 use ignore::Walk;
 use rayon::prelude::*;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use crate::database::{Database, PhotoMetadata};
 use crate::exif_parser::{extract_metadata_from_heic, extract_metadata_from_jpeg, get_gps_coord, get_datetime_from_exif};
-use chrono::{Utc, DateTime};
-use tracing::{info, warn, error};
+use tracing::{info, error};
 
 /// Processes photos and saves metadata to the database
 /// Returns processing statistics: (total_files, processed_count, gps_count, no_gps_count, heic_count)
@@ -46,7 +45,7 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
         info!("📊 Starting parallel processing of files...");
     }
 
-    let (processed_photos, total_files, heic_count) = walker
+    let reduction_result = walker
         .into_iter()
         .filter_map(|entry| entry.ok())
         .filter(|e| {
@@ -96,10 +95,10 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
             },
         );
 
-    // Count successful results by checking each result
-    let successful_count = processed_photos.0.iter().filter(|r| r.is_ok()).count();
+    let (processed_results, total_files, heic_count) = reduction_result;
 
-    let (processed_results, total_files, heic_count) = processed_photos;
+    // Count successful results by checking each result
+    let successful_count = processed_results.iter().filter(|r| r.is_ok()).count();
 
     let processing_time = start_time.elapsed();
     let processing_secs = processing_time.as_secs_f64();
