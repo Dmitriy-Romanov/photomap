@@ -1,3 +1,4 @@
+use chrono::{NaiveDateTime, Utc, DateTime};
 use anyhow::Result;
 use exif::{In, Reader, Tag, Value};
 use std::fs;
@@ -67,31 +68,21 @@ pub fn get_gps_coord(
     Ok(None)
 }
 
-pub fn get_datetime_from_exif(exif: &exif::Exif) -> Option<String> {
-    // First, try the standard DateTimeOriginal tag (if it exists),
-    // then try the more general DateTime tag.
+pub fn get_datetime_from_exif(exif: &exif::Exif) -> Option<DateTime<Utc>> {
     let try_tags = [Tag::DateTimeOriginal, Tag::DateTime];
 
     for &tag in &try_tags {
         if let Some(field) = exif.get_field(tag, In::PRIMARY) {
             if let exif::Value::Ascii(ref vec) = field.value {
-                if let Some(datetime_str) = vec.first() {
-                    // EXIF format is usually: "YYYY:MM:DD HH:MM:SS"
-                    if let Ok(s) = std::str::from_utf8(datetime_str) {
-                        let parts: Vec<&str> = s.split(' ').collect();
-                        if parts.len() == 2 {
-                            let date_parts: Vec<&str> = parts[0].split(':').collect();
-                            let time_parts: Vec<&str> = parts[1].split(':').collect();
+                if let Some(datetime_bytes) = vec.first() {
+                    if let Ok(s) = std::str::from_utf8(datetime_bytes) {
+                        // EXIF format is usually: "YYYY:MM:DD HH:MM:SS"
+                        let s = s.replace(" ", "T"); // Convert to "YYYY:MM:DDTHH:MM:SS"
+                        let s = s.replace(":", "-", 2); // Convert to "YYYY-MM-DDTHH:MM:SS"
 
-                            if date_parts.len() == 3 && time_parts.len() >= 2 {
-                                let year = date_parts[0];
-                                let month = date_parts[1];
-                                let day = date_parts[2];
-                                let hour = time_parts[0];
-                                let min = time_parts[1];
-
-                                return Some(format!("Shooting date: {}.{}.{} {}:{}", day, month, year, hour, min));
-                            }
+                        // Parse with NaiveDateTime first, then make it Utc
+                        if let Ok(naive_datetime) = NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S") {
+                            return Some(DateTime::<Utc>::from_naive_utc_and_offset(naive_datetime, Utc));
                         }
                     }
                 }

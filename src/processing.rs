@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use crate::database::{Database, PhotoMetadata};
 use crate::exif_parser::{extract_metadata_from_heic, extract_metadata_from_jpeg, get_gps_coord, get_datetime_from_exif};
+use chrono::{Utc, DateTime};
 
 /// Processes photos and saves metadata to the database
 /// Returns processing statistics: (total_files, processed_count, gps_count, no_gps_count, heic_count)
@@ -208,7 +209,10 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
                 anyhow::bail!("GPS data not found");
             }
 
-            let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Дата неизвестна".to_string());
+            let datetime_utc = get_datetime_from_exif(&exif);
+            let datetime = datetime_utc
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+                .unwrap_or_else(|| "Unknown Date".to_string());
 
             (lat.unwrap(), lng.unwrap(), datetime)
         }
