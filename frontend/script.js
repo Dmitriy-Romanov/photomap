@@ -361,7 +361,44 @@ async function processFolder() {
 
         showNotification(`✅ Folder set: ${folderPath}`, 'success');
 
-        // Step 2: Start processing
+        // Step 2: Start processing and listen for SSE events
+        const eventSource = new EventSource('/api/events');
+
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.event_type === 'processing_complete') {
+                eventSource.close();
+                statusDiv.style.display = 'none';
+                processButton.disabled = false;
+                processButton.textContent = '🚀 Process Photos';
+                loadPhotos().then(() => {
+                    initializeYearControls(); // Re-initialize year controls with new data
+                }); // Refresh map
+                updateStatistics();
+                showNotification(`🎉 Processing completed! Found ${data.data.processed || 0} photos`, 'success');
+            } else if (data.event_type === 'processing_error') {
+                eventSource.close();
+                statusDiv.style.display = 'none';
+                processButton.disabled = false;
+                processButton.textContent = '🚀 Process Photos';
+                showNotification(`❌ Error: ${data.data.message}`, 'error');
+            } else {
+                // Handle other events like progress updates
+                statusText.textContent = data.data.message || 'Processing...';
+                if (data.data.total_files && data.data.processed) {
+                    progressText.textContent = `${data.data.processed} / ${data.data.total_files}`;
+                }
+            }
+        };
+
+        eventSource.onerror = function() {
+            eventSource.close();
+            statusDiv.style.display = 'none';
+            processButton.disabled = false;
+            processButton.textContent = '🚀 Process Photos';
+            showNotification('❌ Error connecting to the server for updates.', 'error');
+        };
+
         const processResponse = await fetch('/api/process', {
             method: 'POST',
             headers: {
@@ -371,33 +408,11 @@ async function processFolder() {
 
         const processResult = await processResponse.json();
 
-        if (processResult.status === 'started') {
-            showNotification('✅ Processing started: ' + folderPath, 'success');
-
-            // Check for completion periodically
-            const checkCompletion = setInterval(async () => {
-                try {
-                    const photosResponse = await fetch('/api/photos');
-                    const photos = await photosResponse.json();
-
-                    if (photos.length > 0) {
-                        clearInterval(checkCompletion);
-                        statusDiv.style.display = 'none';
-                        processButton.disabled = false;
-                        processButton.textContent = '🚀 Process Photos';
-                        loadPhotos().then(() => {
-                            initializeYearControls(); // Re-initialize year controls with new data
-                        }); // Refresh map
-                        updateStatistics();
-                        showNotification(`🎉 Processing completed! Found ${photos.length} photos`, 'success');
-                    }
-                } catch (error) {
-                    console.error('Error checking completion:', error);
-                }
-            }, 1000);
-        } else {
+        if (processResult.status !== 'started') {
             throw new Error(processResult.message || 'Error starting processing');
         }
+
+        showNotification('✅ Processing started: ' + folderPath, 'success');
 
     } catch (error) {
         // Handle errors
