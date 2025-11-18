@@ -1,8 +1,14 @@
 use anyhow::{Context, Result};
+use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tracing::{info, warn, error};
-use tracing_subscriber;
+use tracing_subscriber::{self, Layer};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::prelude::*;
+use chrono;
+use chrono;
 
 // Import modules
 mod constants;
@@ -23,8 +29,30 @@ use settings::Settings;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
-    info!("🗺️  PhotoMap Processor v0.6.2 - Enhanced UI Edition starting...");
+    // === Setup Logging ===
+    let log_dir = "log";
+    fs::create_dir_all(log_dir).context("Failed to create log directory")?;
+    let file_appender = tracing_appender::rolling::daily(log_dir, "photomap.log");
+    let (non_blocking_file, _guard) = tracing_appender::non_blocking(file_appender);
+
+    let file_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(false) // No colors in log file
+        .with_writer(non_blocking_file);
+
+    let console_layer = tracing_subscriber::fmt::layer()
+        .with_writer(std::io::stdout);
+
+    tracing_subscriber::registry()
+        .with(console_layer)
+        .with(file_layer)
+        .init();
+
+    // === Log Session Start ===
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+    info!("---");
+    info!("🚀 Старт сессии: PhotoMap Processor v{}", VERSION);
+    info!("🕒 Время запуска: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
+    info!("---");
 
     // Register HEIC/HEIF decoder
     register_all_decoding_hooks();
@@ -42,7 +70,7 @@ async fn main() -> Result<()> {
 
     // Don't process photos here anymore - handled later with settings
 
-    info!("\n🎉 Phase 3 implementation ready!");
+    info!("🎉 Phase 3 implementation ready!");
     info!("   📊 {} photos with GPS data in database", db.get_photos_count()?);
     info!("   🚀 Starting HTTP server for on-demand marker generation");
 
@@ -57,14 +85,14 @@ async fn main() -> Result<()> {
         if let Some(ref folder_path) = settings_guard.last_folder {
             let photos_path = Path::new(folder_path);
             if photos_path.exists() {
-                info!("\n🚀 Processing photos from saved folder: {}", folder_path);
+                info!("🚀 Processing photos from saved folder: {}", folder_path);
                 processing::process_photos_into_database(&db, photos_path)?;
             } else {
-                warn!("\n⚠️  Saved folder not found: {}", folder_path);
+                warn!("⚠️  Saved folder not found: {}", folder_path);
                 warn!("   Please select a folder using the web interface");
             }
         } else {
-            warn!("\n⚠️  No saved folder found");
+            warn!("⚠️  No saved folder found");
             warn!("   Please select a folder using the web interface");
         }
     } // Release the lock
