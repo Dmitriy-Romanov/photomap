@@ -3,7 +3,6 @@ use exif::Tag;
 use std::path::Path;
 use super::generic::{get_gps_coord, get_datetime_from_exif};
 use chrono::{DateTime, Utc};
-use libheif_rs::ItemId;
 
 pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, Option<DateTime<Utc>>)> {
     let ctx = libheif_rs::HeifContext::read_from_file(path.to_str().unwrap())
