@@ -30,6 +30,8 @@ photomap/
 │   ├── index.html
 │   ├── script.js
 │   └── style.css
+├── log/
+│   └── photomap.log
 ├── Cargo.toml
 └── ...
 ```
@@ -82,8 +84,8 @@ photomap/
 
 *   **Purpose:** Extracts EXIF metadata from various image formats.
 *   **`mod.rs`:** The root of the `exif_parser` module. Declares and exports functions from the sub-modules.
-*   **`heic.rs`:** Contains `extract_metadata_from_heif_custom` for parsing HEIC files.
-*   **`jpeg.rs`:** Contains `extract_metadata_from_jpeg_custom` for parsing JPEG files.
+*   **`heic.rs`:** Contains `extract_metadata_from_heic` for parsing HEIC files using the `libheif-rs` library.
+*   **`jpeg.rs`:** Contains `extract_metadata_from_jpeg` for parsing JPEG files using the `kamadak-exif` library.
 *   **`generic.rs`:** Contains generic EXIF parsing functions like `get_gps_coord` and `get_datetime_from_exif`, and `apply_exif_orientation`.
 
 ### `image_processing.rs`

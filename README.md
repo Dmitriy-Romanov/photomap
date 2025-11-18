@@ -1,20 +1,14 @@
-# PhotoMap Processor v0.6.1
+# PhotoMap Processor v0.6.3
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Features
+## ✨ Key Technical Improvements (v0.6.2 -> v0.6.3)
 
-- **SQLite Database Storage**: Scalable storage for thousands of photos.
-- **On-demand Generation**: No static thumbnail files are created; markers are generated as needed.
-- **Native HEIC Support**: Full HEIC/HEIF support using a native Rust solution (no ImageMagick required).
-- **Embedded Frontend**: The entire web interface is embedded in the binary for a true single-file executable.
-- **Interactive Clustering**: Smart photo clustering with numbered markers.
-- **Subfolder Support**: Handles duplicate filenames from different cameras.
-- **700px Popups**: Large, detailed photo previews with metadata.
-- **Real-time Processing**: Parallel processing for fast performance.
-- **Simplified UX**: One-click folder selection and processing.
-- **Cross-platform**: Works on Windows, macOS, and Linux.
-- **Auto-restart**: Automatically processes the last selected folder on startup.
+This version includes a major internal refactoring to improve robustness, scalability, and maintainability.
+
+- **Robust Metadata Parsers**: Replaced fragile, custom-built EXIF parsers with professional, standard libraries (`kamadak-exif` and `libheif-rs`), significantly increasing reliability.
+- **Scalable File Processing**: The file processing engine was rewritten to use a memory-efficient iterator-based approach. The application can now smoothly process virtually unlimited numbers of photos without high memory usage.
+- **Professional Logging**: Implemented the `tracing` framework for structured, configurable logging. All output is now sent to both the console and a daily rotating log file located in the `log/` directory.
 
 ## 🚀 Quick Start
 
@@ -47,20 +41,32 @@ photomap/
 ├── src/                 # Rust source code
 │   ├── main.rs          # Application entry point
 │   ├── database.rs      # SQLite database operations
-│   ├── server.rs        # HTTP API endpoints
-│   ├── image_processing.rs # Image processing & thumbnail generation
-│   ├── exif_parser.rs   # EXIF data extraction
-│   ├── settings.rs      # Configuration management
+│   ├── processing.rs    # Core photo processing logic
+│   ├── image_processing.rs # Image manipulation
+│   ├── server/          # HTTP Server (Axum)
+│   │   ├── mod.rs
+│   │   ├── handlers.rs
+│   │   └── ...
+│   ├── exif_parser/     # EXIF metadata extraction
+│   │   ├── mod.rs
+│   │   ├── heic.rs
+│   │   └── jpeg.rs
 │   └── ...
 ├── frontend/            # Embedded web interface files
-│   ├── index.html
-│   ├── style.css
-│   └── script.js
+├── log/                 # Log files (git-ignored)
 ├── photos/              # Your photo collection (git-ignored)
 └── README.md
 ```
 
 ## 📈 Version History
+
+### v0.6.3
+- **Major Refactoring**: Implemented robust EXIF parsers, a scalable file processing engine, and a professional logging framework (`tracing`). See "Key Technical Improvements".
+- **Bug Fixes**: Resolved compilation issues and a regression where certain HEIC files were not processed correctly.
+- **Documentation**: Updated `PROJECT_MAP.md` and `README.md` to reflect the current architecture.
+
+### v0.6.2
+- **Enhanced UI Edition**: No specific code changes, version bump for context.
 
 ### v0.6.1
 - **Refactored Thumbnail Generation**: Now creates high-quality 120x120px JPG thumbnails with white padding for HiDPI/Retina displays.
@@ -68,9 +74,6 @@ photomap/
 - **Embedded Frontend**: The HTML, CSS, and JS are now embedded into the final binary using `rust-embed`.
 - **Cleaned Up UI**: Removed unnecessary console output on startup.
 - **Cleaned Up Documentation**: Removed several outdated markdown files.
-
-### v0.6.0
-- **Native HEIC Processing**: Replaced ImageMagick dependency with a pure Rust solution for HEIC processing.
 
 *(Older version history has been condensed for brevity. See git history for full details.)*
 
