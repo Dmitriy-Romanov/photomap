@@ -3,47 +3,46 @@ use exif::Tag;
 use std::path::Path;
 use super::generic::{get_gps_coord, get_datetime_from_exif};
 
-// Native HEIC parser without external libraries
-pub fn extract_metadata_from_heif_custom(path: &Path) -> Result<(f64, f64, String)> {
-    let data = std::fs::read(path)?;
+use anyhow::{Result, bail};
+use exif::Tag;
+use std::path::Path;
+use super::generic::{get_gps_coord, get_datetime_from_exif};
 
-    // Search for the beginning of EXIF data in the HEIC file
-    // EXIF is usually stored after the "Exif" marker
-    let mut exif_start = None;
+pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, String)> {
+    let ctx = libheif_rs::HeifContext::read_from_file(path.to_str().unwrap())
+        .map_err(|e| anyhow::anyhow!("Failed to read HEIF context: {}", e))?;
 
-    // Search for the "Exif" byte sequence in the file
-    for i in 0..data.len().saturating_sub(4) {
-        if data[i] == b'E' && data[i+1] == b'x' && data[i+2] == b'i' && data[i+3] == b'f' {
-            // Skip "Exif" and the 2 bytes after it
-            exif_start = Some(i + 6);
-            break;
-        }
-    }
+    let primary_image_handle = ctx.primary_image_handle()
+        .map_err(|e| anyhow::anyhow!("Failed to get primary image handle: {}", e))?;
 
-    if let Some(start) = exif_start {
-        // Search for the beginning of TIFF data (II or MM)
-        let mut tiff_start = start;
-        while tiff_start < data.len().saturating_sub(1) {
-            if (data[tiff_start] == b'I' && data[tiff_start + 1] == b'I') ||
-               (data[tiff_start] == b'M' && data[tiff_start + 1] == b'M') {
-                break;
-            }
-            tiff_start += 1;
-        }
+    let metadata_ids = primary_image_handle.metadata_block_ids(b"Exif")
+        .map_err(|e| anyhow::anyhow!("Failed to get Exif metadata block IDs: {}", e))?;
 
-        if tiff_start < data.len().saturating_sub(1) {
-            // Use the standard exif library to parse the found data
-            if let Ok(exif) = exif::Reader::new().read_raw(data[tiff_start..].to_vec()) {
+    for id in metadata_ids {
+        let exif_data = primary_image_handle.metadata(id)
+            .map_err(|e| anyhow::anyhow!("Failed to get metadata for ID {}: {}", id, e))?;
+
+        // `libheif-rs` provides the raw EXIF data, which usually starts with "Exif\0\0"
+        // and then the TIFF header. `exif::Reader::read_raw` expects the TIFF header directly.
+        // We need to skip the "Exif\0\0" part if it's present.
+        let tiff_header_start = if exif_data.starts_with(b"Exif\0\0") {
+            6
+        } else {
+            0
+        };
+
+        if exif_data.len() > tiff_header_start {
+            if let Ok(exif) = exif::Reader::new().read_raw(&exif_data[tiff_header_start..].to_vec()) {
                 let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
                 let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
                 let datetime = get_datetime_from_exif(&exif).unwrap_or_else(|| "Date unknown".to_string());
 
-                if lat.is_some() && lng.is_some() {
-                    return Ok((lat.unwrap(), lng.unwrap(), datetime));
+                if let (Some(lat), Some(lng)) = (lat, lng) {
+                    return Ok((lat, lng, datetime));
                 }
             }
         }
     }
 
-    anyhow::bail!("GPS data not found in HEIF file")
+    bail!("GPS data not found in HEIF file")
 }
