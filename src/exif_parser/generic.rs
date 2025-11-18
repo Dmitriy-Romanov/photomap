@@ -78,7 +78,7 @@ pub fn get_datetime_from_exif(exif: &exif::Exif) -> Option<DateTime<Utc>> {
                     if let Ok(s) = std::str::from_utf8(datetime_bytes) {
                         // EXIF format is usually: "YYYY:MM:DD HH:MM:SS"
                         let s = s.replace(" ", "T"); // Convert to "YYYY:MM:DDTHH:MM:SS"
-                        let s = s.replace(":", "-", 2); // Convert to "YYYY-MM-DDTHH:MM:SS"
+                        let s = s.replacen(":", "-", 2); // Convert to "YYYY-MM-DD HH:MM:SS"
 
                         // Parse with NaiveDateTime first, then make it Utc
                         if let Ok(naive_datetime) = NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S") {

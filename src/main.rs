@@ -2,13 +2,11 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tracing::{info, warn, error};
-use tracing_subscriber::{self, Layer};
+use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::prelude::*;
-use chrono;
-use chrono;
+use tracing_subscriber::Layer;
+use chrono::Local;
 
 // Import modules
 mod constants;

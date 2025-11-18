@@ -97,7 +97,7 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
         );
 
     // Count successful results by checking each result
-    let successful_count = processed_photos.iter().filter(|r| r.is_ok()).count();
+    let successful_count = processed_photos.0.iter().filter(|r| r.is_ok()).count();
 
     let (processed_results, total_files, heic_count) = processed_photos;
 
@@ -178,24 +178,14 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
     let is_heif = matches!(ext_lower.as_str(), "heic" | "heif" | "avif");
 
     // --- GPS and date extraction ---
-    let (lat, lng, datetime) = if is_heif {
+    let (lat, lng, datetime_opt) = if is_heif {
         // Try to extract metadata from HEIC
-        match extract_metadata_from_heic(path) {
-            Ok(data) => data,
-            Err(e) => {
-                anyhow::bail!("HEIC GPS data not found: {}", e);
-            }
-        }
+        extract_metadata_from_heic(path)?
     } else {
         // For standard formats, use our parsers
         if ext_lower == "jpg" || ext_lower == "jpeg" {
             // Use our own JPEG parser
-            match extract_metadata_from_jpeg(path) {
-                Ok(data) => data,
-                Err(e) => {
-                    anyhow::bail!("JPEG GPS data not found: {}", e);
-                }
-            }
+            extract_metadata_from_jpeg(path)?
         } else {
             // For other formats (PNG, TIFF, etc.), keep the old method
             let file = fs::File::open(path)?;
@@ -205,19 +195,19 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
 
             let lat = get_gps_coord(&exif, exif::Tag::GPSLatitude, exif::Tag::GPSLatitudeRef)?;
             let lng = get_gps_coord(&exif, exif::Tag::GPSLongitude, exif::Tag::GPSLongitudeRef)?;
+            let datetime = get_datetime_from_exif(&exif);
 
             if lat.is_none() || lng.is_none() {
                 anyhow::bail!("GPS data not found");
             }
 
-            let datetime_utc = get_datetime_from_exif(&exif);
-            let datetime = datetime_utc
-                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-                .unwrap_or_else(|| "Unknown Date".to_string());
-
             (lat.unwrap(), lng.unwrap(), datetime)
         }
     };
+
+    let datetime_str = datetime_opt
+        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+        .unwrap_or_else(|| "Unknown Date".to_string());
 
     // --- Create a database record ---
     let filename = path
@@ -234,7 +224,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
     let photo_metadata = PhotoMetadata {
         filename: filename.to_string(),
         relative_path,
-        datetime,
+        datetime: datetime_str,
         lat,
         lng,
         file_path: path.to_string_lossy().to_string(),
