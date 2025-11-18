@@ -36,7 +36,15 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
 
     // Create walker for photos directory only
     let walker = Walk::new(photos_dir);
-    let files: Vec<PathBuf> = walker
+
+    // Process files in parallel using Rayon with timing
+    let start_time = std::time::Instant::now();
+
+    if !silent_mode {
+        println!("📊 Starting parallel processing of files...");
+    }
+
+    let (processed_photos, total_files, heic_count) = walker
         .into_iter()
         .filter_map(|entry| entry.ok())
         .filter(|e| {
@@ -58,43 +66,38 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
             true
         })
         .filter(|e| e.file_type().map_or(false, |ft| ft.is_file()))
-        .map(|e| e.into_path())
-        .collect();
+        .par_bridge() // Use par_bridge to enable parallel processing on the iterator
+        .fold(
+            || (vec![], 0usize, 0usize), // Initial state for each thread: (processed_results, total_files, heic_count)
+            |mut acc, entry| {
+                let path = entry.into_path();
+                acc.1 += 1; // Increment total_files
 
-    let total_files = files.len();
-    if !silent_mode {
-        println!("✅ Found {} files in photos directory. Starting processing...", total_files);
-    }
+                if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                    if matches!(ext.to_lowercase().as_str(), "heic" | "heif") {
+                        acc.2 += 1; // Increment heic_count
+                    }
+                }
 
-    // Count HEIC files
-    let heic_count = files.iter()
-        .filter(|path| {
-            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                matches!(ext.to_lowercase().as_str(), "heic" | "heif")
-            } else {
-                false
-            }
-        })
-        .count();
-
-    // Process files in parallel using Rayon with timing
-    let start_time = std::time::Instant::now();
-
-    if !silent_mode {
-        println!("📊 Processing {} files with parallel optimization...", total_files);
-    }
-
-    // Process files in parallel and count successes
-    let processed_photos: Vec<_> = files
-        .par_iter()
-        .map(|path| {
-            let result = process_file_to_database(path, db, photos_dir);
-            result
-        })
-        .collect();
+                let result = process_file_to_database(&path, db, photos_dir);
+                acc.0.push(result); // Collect the processing result
+                acc
+            },
+        )
+        .reduce(
+            || (vec![], 0usize, 0usize), // Initial state for reduction
+            |mut a, mut b| {
+                a.0.append(&mut b.0); // Combine processed_results
+                a.1 += b.1; // Sum total_files
+                a.2 += b.2; // Sum heic_count
+                a
+            },
+        );
 
     // Count successful results by checking each result
     let successful_count = processed_photos.iter().filter(|r| r.is_ok()).count();
+
+    let (processed_results, total_files, heic_count) = processed_photos;
 
     let processing_time = start_time.elapsed();
     let processing_secs = processing_time.as_secs_f64();
@@ -105,8 +108,8 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
     };
 
     let final_count = successful_count;
-    let gps_count = final_count; // All successfully processed have GPS data
-    let no_gps_count = total_files - final_count;
+    let gps_count = successful_count; // All successfully processed have GPS data
+    let no_gps_count = total_files - successful_count;
 
     // Print processing statistics
     if !silent_mode {
