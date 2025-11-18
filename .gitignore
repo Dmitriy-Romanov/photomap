@@ -19,8 +19,8 @@ map.html
 .DS_Store
 Thumbs.db
 
-# Debug files
-*.log
+# Log files
+/log/
 
 # Temporary files
 *.tmp
