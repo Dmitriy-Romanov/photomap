@@ -311,8 +311,8 @@ pub async fn reprocess_photos(
     Ok(Json(response))
 }
 
-// API endpoint to start photo processing with SSE updates
-pub async fn start_processing(
+// API endpoint to start photo processing
+pub async fn initiate_processing(
     State(state): State<AppState>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     // Clone the sender for the async task
@@ -368,7 +368,7 @@ pub async fn start_processing(
 
     let response = serde_json::json!({
         "status": "started",
-        "message": "Photo processing started with real-time updates"
+        "message": "Photo processing initiated"
     });
 
     Ok(Json(response))

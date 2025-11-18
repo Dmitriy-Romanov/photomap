@@ -361,8 +361,27 @@ async function processFolder() {
 
         showNotification(`✅ Folder set: ${folderPath}`, 'success');
 
-        // Step 2: Start processing and listen for SSE events
+        // Step 2: Start listening for SSE events
         const eventSource = new EventSource('/api/events');
+
+        eventSource.onopen = async function() {
+            showNotification('✅ SSE connection established', 'success');
+            // Step 3: Initiate processing
+            const processResponse = await fetch('/api/initiate-processing', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const processResult = await processResponse.json();
+
+            if (processResult.status !== 'started') {
+                throw new Error(processResult.message || 'Error starting processing');
+            }
+
+            showNotification('✅ Processing initiated: ' + folderPath, 'success');
+        };
 
         eventSource.onmessage = function(event) {
             const data = JSON.parse(event.data);
@@ -398,21 +417,6 @@ async function processFolder() {
             processButton.textContent = '🚀 Process Photos';
             showNotification('❌ Error connecting to the server for updates.', 'error');
         };
-
-        const processResponse = await fetch('/api/process', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-
-        const processResult = await processResponse.json();
-
-        if (processResult.status !== 'started') {
-            throw new Error(processResult.message || 'Error starting processing');
-        }
-
-        showNotification('✅ Processing started: ' + folderPath, 'success');
 
     } catch (error) {
         // Handle errors
