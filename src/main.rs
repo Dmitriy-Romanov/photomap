@@ -21,7 +21,7 @@ use settings::Settings;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🗺️  PhotoMap Processor v0.6.1 - Enhanced UI Edition starting...");
+    println!("🗺️  PhotoMap Processor v0.6.2 - Enhanced UI Edition starting...");
 
     // Register HEIC/HEIF decoder
     register_all_decoding_hooks();

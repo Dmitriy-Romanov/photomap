@@ -58,7 +58,7 @@ photomap/
     *   `serve_processed_image`: Serves dynamically resized images (markers, thumbnails).
     *   `convert_heic`: Converts HEIC images to JPEG on the fly.
     *   `get_settings`, `set_folder`, `update_settings`: Handles application settings.
-    *   `reprocess_photos`, `start_processing`: Triggers photo processing.
+    *   `reprocess_photos`, `initiate_processing`: Triggers photo processing.
     *   `processing_events_stream`: Provides real-time updates on photo processing via Server-Sent Events (SSE).
 *   **`state.rs`:** Defines the `AppState` struct, which is shared across all `axum` handlers. It contains the database connection, application settings, and the SSE event sender.
 *   **`events.rs`:** Defines the `ProcessingEvent` and `ProcessingData` structs used for SSE.
