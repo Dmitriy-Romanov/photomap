@@ -20,14 +20,14 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies (vcpkg)
+        shell: bash
         run: |
           vcpkg install libheif:x64-windows libjpeg-turbo:x64-windows
-          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
 
       - name: Build Release
         run: cargo build --release
         env:
-          VCPKG_ROOT: ${{ env.VCPKG_INSTALLATION_ROOT }}
           VCPKGRS_DYNAMIC: 1
 
       - name: Upload Artifact
