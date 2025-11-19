@@ -76,6 +76,7 @@ async fn main() -> Result<()> {
 
     // Start HTTP server
     let (event_sender, _event_receiver) = tokio::sync::broadcast::channel(100);
+    let (shutdown_sender, _shutdown_receiver) = tokio::sync::broadcast::channel(1);
 
     let settings = Arc::new(Mutex::new(Settings::load()?));
 
@@ -105,6 +106,7 @@ async fn main() -> Result<()> {
         db,
         settings,
         event_sender,
+        shutdown_sender,
     };
 
     server::start_server(app_state).await?;

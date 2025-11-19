@@ -534,3 +534,20 @@ pub async fn script_js() -> Response {
         .body(content.into_owned().into())
         .unwrap()
 }
+
+// API endpoint to shut down the server
+pub async fn shutdown_app(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    println!("🛑 Received shutdown request");
+
+    // Send shutdown signal
+    let _ = state.shutdown_sender.send(());
+
+    let response = serde_json::json!({
+        "status": "success",
+        "message": "Server shutting down"
+    });
+
+    Ok(Json(response))
+}

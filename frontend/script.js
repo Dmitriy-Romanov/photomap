@@ -37,7 +37,7 @@ setInterval(() => {
 
 // Initialize marker cluster group
 const markerClusterGroup = L.markerClusterGroup({
-    iconCreateFunction: function(cluster) {
+    iconCreateFunction: function (cluster) {
         const count = cluster.getChildCount();
         let size = 'small';
         let className = 'custom-cluster-icon';
@@ -53,18 +53,18 @@ const markerClusterGroup = L.markerClusterGroup({
 
         return L.divIcon({
             html: '<div style="' +
-                  'width: ' + sizes[size] + 'px; ' +
-                  'height: ' + sizes[size] + 'px; ' +
-                  'line-height: ' + sizes[size] + 'px; ' +
-                  'border-radius: 50%; ' +
-                  'background: #4285f4; ' +
-                  'color: white; ' +
-                  'text-align: center; ' +
-                  'font-weight: bold; ' +
-                  'font-size: ' + (sizes[size] * 0.4) + 'px; ' +
-                  'border: 2px solid white; ' +
-                  'box-shadow: 0 1px 3px rgba(0,0,0,0.3);' +
-                  '">' + count + '</div>',
+                'width: ' + sizes[size] + 'px; ' +
+                'height: ' + sizes[size] + 'px; ' +
+                'line-height: ' + sizes[size] + 'px; ' +
+                'border-radius: 50%; ' +
+                'background: #4285f4; ' +
+                'color: white; ' +
+                'text-align: center; ' +
+                'font-weight: bold; ' +
+                'font-size: ' + (sizes[size] * 0.4) + 'px; ' +
+                'border: 2px solid white; ' +
+                'box-shadow: 0 1px 3px rgba(0,0,0,0.3);' +
+                '">' + count + '</div>',
             className: className,
             iconSize: L.point(sizes[size], sizes[size])
         });
@@ -101,8 +101,8 @@ function createPhotoIcon(photo, useThumbnail = false) {
     return L.icon({
         iconUrl: apiUrl + '/' + photo.relative_path,
         iconSize: [iconSize, iconSize],
-        iconAnchor: [iconSize/2, iconSize/2],
-        popupAnchor: [0, -iconSize/2],
+        iconAnchor: [iconSize / 2, iconSize / 2],
+        popupAnchor: [0, -iconSize / 2],
         className: 'thumbnail-icon'
     });
 }
@@ -140,12 +140,12 @@ function addMarkers() {
     updateStatistics();
 
     // Add zoom and move controls info
-    map.on('zoomend', function() {
+    map.on('zoomend', function () {
         console.log('Zoom ended, updating statistics');
         updateStatistics();
     });
 
-    map.on('moveend', function() {
+    map.on('moveend', function () {
         console.log('Move ended, updating statistics');
         updateStatistics();
     });
@@ -158,7 +158,7 @@ function updateStatistics() {
     const bounds = map.getBounds();
     let visiblePhotos = 0;
 
-    markerClusterGroup.eachLayer(function(layer) {
+    markerClusterGroup.eachLayer(function (layer) {
         const layerBounds = layer.getBounds ? layer.getBounds() : null;
 
         if (layerBounds && bounds.intersects(layerBounds)) {
@@ -201,70 +201,111 @@ async function loadSettings() {
     }
 }
 
+// Helper to extract year from datetime string
+function getYearFromDatetime(datetime) {
+    if (!datetime) return null;
+
+    // Pattern 1: Standard EXIF format "2021:05:22 20:21:21"
+    let match = datetime.match(/^(\d{4}):/);
+    if (match) return parseInt(match[1]);
+
+    // Pattern 2: Alternative format "2021-05-22 20:21:21"
+    match = datetime.match(/^(\d{4})-/);
+    if (match) return parseInt(match[1]);
+
+    // Pattern 3: Russian format "Дата съемки: 30.05.2025 11:04"
+    match = datetime.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+    if (match) return parseInt(match[3]);
+
+    // Pattern 4: Any 4-digit number (fallback)
+    match = datetime.match(/(\d{4})/);
+    if (match) return parseInt(match[1]);
+
+    return null;
+}
+
+// Filter markers based on year range
+function filterMarkers() {
+    const yearFromInput = document.getElementById('year-from');
+    const yearToInput = document.getElementById('year-to');
+
+    const fromYear = parseInt(yearFromInput.value);
+    const toYear = parseInt(yearToInput.value);
+
+    if (isNaN(fromYear) || isNaN(toYear)) return;
+
+    console.log(`Filtering photos: ${fromYear} - ${toYear}`);
+
+    // Clear existing markers
+    markerClusterGroup.clearLayers();
+
+    // Filter photos
+    const filteredPhotos = photoData.filter(photo => {
+        const year = getYearFromDatetime(photo.datetime);
+        return year !== null && year >= fromYear && year <= toYear;
+    });
+
+    console.log(`Found ${filteredPhotos.length} photos in range`);
+
+    // Add filtered markers
+    filteredPhotos.forEach(photo => {
+        const icon = createPhotoIcon(photo, true);
+        const marker = L.marker([photo.lat, photo.lng], { icon: icon });
+
+        const popupContent = `
+            <div class="photo-popup">
+                <img src="${photo.url}"
+                     onerror="this.src='${photo.fallback_url}'"
+                     alt="${photo.filename}" />
+                <div class="filename">${photo.file_path}</div>
+                <div class="datetime">${photo.datetime}</div>
+            </div>
+        `;
+
+        marker.bindPopup(popupContent);
+        markerClusterGroup.addLayer(marker);
+    });
+
+    // Update statistics
+    updateStatistics();
+}
+
 // Initialize year range controls
 function initializeYearControls() {
     const yearFromInput = document.getElementById('year-from');
     const yearToInput = document.getElementById('year-to');
+    const yearFromLabel = document.getElementById('year-from-label');
+    const yearToLabel = document.getElementById('year-to-label');
 
     if (photoData.length === 0) {
-        // No photos data yet, set default to current year
         const currentYear = new Date().getFullYear();
         yearFromInput.value = currentYear;
         yearToInput.value = currentYear;
+        if (yearFromLabel) yearFromLabel.textContent = `(${currentYear})`;
+        if (yearToLabel) yearToLabel.textContent = `(${currentYear})`;
         return;
     }
 
-    // Extract years from photo dates
-    console.log('Initializing year controls with', photoData.length, 'photos');
-    console.log('Sample photo datetime:', photoData[0]?.datetime);
-
+    // Extract years using helper
     const years = photoData
-        .map(photo => {
-            // Extract year from datetime (multiple formats supported)
-            let year = null;
-
-            // Pattern 1: Standard EXIF format "2021:05:22 20:21:21"
-            let match = photo.datetime.match(/^(\d{4}):/);
-            if (match) {
-                year = parseInt(match[1]);
-            } else {
-                // Pattern 2: Alternative format "2021-05-22 20:21:21"
-                match = photo.datetime.match(/^(\d{4})-/);
-                if (match) {
-                    year = parseInt(match[1]);
-                } else {
-                    // Pattern 3: Russian format "Дата съемки: 30.05.2025 11:04"
-                    match = photo.datetime.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-                    if (match) {
-                        year = parseInt(match[3]); // Third group is year in DD.MM.YYYY
-                    } else {
-                        // Pattern 4: Any 4-digit number (fallback)
-                        match = photo.datetime.match(/(\d{4})/);
-                        if (match) {
-                            year = parseInt(match[1]);
-                        }
-                    }
-                }
-            }
-
-            console.log('Photo:', photo.filename, 'datetime:', photo.datetime, 'extracted year:', year);
-            return year;
-        })
+        .map(photo => getYearFromDatetime(photo.datetime))
         .filter(year => year !== null);
 
-    console.log('Valid years found:', years);
-
     if (years.length === 0) {
-        // No valid dates found
-        console.log('No valid years found, using current year');
         const currentYear = new Date().getFullYear();
         yearFromInput.value = currentYear;
         yearToInput.value = currentYear;
+        if (yearFromLabel) yearFromLabel.textContent = `(${currentYear})`;
+        if (yearToLabel) yearToLabel.textContent = `(${currentYear})`;
         return;
     }
 
     const minYear = Math.min(...years);
     const maxYear = Math.max(...years);
+
+    // Update labels with context
+    if (yearFromLabel) yearFromLabel.textContent = `(${minYear})`;
+    if (yearToLabel) yearToLabel.textContent = `(${maxYear})`;
 
     // Set initial values
     yearFromInput.value = minYear;
@@ -276,38 +317,74 @@ function initializeYearControls() {
     yearToInput.min = minYear;
     yearToInput.max = maxYear;
 
-    // Add event listeners for validation
-    yearFromInput.addEventListener('change', function() {
-        const fromValue = parseInt(this.value);
+    // Add event listeners for validation and filtering
+    yearFromInput.addEventListener('change', function () {
+        let fromValue = parseInt(this.value);
         const toValue = parseInt(yearToInput.value);
 
-        // Ensure "From" is not greater than "To"
+        // Validation
         if (fromValue > toValue) {
+            fromValue = toValue;
             this.value = toValue;
         }
-
-        // Ensure "From" is not less than minYear
         if (fromValue < minYear) {
+            fromValue = minYear;
             this.value = minYear;
         }
+
+        // Trigger filter
+        filterMarkers();
     });
 
-    yearToInput.addEventListener('change', function() {
+    yearToInput.addEventListener('change', function () {
         const fromValue = parseInt(yearFromInput.value);
-        const toValue = parseInt(this.value);
+        let toValue = parseInt(this.value);
 
-        // Ensure "To" is not less than "From"
+        // Validation
         if (toValue < fromValue) {
+            toValue = fromValue;
             this.value = fromValue;
         }
-
-        // Ensure "To" is not greater than maxYear
         if (toValue > maxYear) {
+            toValue = maxYear;
             this.value = maxYear;
         }
+
+        // Trigger filter
+        filterMarkers();
     });
 
+    // Initial filter (show all)
+    // No need to call filterMarkers() here as addMarkers() already added everything
+
     console.log(`Year controls initialized: ${minYear} to ${maxYear}`);
+}
+
+// Shutdown application
+async function shutdownApp() {
+    if (!confirm('Are you sure you want to close PhotoMap?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/shutdown', {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            showNotification('👋 Server stopped. Closing...', 'success');
+            setTimeout(() => {
+                window.close();
+                // Fallback if window.close() is blocked
+                document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif;"><h1>👋 PhotoMap is closed</h1><p>You can close this tab now.</p></div>';
+            }, 1000);
+        } else {
+            showNotification('❌ Failed to stop server', 'error');
+        }
+    } catch (error) {
+        console.error('Shutdown error:', error);
+        showNotification('❌ Error stopping server', 'error');
+    }
 }
 
 // Load photos when page loads
@@ -364,7 +441,7 @@ async function processFolder() {
         // Step 2: Start listening for SSE events
         const eventSource = new EventSource('/api/events');
 
-        eventSource.onopen = async function() {
+        eventSource.onopen = async function () {
             showNotification('✅ SSE connection established', 'success');
             // Step 3: Initiate processing
             const processResponse = await fetch('/api/initiate-processing', {
@@ -383,7 +460,7 @@ async function processFolder() {
             showNotification('✅ Processing initiated: ' + folderPath, 'success');
         };
 
-        eventSource.onmessage = function(event) {
+        eventSource.onmessage = function (event) {
             const data = JSON.parse(event.data);
             if (data.event_type === 'processing_complete') {
                 eventSource.close();
@@ -410,7 +487,7 @@ async function processFolder() {
             }
         };
 
-        eventSource.onerror = function() {
+        eventSource.onerror = function () {
             eventSource.close();
             statusDiv.style.display = 'none';
             processButton.disabled = false;
@@ -482,7 +559,7 @@ function toggleInfoWindow() {
     } else {
         // Collapse the window
         windowContent.style.display = 'none';
-        floatingWindow.style.height = '26px';
+        floatingWindow.style.height = '45px';
         toggleButton.textContent = '⌃';
 
         // Save state to localStorage

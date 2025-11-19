@@ -1,8 +1,8 @@
-# PhotoMap Processor v0.6.5
+# PhotoMap Processor v0.6.6
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Key Technical Improvements (v0.6.5)
+## ✨ Key Technical Improvements (v0.6.6)
 
 - **HiDPI Support**: Popup images are now generated at 2x resolution (1400px) for sharp display on Retina screens.
 - **Performance**: 64x faster thumbnail generation using TurboJPEG scaling and Triangle filter.
@@ -58,6 +58,12 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.6.6 - UI & UX Enhancement Edition
+- **Year Range Filter**: Filter photos by year range with dynamic min/max labels.
+- **Graceful Shutdown**: "Close map" button to safely shut down the application.
+- **UI Improvements**: Fixed minimized window height, improved layout.
+- **Optimization**: Reduced binary size by removing duplicate dependencies.
 
 ### v0.6.5 - Stability & Performance Edition
 - **Thumbnail Optimization**: 64x faster decoding using TurboJPEG scaling + Triangle filter.

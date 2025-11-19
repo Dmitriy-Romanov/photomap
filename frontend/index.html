@@ -1,72 +1,106 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoMap v0.6.5 - Stability & Performance Edition</title>
+    <title>PhotoMap</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <link rel="stylesheet" href="/style.css" />
 </head>
+
 <body>
     <!-- Full-screen Map -->
     <div id="map" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1;"></div>
 
     <!-- Floating Info Window -->
-    <div id="floating-info-window" style="position: fixed; top: 0; right: 0; width: 440px; background: white; border-left: 2px solid #ccc; border-bottom: 2px solid #ccc; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+    <div id="floating-info-window"
+        style="position: fixed; top: 10px; left: 60px; width: 350px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.12); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; transition: height 0.3s ease;">
         <!-- Title Bar (always visible) -->
-        <div id="window-title-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #f8f9fa; border-bottom: 1px solid #ddd; cursor: default;">
-            <span style="font-size: 12px; font-weight: bold; color: #333;">🗺️ PhotoMap v0.6.5</span>
-            <button id="toggle-window-btn" style="background: #007bff; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">⌄</button>
+        <div id="window-title-bar"
+            style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255,255,255,0.5); border-bottom: 1px solid rgba(0,0,0,0.05); cursor: default;">
+            <span style="font-size: 14px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.3px;">🗺️ PhotoMap</span>
+            <button id="toggle-window-btn"
+                style="background: transparent; color: #666; border: none; padding: 4px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s;">⌄</button>
         </div>
 
         <!-- Content Area (expandable) -->
-        <div id="window-content" style="height: auto; max-height: calc(100vh - 30px); overflow-y: auto;">
+        <div id="window-content" style="height: auto; max-height: calc(100vh - 100px); overflow-y: auto;">
             <!-- HEIC_WARNING_PLACEHOLDER -->
-                <!-- Control Panel -->
-                <div id="control-panel" style="padding: 15px; box-sizing: border-box;">
-                    <h3 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">PhotoMap Controls</h3>
+            <!-- Control Panel -->
+            <div id="control-panel" style="padding: 16px; box-sizing: border-box;">
 
                 <!-- Folder Selection -->
-                <!-- Folder Path Input -->
-                <div style="margin-bottom: 10px;">
-                    <label for="folder-input" style="display: block; margin-bottom: 5px; font-weight: bold;">📁 Folder Path:</label>
-                    <input type="text" id="folder-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" placeholder="/Users/user/Photos/my_folder">
+                <div style="margin-bottom: 16px;">
+                    <label for="folder-input"
+                        style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px; color: #444;">📁
+                        Folder Path</label>
+                    <input type="text" id="folder-input"
+                        style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px; box-sizing: border-box; font-size: 13px; transition: border-color 0.2s, box-shadow 0.2s; outline: none;"
+                        placeholder="/path/to/photos">
                 </div>
 
                 <!-- Processing Controls -->
-                <div style="margin-bottom: 10px;">
-                    <button id="process-button" onclick="processFolder()" style="background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; width: 100%;">
-                        🚀 Process Photos
+                <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                    <button id="process-button" onclick="processFolder()"
+                        style="background: #28a745; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; flex: 1.5; font-weight: 600; font-size: 13px; box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2); transition: transform 0.1s, box-shadow 0.2s;">
+                        🚀 Process
+                    </button>
+                    <button id="close-button" onclick="shutdownApp()"
+                        style="background: #dc3545; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; flex: 1; font-weight: 600; font-size: 13px; box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2); transition: transform 0.1s, box-shadow 0.2s;">
+                        ❌ Close
                     </button>
                 </div>
 
                 <!-- Year Range Controls -->
-                <div style="margin-bottom: 10px;">
-                    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.9em;">
-                        <strong style="white-space: nowrap;">От:</strong>
-                        <input type="number" id="year-from" style="width: 70px; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" min="1900" max="2100" step="1" autocomplete="off" spellcheck="false" data-lpignore="true" data-form-type="other" role="presentation">
-                        <strong style="white-space: nowrap;">До:</strong>
-                        <input type="number" id="year-to" style="width: 70px; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" min="1900" max="2100" step="1" autocomplete="off" spellcheck="false" data-lpignore="true" data-form-type="other" role="presentation">
+                <div
+                    style="margin-bottom: 16px; background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #eee;">
+                    <div
+                        style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px;">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="year-from" style="font-weight: 500; color: #555;">From <span
+                                    id="year-from-label"
+                                    style="font-weight: 400; color: #888; font-size: 11px;"></span></label>
+                            <input type="number" id="year-from"
+                                style="width: 80px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;"
+                                min="1900" max="2100" step="1">
+                        </div>
+                        <div style="color: #ccc;">—</div>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="year-to" style="font-weight: 500; color: #555;">To <span id="year-to-label"
+                                    style="font-weight: 400; color: #888; font-size: 11px;"></span></label>
+                            <input type="number" id="year-to"
+                                style="width: 80px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;"
+                                min="1900" max="2100" step="1">
+                        </div>
                     </div>
                 </div>
 
                 <!-- Processing Status -->
-                <div id="processing-status" style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; display: none;">
-                    <div id="status-text" style="font-weight: bold;">Обработка...</div>
-                    <div id="progress-text" style="font-size: 0.9em; color: #666;"></div>
+                <div id="processing-status"
+                    style="margin-bottom: 16px; padding: 12px; background: #e8f5e9; border-radius: 8px; border: 1px solid #c8e6c9; display: none;">
+                    <div id="status-text"
+                        style="font-weight: 600; color: #2e7d32; font-size: 13px; margin-bottom: 4px;">Processing...
+                    </div>
+                    <div id="progress-text" style="font-size: 12px; color: #4caf50;"></div>
                 </div>
 
                 <!-- Statistics Display -->
-                <div id="statistics-panel" style="margin-bottom: 10px; padding: 12px; background: #f0f8ff; border-radius: 6px; border: 1px solid #ddd;">
-                    <h4 style="margin: 0 0 8px 0; color: #333; font-size: 1.0em;">📊 Статистика</h4>
-                    <div style="font-size: 0.9em; line-height: 1.6;">
-                        <div style="margin-bottom: 4px;"><strong>Всего фото:</strong> <span id="total-photos">-</span></div>
-                        <div style="margin-bottom: 4px;"><strong>Отображено:</strong> <span id="visible-photos">-</span></div>
+                <div id="statistics-panel"
+                    style="padding: 0; border-top: 1px solid #eee; padding-top: 12px; margin-top: 4px;">
+                    <h4
+                        style="margin: 0 0 8px 0; color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+                        Statistics</h4>
+                    <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                        <div style="color: #444;">Total: <strong id="total-photos" style="color: #1a1a1a;">-</strong>
+                        </div>
+                        <div style="color: #444;">Visible: <strong id="visible-photos"
+                                style="color: #1a1a1a;">-</strong></div>
                     </div>
                 </div>
-        </div> <!-- control-panel -->
+            </div> <!-- control-panel -->
         </div> <!-- window-content -->
     </div> <!-- floating-info-window -->
 
@@ -74,4 +108,5 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script src="/script.js"></script>
 </body>
+
 </html>

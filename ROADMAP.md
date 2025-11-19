@@ -14,7 +14,13 @@
 - Removed dependency on ImageMagick.
 - HEIC processing is now handled by a native Rust-based solution.
 
-### Current: v0.6.5 - Stability & Performance Edition ✅
+### Current: v0.6.6 - UI & UX Enhancement Edition ✅
+- [x] Year range filter
+- [x] Graceful shutdown button
+- [x] UI fixes (minimized window)
+- [x] Dependency optimization
+
+### Previous: v0.6.5 - Stability & Performance Edition ✅
 - [x] **Thumbnail Optimization**: 64x faster decoding using TurboJPEG scaling + Triangle filter
 - [x] **Robust Error Handling**: Database auto-clearing on invalid config
 - [x] **UI Safety**: Prevents selecting non-existent folders

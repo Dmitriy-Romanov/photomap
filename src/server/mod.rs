@@ -16,7 +16,8 @@ use self::state::AppState;
 use handlers::{
     convert_heic, get_all_photos, get_marker_image, get_popup_image, get_settings,
     get_thumbnail_image, index_html, initiate_processing, processing_events_stream,
-    reprocess_photos, script_js, serve_photo, set_folder, style_css, update_settings,
+    reprocess_photos, script_js, serve_photo, set_folder, shutdown_app, style_css,
+    update_settings,
 };
 
 // Create the main application router
@@ -36,6 +37,7 @@ async fn create_app(state: AppState) -> Router {
         .route("/api/events", get(processing_events_stream))
         .route("/api/initiate-processing", post(initiate_processing))
         .route("/api/reprocess", axum::routing::post(reprocess_photos))
+        .route("/api/shutdown", post(shutdown_app))
         .route("/photos/*filepath", get(serve_photo))
         .layer(ServiceBuilder::new().layer(CorsLayer::permissive()))
         .with_state(state)
@@ -46,6 +48,9 @@ pub async fn start_server(state: AppState) -> Result<()> {
 }
 
 async fn start_server_with_port(state: AppState, port: u16) -> Result<()> {
+    // Subscribe to shutdown signal before moving state into app
+    let mut shutdown_receiver = state.shutdown_sender.subscribe();
+    
     let app = create_app(state).await;
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = TcpListener::bind(addr).await?;
@@ -55,6 +60,11 @@ async fn start_server_with_port(state: AppState, port: u16) -> Result<()> {
         port
     );
 
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            let _ = shutdown_receiver.recv().await;
+            println!("🛑 Server shutting down gracefully...");
+        })
+        .await?;
     Ok(())
 }

@@ -10,4 +10,5 @@ pub struct AppState {
     pub db: Database,
     pub settings: Arc<Mutex<Settings>>,
     pub event_sender: broadcast::Sender<ProcessingEvent>,
+    pub shutdown_sender: broadcast::Sender<()>,
 }
