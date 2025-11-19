@@ -443,7 +443,7 @@ pub async fn processing_events_stream(
     Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
             .interval(Duration::from_secs(15))
-            .text("keepalive-message".to_string()),
+            .text("keepalive-message"),
     )
 }
 

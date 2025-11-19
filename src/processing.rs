@@ -77,7 +77,7 @@ pub fn process_photos_with_stats(
             }
             true
         })
-        .filter(|e| e.file_type().map_or(false, |ft| ft.is_file()))
+        .filter(|e| e.file_type().is_some_and(|ft| ft.is_file()))
         .par_bridge() // Use par_bridge to enable parallel processing on the iterator
         .fold(
             || (vec![], 0usize, 0usize), // Initial state for each thread: (processed_results, total_files, heic_count)
@@ -136,11 +136,7 @@ pub fn process_photos_with_stats(
         info!("   📱 HEIC файлов: {}", heic_count);
         info!(
             "   📷 JPEG/другие: {}",
-            if final_count >= heic_count {
-                final_count - heic_count
-            } else {
-                0
-            }
+            final_count.saturating_sub(heic_count)
         );
         info!("   ⏱️  Время обработки: {:.2} сек", processing_secs);
         info!(

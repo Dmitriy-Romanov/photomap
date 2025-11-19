@@ -5,16 +5,12 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Settings {
     pub last_folder: Option<String>,
 }
 
-impl Default for Settings {
-    fn default() -> Self {
-        Self { last_folder: None }
-    }
-}
+
 
 impl Settings {
     pub fn load() -> Result<Self> {

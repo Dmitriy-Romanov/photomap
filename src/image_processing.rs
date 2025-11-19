@@ -108,10 +108,7 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
         _ => 4096, // A reasonable default for 'full size'
     };
 
-    let pad_to_square = match size_param {
-        "thumbnail" | "marker" => true,
-        _ => false,
-    };
+    let pad_to_square = matches!(size_param, "thumbnail" | "marker");
 
     let original_path = Path::new(&photo.file_path);
     let mut path_to_decode = original_path.to_path_buf();
@@ -128,7 +125,7 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
     if (ext_lower == "heic" || ext_lower == "heif")
         && original_path
             .extension()
-            .map_or(false, |ext| ext.to_ascii_lowercase() != ext)
+            .is_some_and(|ext| ext.to_ascii_lowercase() != ext)
     {
         let parent = original_path.parent().unwrap_or_else(|| Path::new("."));
         let filename_stem = original_path
