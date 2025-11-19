@@ -47,6 +47,7 @@ photomap/
     *   Loads settings (`settings.rs`).
     *   Starts the web server (`server/mod.rs`).
     *   Handles the initial processing of photos from the last used folder.
+    *   **New in v0.6.5+:** Clears database on startup if configured folder is invalid.
 
 ### `server/`
 
@@ -62,6 +63,7 @@ photomap/
     *   `get_settings`, `set_folder`, `update_settings`: Handles application settings.
     *   `reprocess_photos`, `initiate_processing`: Triggers photo processing.
     *   `processing_events_stream`: Provides real-time updates on photo processing via Server-Sent Events (SSE).
+    *   **`shutdown`**: (New) Gracefully shuts down the server.
 *   **`state.rs`:** Defines the `AppState` struct, which is shared across all `axum` handlers. It contains the database connection, application settings, and the SSE event sender.
 *   **`events.rs`:** Defines the `ProcessingEvent` and `ProcessingData` structs used for SSE.
 
@@ -93,6 +95,7 @@ photomap/
 *   **Purpose:** Handles image manipulation tasks.
 *   **Responsibilities:**
     *   `create_scaled_image_in_memory`: Creates resized versions of images (markers, thumbnails).
+        *   **Optimization**: Uses `turbojpeg` for fast JPEG scaling and `Triangle` filter for quality/speed balance.
     *   `convert_heic_to_jpeg`: Converts HEIC images to JPEG.
 
 ### `settings.rs`
@@ -119,6 +122,22 @@ photomap/
 ### `constants.rs`
 
 *   **Purpose:** Defines constants used throughout the application.
+    *   **Update**: `POPUP_SIZE` increased to 1400 for HiDPI.
+
+## Frontend (`frontend/`)
+
+*   **`index.html`**:
+    *   Structure of the application.
+    *   Includes map container, floating info window, controls.
+    *   **New**: Year range inputs, "Close map" button.
+*   **`script.js`**:
+    *   `initializeMap`: Sets up Leaflet map and clusters.
+    *   `processFolder`: Handles processing workflow.
+    *   `filterMarkers`: (New) Filters photos by year range.
+    *   `shutdownApp`: (New) Calls shutdown API and closes window.
+*   **`style.css`**:
+    *   Styling for map, info window, and controls.
+    *   Handles responsive design and animations.
 
 ## Data Flow
 
@@ -136,3 +155,8 @@ photomap/
     *   When the frontend requests an image (`/api/marker/*` or `/api/thumbnail/*`), the `serve_processed_image` handler in `server/handlers.rs` is called.
     *   This handler uses `image_processing.rs` to resize the image and sends it back to the frontend.
     *   HEIC images are converted to JPEG on the fly by `image_processing.rs`.
+8.  **Shutdown Flow (New):**
+    *   User clicks "Close map".
+    *   Frontend calls `/api/shutdown`.
+    *   Server initiates graceful shutdown.
+    *   Frontend closes the browser tab.
