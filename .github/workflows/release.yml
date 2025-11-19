@@ -31,13 +31,13 @@ jobs:
       - name: Install dependencies (vcpkg)
         shell: bash
         run: |
-          vcpkg install libheif:x64-windows libjpeg-turbo:x64-windows
+          vcpkg install libheif:x64-windows-static libjpeg-turbo:x64-windows-static
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
 
       - name: Build Release
         run: cargo build --release
         env:
-          VCPKGRS_DYNAMIC: 1
+          VCPKG_TARGET_TRIPLET: x64-windows-static
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

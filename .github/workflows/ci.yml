@@ -65,7 +65,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          vcpkg install libheif:x64-windows libjpeg-turbo:x64-windows
+          vcpkg install libheif:x64-windows-static libjpeg-turbo:x64-windows-static
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
 
       # === macOS Setup ===
@@ -84,15 +84,11 @@ jobs:
 
       - name: Run Clippy
         run: cargo clippy
-        env:
-          VCPKGRS_DYNAMIC: 1
 
       - name: Run Tests
         run: cargo test
-        env:
-          VCPKGRS_DYNAMIC: 1
 
       - name: Build Release (Dry Run)
         run: cargo build --release
         env:
-          VCPKGRS_DYNAMIC: 1
+          VCPKG_TARGET_TRIPLET: x64-windows-static
