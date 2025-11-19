@@ -224,6 +224,16 @@ pub async fn set_folder(
     let folder_path = raw_folder_path.to_string();
     let full_path = folder_path.clone();
 
+    // Validate that the folder exists
+    if !std::path::Path::new(&full_path).exists() {
+        println!("❌ Folder does not exist: {}", full_path);
+        let response = serde_json::json!({
+            "status": "error",
+            "message": format!("Folder does not exist: {}", full_path)
+        });
+        return Ok(Json(response));
+    }
+
     let mut settings = state.settings.lock().unwrap();
     settings.last_folder = Some(full_path.clone());
 
@@ -278,10 +288,23 @@ pub async fn reprocess_photos(
         if let Some(ref folder) = settings.last_folder {
             std::path::Path::new(folder).to_path_buf()
         } else {
-            // Default directory
-            std::path::Path::new("/Users/dmitriiromanov/claude/photomap/photos").to_path_buf()
+            // No folder configured
+            let response = serde_json::json!({
+                "status": "error",
+                "message": "No folder configured"
+            });
+            return Ok(Json(response));
         }
     };
+
+    // Check if directory exists
+    if !photos_dir.exists() {
+        let response = serde_json::json!({
+            "status": "error",
+            "message": format!("Photos directory not found: {}", photos_dir.display())
+        });
+        return Ok(Json(response));
+    }
 
     let photos_dir_str = photos_dir.to_string_lossy().to_string();
 
@@ -337,10 +360,52 @@ pub async fn initiate_processing(
         if let Some(ref folder) = settings.last_folder {
             std::path::Path::new(folder).to_path_buf()
         } else {
-            // Default directory
-            std::path::Path::new("/Users/dmitriiromanov/claude/photomap/photos").to_path_buf()
+            // No folder configured - send error event
+            tokio::spawn(async move {
+                let error_event = ProcessingEvent {
+                    event_type: "processing_error".to_string(),
+                    data: ProcessingData {
+                        message: Some("No folder configured".to_string()),
+                        phase: Some("error".to_string()),
+                        ..Default::default()
+                    },
+                };
+                let _ = event_sender.send(error_event);
+            });
+            
+            let response = serde_json::json!({
+                "status": "error",
+                "message": "No folder configured"
+            });
+            return Ok(Json(response));
         }
     };
+
+    // Check if directory exists
+    if !photos_dir.exists() {
+        // Clear the database so we don't show old photos
+        if let Err(e) = state.db.clear_all_photos() {
+            eprintln!("Failed to clear database: {}", e);
+        }
+
+        tokio::spawn(async move {
+            let error_event = ProcessingEvent {
+                event_type: "processing_error".to_string(),
+                data: ProcessingData {
+                    message: Some(format!("Photos directory not found: {}", photos_dir.display())),
+                    phase: Some("error".to_string()),
+                    ..Default::default()
+                },
+            };
+            let _ = event_sender.send(error_event);
+        });
+
+        let response = serde_json::json!({
+            "status": "error",
+            "message": "Photos directory not found"
+        });
+        return Ok(Json(response));
+    }
 
     // Start processing in background task
     tokio::spawn(async move {

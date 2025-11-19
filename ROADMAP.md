@@ -14,7 +14,12 @@
 - Removed dependency on ImageMagick.
 - HEIC processing is now handled by a native Rust-based solution.
 
-### Current: v0.6.4 - Windows Compatibility Edition (Phase 1) ✅
+### Current: v0.6.5 - Stability & Performance Edition ✅
+- [x] **Thumbnail Optimization**: 64x faster decoding using TurboJPEG scaling + Triangle filter
+- [x] **Robust Error Handling**: Database auto-clearing on invalid config
+- [x] **UI Safety**: Prevents selecting non-existent folders
+
+### Previous: v0.6.4 - Windows Compatibility Edition (Phase 1) ✅
 - [x] Replaced `pgrep`/`kill` with `sysinfo` for cross-platform process management
 - [x] Added `sysinfo` dependency
 

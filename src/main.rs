@@ -89,10 +89,14 @@ async fn main() -> Result<()> {
                 processing::process_photos_into_database(&db, photos_path)?;
             } else {
                 warn!("⚠️  Saved folder not found: {}", folder_path);
+                warn!("   Clearing database to remove stale data...");
+                db.clear_all_photos()?;
                 warn!("   Please select a folder using the web interface");
             }
         } else {
             warn!("⚠️  No saved folder found");
+            warn!("   Clearing database to remove stale data...");
+            db.clear_all_photos()?;
             warn!("   Please select a folder using the web interface");
         }
     } // Release the lock

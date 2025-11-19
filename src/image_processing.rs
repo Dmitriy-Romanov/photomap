@@ -15,7 +15,8 @@ fn create_scaled_image(img: DynamicImage, size: u32, pad_to_square: bool) -> Res
         });
 
         // Scale the image with aspect ratio preservation
-        let scaled = img.resize(size, size, image::imageops::FilterType::Lanczos3);
+        // Use Triangle filter for faster resizing (sufficient for thumbnails)
+        let scaled = img.resize(size, size, image::imageops::FilterType::Triangle);
 
         // Get dimensions and calculate position for centering
         let (width, height) = scaled.dimensions();
@@ -37,7 +38,7 @@ fn create_scaled_image(img: DynamicImage, size: u32, pad_to_square: bool) -> Res
         Ok(jpeg_data.to_vec())
     } else {
         // Just resize the image to the given size (max dimension) while maintaining the aspect ratio
-        let scaled = img.resize(size, size, image::imageops::FilterType::Lanczos3);
+        let scaled = img.resize(size, size, image::imageops::FilterType::Triangle);
         let mut jpeg_data = Vec::new();
         let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_data, 85);
         encoder.encode(
@@ -50,12 +51,92 @@ fn create_scaled_image(img: DynamicImage, size: u32, pad_to_square: bool) -> Res
     }
 }
 
+fn try_load_jpeg(path: &Path, target_size: u32) -> Result<Option<DynamicImage>> {
+    let data = std::fs::read(path)?;
+    
+    // Check for JPEG magic bytes (FF D8 FF)
+    if data.len() < 3 || data[0] != 0xFF || data[1] != 0xD8 || data[2] != 0xFF {
+        return Ok(None);
+    }
+
+    // Try to decompress with turbojpeg (much faster than image crate)
+    let mut decompressor = turbojpeg::Decompressor::new()?;
+    let header = decompressor.read_header(&data)?;
+    
+    // Calculate the best scaling factor
+    let scaling_factor = if target_size > 0 {
+        let _min_dim = std::cmp::min(header.width, header.height);
+        let factors = turbojpeg::Decompressor::supported_scaling_factors();
+        
+        // Find the smallest factor that produces an image >= target_size
+        factors.iter()
+            .filter(|f| {
+                let scaled_w = (header.width * f.num() + f.denom() - 1) / f.denom();
+                let scaled_h = (header.height * f.num() + f.denom() - 1) / f.denom();
+                let scaled_min = std::cmp::min(scaled_w, scaled_h);
+                scaled_min >= target_size as usize
+            })
+            .min_by_key(|f| {
+                // We prefer the smallest sufficient factor (closest to target)
+                // Since they are fractions, we can compare their float value or just use the one found
+                // Actually, we want the *smallest* factor that is *sufficient*.
+                // Factors are usually 1/8, 1/4, 3/8, 1/2, ... 1/1.
+                // Smaller factor = smaller image.
+                // So we want the minimum factor that satisfies the condition.
+                (f.num() * 100) / f.denom()
+            })
+            .cloned()
+            .unwrap_or(turbojpeg::ScalingFactor::new(1, 1))
+    } else {
+        turbojpeg::ScalingFactor::new(1, 1)
+    };
+
+    decompressor.set_scaling_factor(scaling_factor)?;
+    
+    // Decompress directly into an ImageBuffer
+    // Note: decompress_image creates the buffer for us, but it doesn't seem to expose scaling easily?
+    // Wait, if I use `decompressor.decompress`, I need to provide the buffer.
+    // Let's try to use `decompressor.decompress` with a manually created buffer.
+    
+    // Re-read header to get scaled dimensions? Or calculate them?
+    // The API might update header info or we need to calculate.
+    // Let's assume we need to calculate or use `decompressor` to get output info.
+    // Actually, `turbojpeg-rs` documentation says `read_header` returns `Header`.
+    // `ScalingFactor` has `apply_to(width, height)`.
+    
+    let scaled_width = (header.width * scaling_factor.num() + scaling_factor.denom() - 1) / scaling_factor.denom();
+    let scaled_height = (header.height * scaling_factor.num() + scaling_factor.denom() - 1) / scaling_factor.denom();
+    
+    let mut image = image::RgbImage::new(scaled_width as u32, scaled_height as u32);
+    
+    // We need to wrap the buffer in turbojpeg::Image
+    // image::RgbImage is a flat buffer of RGB pixels
+    let turbo_image = turbojpeg::Image {
+        pixels: image.as_mut(),
+        width: scaled_width,
+        height: scaled_height,
+        format: turbojpeg::PixelFormat::RGB,
+        pitch: scaled_width * 3,
+    };
+    
+    match decompressor.decompress(&data, turbo_image) {
+        Ok(_) => Ok(Some(DynamicImage::ImageRgb8(image))),
+        Err(_) => Ok(None),
+    }
+}
+
 pub fn create_scaled_image_in_memory(source_path: &Path, image_type: ImageType) -> Result<Vec<u8>> {
     let size = image_type.size();
     let pad_to_square = image_type.pad_to_square();
 
-    let mut img = image::open(source_path)
-        .with_context(|| format!("Failed to open image: {:?}", source_path))?;
+    // Try to load with turbojpeg first (fast path for JPEGs)
+    // We pass target_size to allow for future optimization with scaling
+    let mut img = if let Ok(Some(img)) = try_load_jpeg(source_path, size) {
+        img
+    } else {
+        image::open(source_path)
+            .with_context(|| format!("Failed to open image: {:?}", source_path))?
+    };
 
     // Apply EXIF orientation
     img = crate::exif_parser::apply_exif_orientation(source_path, img)?;
