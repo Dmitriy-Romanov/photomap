@@ -32,22 +32,6 @@
 
 ### Next: v0.7.0 - Performance Optimization Edition
 
-#### Phase 1: Windows Process Manager (Research Required)
-**User Questions:**
-- What are the Windows equivalents of `pgrep` and `kill`?
-- How does Windows process termination differ from Unix signals?
-- What are the Windows-specific considerations for process management?
-
-**Research Tasks:**
-- [ ] Search: "Windows Rust process management 2025"
-- [ ] Search: "Windows taskkill command alternatives"
-- [ ] Research: "Windows process enumeration Rust std"
-
-**Implementation Tasks:**
-- [ ] Implement Windows-specific process detection
-- [ ] Add Windows process termination logic
-- [ ] Test on Windows environment
-- [ ] Update documentation
 
 #### Phase 2: Windows File Path Handling
 **Research Tasks:**
