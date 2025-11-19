@@ -25,3 +25,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 temp_*
+
+# Private documentation
+AI_WORKFLOW.md
