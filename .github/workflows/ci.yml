@@ -21,9 +21,9 @@ jobs:
       - name: Install libheif build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake make g++ libde265-dev libx265-dev
+          sudo apt-get install -y cmake make g++ pkg-config libde265-dev libx265-dev
 
-      - name: Build and install libheif v1.17.6 from source
+      - name: Build, install, and configure libheif v1.17.6 from source
         run: |
           git clone https://github.com/strukturag/libheif.git
           cd libheif
@@ -34,6 +34,7 @@ jobs:
           make
           sudo make install
           sudo ldconfig
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
