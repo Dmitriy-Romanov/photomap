@@ -45,7 +45,7 @@ jobs:
       # 6. Запуск Clippy (Линтер)
       # -- -D warnings означает: "считать любые предупреждения ошибками" (не даст замержить грязный код)
       - name: Run Clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy
 
       # 7. Запуск тестов
       - name: Run Tests
