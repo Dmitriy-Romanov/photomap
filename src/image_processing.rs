@@ -225,12 +225,27 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
             counter += 1;
         };
 
-        std::os::unix::fs::symlink(original_path, &final_symlink_path).with_context(|| {
-            format!(
-                "Failed to create symlink for HEIC file: {:?}",
-                original_path
-            )
-        })?;
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(original_path, &final_symlink_path).with_context(|| {
+                format!(
+                    "Failed to create symlink for HEIC file: {:?}",
+                    original_path
+                )
+            })?;
+        }
+
+        #[cfg(not(unix))]
+        {
+            // On Windows and other non-Unix systems, we copy the file instead of symlinking
+            // because symlinks require special privileges on Windows
+            std::fs::copy(original_path, &final_symlink_path).with_context(|| {
+                format!(
+                    "Failed to copy HEIC file for decoding: {:?}",
+                    original_path
+                )
+            })?;
+        }
         path_to_decode = final_symlink_path.clone();
         temp_symlink_path = Some(final_symlink_path);
     }
