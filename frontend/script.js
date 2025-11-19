@@ -35,6 +35,36 @@ setInterval(() => {
     hideSvgFlags();
 }, 2000);
 
+// Update map center coordinates display
+function updateMapCoordinates() {
+    const center = map.getCenter();
+    const coordsElement = document.getElementById('map-coordinates');
+    if (coordsElement) {
+        coordsElement.textContent = `Lat: ${center.lat.toFixed(5)}, Lon: ${center.lng.toFixed(5)}`;
+    }
+}
+
+// Update coordinates on map move (real-time updates)
+map.on('move', updateMapCoordinates);
+
+// Initial update
+updateMapCoordinates();
+
+// Toggle coordinates and crosshair visibility
+const coordsToggle = document.getElementById('coords-toggle');
+const coordsElement = document.getElementById('map-coordinates');
+const mapContainer = document.querySelector('.leaflet-container');
+
+coordsToggle.addEventListener('change', function () {
+    if (this.checked) {
+        coordsElement.classList.remove('hidden');
+        mapContainer.classList.remove('hide-crosshair');
+    } else {
+        coordsElement.classList.add('hidden');
+        mapContainer.classList.add('hide-crosshair');
+    }
+});
+
 // Initialize marker cluster group
 const markerClusterGroup = L.markerClusterGroup({
     iconCreateFunction: function (cluster) {
@@ -274,15 +304,11 @@ function filterMarkers() {
 function initializeYearControls() {
     const yearFromInput = document.getElementById('year-from');
     const yearToInput = document.getElementById('year-to');
-    const yearFromLabel = document.getElementById('year-from-label');
-    const yearToLabel = document.getElementById('year-to-label');
 
     if (photoData.length === 0) {
         const currentYear = new Date().getFullYear();
         yearFromInput.value = currentYear;
         yearToInput.value = currentYear;
-        if (yearFromLabel) yearFromLabel.textContent = `(${currentYear})`;
-        if (yearToLabel) yearToLabel.textContent = `(${currentYear})`;
         return;
     }
 
@@ -295,17 +321,19 @@ function initializeYearControls() {
         const currentYear = new Date().getFullYear();
         yearFromInput.value = currentYear;
         yearToInput.value = currentYear;
-        if (yearFromLabel) yearFromLabel.textContent = `(${currentYear})`;
-        if (yearToLabel) yearToLabel.textContent = `(${currentYear})`;
+        const rangeInfo = document.getElementById('year-range-info');
+        if (rangeInfo) rangeInfo.textContent = '';
         return;
     }
 
     const minYear = Math.min(...years);
     const maxYear = Math.max(...years);
 
-    // Update labels with context
-    if (yearFromLabel) yearFromLabel.textContent = `(${minYear})`;
-    if (yearToLabel) yearToLabel.textContent = `(${maxYear})`;
+    // Update info label
+    const rangeInfo = document.getElementById('year-range-info');
+    if (rangeInfo) {
+        rangeInfo.textContent = `(${minYear}—${maxYear})`;
+    }
 
     // Set initial values
     yearFromInput.value = minYear;
@@ -396,9 +424,45 @@ loadSettings().then(() => {
 
 // === UI Control Functions ===
 
+// Open native folder selection dialog
+async function openFolderDialog() {
+    const openButton = document.getElementById('open-button');
+    const folderInput = document.getElementById('folder-input');
+
+    try {
+        openButton.disabled = true;
+        openButton.textContent = '⏳...';
+
+        const response = await fetch('/api/select-folder', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            folderInput.value = result.folder_path;
+            showNotification('✅ Folder selected', 'success');
+
+            // Auto-start processing
+            console.log('Auto-starting processing...');
+            await processFolder();
+        } else if (result.status === 'cancelled') {
+            // User cancelled, do nothing
+            console.log('Folder selection cancelled');
+        } else {
+            showNotification('❌ ' + (result.message || 'Error selecting folder'), 'error');
+        }
+    } catch (error) {
+        console.error('Error selecting folder:', error);
+        showNotification('❌ Error selecting folder', 'error');
+    } finally {
+        openButton.disabled = false;
+        openButton.textContent = '📂 Open';
+    }
+}
+
 // Browse for folder and immediately start processing
 async function processFolder() {
-    const processButton = document.getElementById('process-button');
     const folderInput = document.getElementById('folder-input');
     const statusDiv = document.getElementById('processing-status');
     const statusText = document.getElementById('status-text');
@@ -414,10 +478,8 @@ async function processFolder() {
     }
 
     try {
-        // Disable button and show processing status
-        processButton.disabled = true;
-        processButton.textContent = '⏳ Processing...';
-        statusDiv.style.display = 'block';
+        // Show processing status
+        statusDiv.style.display = 'flex';
         statusText.textContent = 'Processing photos...';
         progressText.textContent = 'Analyzing folder...';
 
@@ -465,8 +527,6 @@ async function processFolder() {
             if (data.event_type === 'processing_complete') {
                 eventSource.close();
                 statusDiv.style.display = 'none';
-                processButton.disabled = false;
-                processButton.textContent = '🚀 Process Photos';
                 loadPhotos().then(() => {
                     initializeYearControls(); // Re-initialize year controls with new data
                 }); // Refresh map
@@ -475,8 +535,6 @@ async function processFolder() {
             } else if (data.event_type === 'processing_error') {
                 eventSource.close();
                 statusDiv.style.display = 'none';
-                processButton.disabled = false;
-                processButton.textContent = '🚀 Process Photos';
                 showNotification(`❌ Error: ${data.data.message}`, 'error');
             } else {
                 // Handle other events like progress updates
@@ -490,16 +548,12 @@ async function processFolder() {
         eventSource.onerror = function () {
             eventSource.close();
             statusDiv.style.display = 'none';
-            processButton.disabled = false;
-            processButton.textContent = '🚀 Process Photos';
             showNotification('❌ Error connecting to the server for updates.', 'error');
         };
 
     } catch (error) {
         // Handle errors
         statusDiv.style.display = 'none';
-        processButton.disabled = false;
-        processButton.textContent = '🚀 Process Photos';
         showNotification('❌ Error: ' + error.message, 'error');
     }
 }
@@ -543,46 +597,41 @@ function showNotification(message, type = 'info') {
 
 // Function to toggle info panel height
 function toggleInfoWindow() {
-    const windowContent = document.getElementById('window-content');
+    const panel = document.getElementById('floating-info-window');
     const toggleButton = document.getElementById('toggle-window-btn');
-    const floatingWindow = document.getElementById('floating-info-window');
 
-    // Check current state
-    if (windowContent.style.display === 'none') {
-        // Expand the window
-        windowContent.style.display = 'block';
-        floatingWindow.style.height = 'auto';
-        toggleButton.textContent = '⌄';
+    // Check if currently collapsed
+    const isCollapsed = panel.classList.contains('collapsed');
 
-        // Save state to localStorage
+    if (isCollapsed) {
+        // Expand
+        panel.classList.remove('collapsed');
+        toggleButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+        toggleButton.title = "Minimize";
         localStorage.setItem('infoWindowState', 'expanded');
     } else {
-        // Collapse the window
-        windowContent.style.display = 'none';
-        floatingWindow.style.height = '45px';
-        toggleButton.textContent = '⌃';
-
-        // Save state to localStorage
+        // Collapse
+        panel.classList.add('collapsed');
+        toggleButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"></polyline></svg>';
+        toggleButton.title = "Expand";
         localStorage.setItem('infoWindowState', 'collapsed');
     }
-    // No need to resize map - it's always full screen
 }
 
 // Attach event listener to the button after DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     const toggleButton = document.getElementById('toggle-window-btn');
-    if (toggleButton) {
-        toggleButton.addEventListener('click', toggleInfoWindow);
-    }
+    // Event listener removed to avoid double-toggling (onclick is in HTML)
 
     // Restore saved window state
     const savedState = localStorage.getItem('infoWindowState');
-    const windowContent = document.getElementById('window-content');
-    const floatingWindow = document.getElementById('floating-info-window');
+    const panel = document.getElementById('floating-info-window');
 
     if (savedState === 'collapsed') {
-        windowContent.style.display = 'none';
-        floatingWindow.style.height = '26px';
-        if (toggleButton) toggleButton.textContent = '⌃';
+        panel.classList.add('collapsed');
+        if (toggleButton) {
+            toggleButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"></polyline></svg>';
+            toggleButton.title = "Expand";
+        }
     }
 });

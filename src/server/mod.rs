@@ -17,7 +17,7 @@ use handlers::{
     convert_heic, get_all_photos, get_marker_image, get_popup_image, get_settings,
     get_thumbnail_image, index_html, initiate_processing, processing_events_stream,
     reprocess_photos, script_js, serve_photo, set_folder, shutdown_app, style_css,
-    update_settings,
+    update_settings, select_folder_dialog,
 };
 
 // Create the main application router
@@ -33,6 +33,7 @@ async fn create_app(state: AppState) -> Router {
         .route("/convert-heic", get(convert_heic))
         .route("/api/settings", get(get_settings))
         .route("/api/set-folder", post(set_folder))
+        .route("/api/select-folder", post(select_folder_dialog))
         .route("/api/settings", axum::routing::post(update_settings))
         .route("/api/events", get(processing_events_stream))
         .route("/api/initiate-processing", post(initiate_processing))

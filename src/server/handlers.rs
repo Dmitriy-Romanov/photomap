@@ -19,6 +19,7 @@ use rust_embed::RustEmbed;
 struct Asset;
 use crate::processing::{process_photos_from_directory, process_photos_into_database};
 use crate::settings::Settings;
+use crate::utils::select_folder_native;
 use tokio::sync::mpsc;
 
 use super::events::{ProcessingData, ProcessingEvent};
@@ -550,4 +551,39 @@ pub async fn shutdown_app(
     });
 
     Ok(Json(response))
+}
+
+// API endpoint to open native folder selection dialog
+pub async fn select_folder_dialog(
+    State(_state): State<AppState>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    println!("🔍 Opening native folder selection dialog...");
+
+    // Call the native folder picker (blocking operation, but it's a separate process)
+    // In a real async app we might want to wrap this in spawn_blocking, 
+    // but since it spawns a separate process (osascript/powershell), it shouldn't block the runtime too much.
+    // However, for safety, let's use spawn_blocking
+    let folder_path = tokio::task::spawn_blocking(|| {
+        select_folder_native()
+    }).await.map_err(|e| {
+        eprintln!("Task join error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    if let Some(path) = folder_path {
+        println!("✅ Folder selected: {}", path);
+        let response = serde_json::json!({
+            "status": "success",
+            "folder_path": path,
+            "message": "Folder selected"
+        });
+        Ok(Json(response))
+    } else {
+        println!("❌ Folder selection cancelled");
+        let response = serde_json::json!({
+            "status": "cancelled",
+            "message": "Folder selection cancelled"
+        });
+        Ok(Json(response))
+    }
 }

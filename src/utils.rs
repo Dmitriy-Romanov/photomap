@@ -59,3 +59,67 @@ pub fn get_database_path() -> String {
     db_dir.push("photomap.db");
     db_dir.to_string_lossy().to_string()
 }
+
+use std::process::Command;
+use std::env;
+
+pub fn select_folder_native() -> Option<String> {
+    let os = env::consts::OS;
+
+    match os {
+        "macos" => {
+            // MacOS: Используем AppleScript через osascript
+            // Это создает нативное окно Finder, не блокируя основной поток сервера
+            let script = "return POSIX path of (choose folder with prompt \"Выберите папку с фото\")";
+            let output = Command::new("osascript")
+                .arg("-e")
+                .arg(script)
+                .output()
+                .ok()?;
+
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() {
+                    return Some(path);
+                }
+            }
+        },
+        "windows" => {
+            // Windows: Используем PowerShell и .NET (System.Windows.Forms)
+            // Работает на любой Windows 7/10/11 без установки лишнего софта
+            let script = r#"
+                Add-Type -AssemblyName System.Windows.Forms
+                $f = New-Object System.Windows.Forms.FolderBrowserDialog
+                $f.Description = "Выберите папку с фото"
+                $f.ShowNewFolderButton = $true
+                if ($f.ShowDialog() -eq "OK") { Write-Host $f.SelectedPath }
+            "#;
+            
+            let output = Command::new("powershell")
+                .arg("-NoProfile") // Ускоряет запуск
+                .arg("-Command")
+                .arg(script)
+                .output()
+                .ok()?;
+
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() {
+                    return Some(path);
+                }
+            }
+        },
+        "linux" => {
+            // Linux: Пробуем zenity или kdialog (стандартные утилиты)
+            if let Ok(output) = Command::new("zenity").arg("--file-selection").arg("--directory").output() {
+                if output.status.success() {
+                    return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                }
+            }
+            // Можно добавить fallback на kdialog, если нужно
+        },
+        _ => {}
+    }
+    
+    None
+}

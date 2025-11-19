@@ -1,13 +1,13 @@
-# PhotoMap Processor v0.6.6
+# PhotoMap Processor v0.6.7
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Key Technical Improvements (v0.6.6)
+## ✨ Key Technical Improvements (v0.6.7)
 
-- **HiDPI Support**: Popup images are now generated at 2x resolution (1400px) for sharp display on Retina screens.
-- **Performance**: 64x faster thumbnail generation using TurboJPEG scaling and Triangle filter.
-- **Stability**: Robust error handling for invalid folder configurations (auto-clearing database).
-- **Cross-Platform**: Full Windows compatibility with `sysinfo` for process management.
+- **Modern UI**: Redesigned info panel with glassmorphism, translucent background, and optimized layout.
+- **Map Coordinates**: Real-time display of map center coordinates with toggle control.
+- **Navigation**: Optional crosshair for precise map navigation.
+- **Code Quality**: Removed duplicate CSS definitions and optimized coordinate updates.
 
 ## 🚀 Quick Start
 
@@ -58,6 +58,14 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.6.7 - UI Redesign Edition
+- **Modern Info Panel**: Redesigned with glassmorphism, translucent background (560px width), and optimized positioning.
+- **Map Coordinates**: Real-time display of map center coordinates in header with toggle checkbox control.
+- **Crosshair**: Optional center crosshair for precise navigation (toggleable with coordinates).
+- **Improved Layout**: Statistics moved inline with year range, compact year inputs with overall min/max display.
+- **Better Readability**: Increased font sizes by 2px across the panel for improved legibility.
+- **Code Optimization**: Removed duplicate CSS definitions, unused styles, and cleaned up coordinate update logic.
 
 ### v0.6.6 - UI & UX Enhancement Edition
 - **Year Range Filter**: Filter photos by year range with dynamic min/max labels.

@@ -1,51 +1,62 @@
-body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-#map { height: 100vh; width: 100%; }
-.info {
-    padding: 6px 8px;
-    font: 14px/16px Arial, Helvetica, sans-serif;
-    background: white;
-    background: rgba(255,255,255,0.9);
-    box-shadow: 0 0 15px rgba(0,0,0,0.2);
-    border-radius: 5px;
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
 }
-.info h4 {
-    margin: 0 0 5px;
-    color: #777;
+
+#map {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
 }
+
 .photo-popup {
     text-align: center;
-    min-width: 720px; /* Ensure minimum width for 700px images */
-    max-width: 720px; /* Fixed width for consistent layout */
+    min-width: 720px;
+    /* Ensure minimum width for 700px images */
+    max-width: 720px;
+    /* Fixed width for consistent layout */
 }
+
 .leaflet-popup-content-wrapper {
-    min-width: 740px !important; /* Popup wrapper with padding */
+    min-width: 740px !important;
+    /* Popup wrapper with padding */
 }
+
 .leaflet-popup-content {
     min-width: 720px !important;
     max-width: 720px !important;
 }
+
 .photo-popup img {
     max-width: 700px;
     max-height: 500px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     margin-bottom: 8px;
 }
+
 .photo-popup .filename {
     font-weight: bold;
     margin: 4px 0;
     font-size: 0.9em;
 }
+
 .photo-popup .datetime {
     color: #666;
     margin: 4px 0;
     font-size: 0.8em;
 }
+
 .thumbnail-icon {
     border-radius: 4px;
     border: 2px solid white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
+
 .custom-cluster-icon {
     background: #4285f4;
     border-radius: 50%;
@@ -54,16 +65,31 @@ body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
     font-weight: bold;
     font-size: 12px;
     border: 2px solid white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 @keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
+
 @keyframes slideOut {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(100%); opacity: 0; }
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
 }
 
 #floating-info-window {
@@ -80,4 +106,389 @@ body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
 
 #toggle-window-btn:hover {
     background-color: #0056b3 !important;
+}
+
+/* --- New Info Panel Design --- */
+
+.info-panel {
+    position: fixed;
+    top: 9px;
+    left: 60px;
+    width: 560px;
+    background: rgba(255, 255, 255, 0.995);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    z-index: 1000;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.info-panel.collapsed {
+    width: 560px;
+    min-width: 560px;
+    max-height: 54px;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: rgba(255, 255, 255, 0.5);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    cursor: default;
+}
+
+.app-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    top: -2px;
+}
+
+.map-coords-toggle {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    margin-left: 20px;
+    cursor: pointer;
+}
+
+.map-coords-toggle input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
+.toggle-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #888;
+    text-transform: none;
+    letter-spacing: 0.5px;
+    user-select: none;
+}
+
+.coords-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.map-coordinates {
+    font-size: 13px;
+    font-weight: 600;
+    color: #888;
+    margin-left: 4px;
+    margin-right: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.map-coordinates.hidden {
+    display: none;
+}
+
+.window-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.control-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.control-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+}
+
+.control-btn.close:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.panel-content {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.year-range-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    width: 100%;
+}
+
+.year-range-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.year-range-stats {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.group-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    font-weight: 600;
+    margin-left: 2px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 48px;
+}
+
+.year-range-info {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: none;
+}
+
+.input-wrapper {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.folder-input {
+    flex: 1;
+    padding: 11px 13px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #374151;
+    background: #f9fafb;
+    outline: none;
+    transition: all 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.folder-input:focus {
+    border-color: #3b82f6;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.icon-btn.primary {
+    background: #3b82f6;
+    color: white;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.icon-btn.primary:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(59, 130, 246, 0.4);
+}
+
+.icon-btn.primary:active {
+    transform: translateY(0);
+}
+
+.year-inputs {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f9fafb;
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    width: fit-content;
+    /* Only take necessary width */
+    min-width: 50%;
+    /* Ensure it's not too small */
+}
+
+.year-field {
+    /* flex: 1; Removed to stop expanding */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: white;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    width: 90px;
+    /* Fixed width for compactness (reduced by 15%) */
+}
+
+.year-field:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.year-field label {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.year-field input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2937;
+    padding: 0;
+    background: transparent;
+}
+
+.year-separator {
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.stats-bar {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #9ca3af;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    font-variant-numeric: tabular-nums;
+    margin-top: 14px;
+}
+
+/* Processing Status Overlay */
+#processing-status {
+    display: none;
+}
+
+.processing-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(4px);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border-radius: 16px;
+}
+
+.spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Simple crosshair in center of map */
+.leaflet-container::after {
+    content: '+';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 30px;
+    color: rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    z-index: 1000;
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.9);
+}
+
+.leaflet-container.hide-crosshair::after {
+    display: none;
+}
+
+/* --- Status Text Styles --- */
+#status-text {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1f2937;
+}
+
+#progress-text {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* --- Utility Classes --- */
+.align-end {
+    align-items: flex-end;
 }
