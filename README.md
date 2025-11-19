@@ -1,4 +1,4 @@
-# PhotoMap Processor v0.6.3
+# PhotoMap Processor v0.6.4
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 

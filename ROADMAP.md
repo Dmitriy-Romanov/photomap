@@ -14,7 +14,11 @@
 - Removed dependency on ImageMagick.
 - HEIC processing is now handled by a native Rust-based solution.
 
-### Current: v0.5.4 - Enhanced UI Edition ✅
+### Current: v0.6.4 - Windows Compatibility Edition (Phase 1) ✅
+- [x] Replaced `pgrep`/`kill` with `sysinfo` for cross-platform process management
+- [x] Added `sysinfo` dependency
+
+### Previous: v0.5.4 - Enhanced UI Edition ✅
 - [x] ImageMagick status display in info panel
 - [x] Year range controls with validation
 - [x] UI panel width improvements (440px)
@@ -26,7 +30,7 @@
 - [x] Cross-platform process termination
 - [x] Development guide and standards
 
-### Next: v0.6.0 - Windows Compatibility Edition
+### Next: v0.7.0 - Performance Optimization Edition
 
 #### Phase 1: Windows Process Manager (Research Required)
 **User Questions:**
