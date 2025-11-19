@@ -16,72 +16,83 @@ env:
 jobs:
   build_and_test:
     name: Build, Test & Lint
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Установка инструментов для сборки (компиляторы + кодеки)
-      - name: Install Build Dependencies
+      # === Linux Setup ===
+      - name: Install Linux Build Dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake nasm clang pkg-config \
                                   libde265-dev libx265-dev libjpeg-turbo8-dev git
 
-      # 2. Кэширование libheif (чтобы не ждать 5 минут каждый раз)
-      - name: Cache Custom Libheif
+      - name: Cache Custom Libheif (Linux)
+        if: runner.os == 'Linux'
         id: cache-libheif
         uses: actions/cache@v3
         with:
           path: /usr/local
-          # Ключ кэша. Если поменяешь версию libheif, поменяй и v1 на v2
           key: ${{ runner.os }}-libheif-master-v1
 
-      # 3. Сборка libheif из исходников (ветка master)
-      # Мы делаем это, потому что твой crate требует версию >= 1.20,
-      # которой нет в стандартном Linux.
-      - name: Build and Install libheif (Source)
-        if: steps.cache-libheif.outputs.cache-hit != 'true'
+      - name: Build and Install libheif (Linux)
+        if: runner.os == 'Linux' && steps.cache-libheif.outputs.cache-hit != 'true'
         run: |
-          # Клонируем master-ветку, так как там лежит версия 1.20+
           git clone --depth 1 https://github.com/strukturag/libheif.git
           cd libheif
           mkdir build
           cd build
-          # Конфигурируем установку в /usr/local
           cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
-          # Компилируем на всех ядрах
           make -j$(nproc)
-          # Устанавливаем
           sudo make install
-          # Обновляем ссылки на библиотеки
           sudo ldconfig
 
-      # 4. Проверка (Debug): Убедимся, что файл .pc реально создался там, где мы ждем
-      - name: Verify libheif installation
-        run: |
-          ls -la /usr/local/lib/pkgconfig/libheif.pc || echo "PC file not found!"
-          pkg-config --modversion libheif || echo "pkg-config failed to find libheif"
+      # === Windows Setup ===
+      - name: Vcpkg Cache (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v3
+        with:
+          path: C:\vcpkg\installed
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('.github/workflows/ci.yml') }}
 
-      # 5. Установка Rust
+      - name: Install Windows Dependencies
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          vcpkg install libheif:x64-windows libjpeg-turbo:x64-windows
+          echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
+
+      # === macOS Setup ===
+      - name: Install macOS Dependencies
+        if: runner.os == 'macOS'
+        run: brew install libheif jpeg-turbo || true
+
+      # === Common Steps ===
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
 
-      # 6. Кэш Rust (target)
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      # 7. Запуск Clippy (Линтер)
       - name: Run Clippy
         run: cargo clippy
+        env:
+          VCPKGRS_DYNAMIC: 1
 
-      # 8. Запуск тестов
       - name: Run Tests
         run: cargo test
+        env:
+          VCPKGRS_DYNAMIC: 1
 
-      # 9. Финальная сборка (Release)
-      - name: Build Release
+      - name: Build Release (Dry Run)
         run: cargo build --release
+        env:
+          VCPKGRS_DYNAMIC: 1
