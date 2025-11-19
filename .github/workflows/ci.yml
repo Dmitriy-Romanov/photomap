@@ -25,7 +25,9 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libheif-dev libjpeg-turbo8-dev nasm cmake clang
+          sudo apt-get install -y libheif-dev libjpeg-turbo8-dev nasm cmake clang pkg-config
+          sudo ldconfig # Update dynamic linker cache
+          pkg-config --cflags --libs libheif # Diagnostic step to confirm libheif is found
 
       # 3. Устанавливаем Rust (стабильную версию) + компонент clippy
       - name: Install Rust toolchain
