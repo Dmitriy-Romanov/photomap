@@ -1,0 +1,103 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    name: Build Windows (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies (vcpkg)
+        run: |
+          vcpkg install libheif:x64-windows libjpeg-turbo:x64-windows
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+
+      - name: Build Release
+        run: cargo build --release
+        env:
+          VCPKG_ROOT: ${{ env.VCPKG_INSTALLATION_ROOT }}
+          # Tell the crate to use vcpkg to find libraries
+          VCPKGRS_DYNAMIC: 1
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: photomap-windows-x64
+          path: target/release/photomap_processor.exe
+
+  build-macos:
+    name: Build macOS (Apple Silicon)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: brew install libheif jpeg-turbo
+
+      - name: Build Release
+        run: cargo build --release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: photomap-macos-arm64
+          path: target/release/photomap_processor
+
+  build-linux:
+    name: Build Linux (x64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake nasm clang pkg-config \
+                                  libde265-dev libx265-dev libjpeg-turbo8-dev
+
+      # Build libheif from source as in CI
+      - name: Cache Custom Libheif
+        id: cache-libheif
+        uses: actions/cache@v3
+        with:
+          path: /usr/local
+          key: ${{ runner.os }}-libheif-master-v1
+
+      - name: Build and Install libheif (Source)
+        if: steps.cache-libheif.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/strukturag/libheif.git
+          cd libheif
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Release
+        run: cargo build --release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: photomap-linux-x64
+          path: target/release/photomap_processor
