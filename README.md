@@ -1,14 +1,13 @@
-# PhotoMap Processor v0.6.4
+# PhotoMap Processor v0.6.5
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Key Technical Improvements (v0.6.2 -> v0.6.3)
+## ✨ Key Technical Improvements (v0.6.5)
 
-This version includes a major internal refactoring to improve robustness, scalability, and maintainability.
-
-- **Robust Metadata Parsers**: Replaced fragile, custom-built EXIF parsers with professional, standard libraries (`kamadak-exif` and `libheif-rs`), significantly increasing reliability.
-- **Scalable File Processing**: The file processing engine was rewritten to use a memory-efficient iterator-based approach. The application can now smoothly process virtually unlimited numbers of photos without high memory usage.
-- **Professional Logging**: Implemented the `tracing` framework for structured, configurable logging. All output is now sent to both the console and a daily rotating log file located in the `log/` directory.
+- **HiDPI Support**: Popup images are now generated at 2x resolution (1400px) for sharp display on Retina screens.
+- **Performance**: 64x faster thumbnail generation using TurboJPEG scaling and Triangle filter.
+- **Stability**: Robust error handling for invalid folder configurations (auto-clearing database).
+- **Cross-Platform**: Full Windows compatibility with `sysinfo` for process management.
 
 ## 🚀 Quick Start
 
@@ -60,22 +59,20 @@ photomap/
 
 ## 📈 Version History
 
+### v0.6.5 - Stability & Performance Edition
+- **Thumbnail Optimization**: 64x faster decoding using TurboJPEG scaling + Triangle filter.
+- **HiDPI Popups**: Increased popup resolution to 1400px for Retina displays.
+- **Robust Error Handling**: Database auto-clearing on invalid config.
+- **UI Safety**: Prevents selecting non-existent folders.
+
+### v0.6.4 - Windows Compatibility Edition
+- **Cross-Platform**: Replaced `pgrep`/`kill` with `sysinfo` for Windows support.
+- **Cleanup**: Removed legacy Unix-specific code.
+
 ### v0.6.3
 - **Major Refactoring**: Implemented robust EXIF parsers, a scalable file processing engine, and a professional logging framework (`tracing`). See "Key Technical Improvements".
 - **Bug Fixes**: Resolved compilation issues and a regression where certain HEIC files were not processed correctly.
 - **Documentation**: Updated `PROJECT_MAP.md` and `README.md` to reflect the current architecture.
-
-### v0.6.2
-- **Enhanced UI Edition**: No specific code changes, version bump for context.
-
-### v0.6.1
-- **Refactored Thumbnail Generation**: Now creates high-quality 120x120px JPG thumbnails with white padding for HiDPI/Retina displays.
-- **Fixed HEIC Orientation**: Corrected a bug that caused some HEIC images to be rotated incorrectly.
-- **Embedded Frontend**: The HTML, CSS, and JS are now embedded into the final binary using `rust-embed`.
-- **Cleaned Up UI**: Removed unnecessary console output on startup.
-- **Cleaned Up Documentation**: Removed several outdated markdown files.
-
-*(Older version history has been condensed for brevity. See git history for full details.)*
 
 ## 📄 License
 
