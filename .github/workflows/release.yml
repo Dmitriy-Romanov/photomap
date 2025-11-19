@@ -19,6 +19,15 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Vcpkg Cache
+        uses: actions/cache@v3
+        with:
+          path: C:\vcpkg\installed
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('.github/workflows/release.yml') }}
+
       - name: Install dependencies (vcpkg)
         shell: bash
         run: |
@@ -45,8 +54,11 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Install dependencies
-        run: brew install libheif jpeg-turbo
+        run: brew install libheif jpeg-turbo || true
 
       - name: Build Release
         run: cargo build --release
