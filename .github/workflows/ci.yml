@@ -22,10 +22,13 @@ jobs:
 
       # 2. ВАЖНО: Устанавливаем системные зависимости (как brew, но для Linux)
       # Без этого сборка упадет, так как у тебя завязка на C-библиотеки
-      - name: Install System Dependencies
+      - name: Install System Dependencies & Set Env
         run: |
           sudo apt-get update
-          sudo apt-get install -y libheif-dev libjpeg-turbo8-dev nasm cmake clang pkg-config
+          sudo apt-get install -y libheif-dev pkg-config libjpeg-turbo8-dev nasm cmake clang
+          PC_PATH=$(find /usr -name "libheif.pc" 2>/dev/null | xargs dirname)
+          echo "Found libheif.pc at: $PC_PATH"
+          echo "PKG_CONFIG_PATH=${PC_PATH}:${PKG_CONFIG_PATH}" >> $GITHUB_ENV pkg-config
           sudo ldconfig # Update dynamic linker cache
           pkg-config --cflags --libs libheif # Diagnostic step to confirm libheif is found
 
