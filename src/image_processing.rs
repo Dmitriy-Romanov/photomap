@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 
-use std::path::{Path, PathBuf};
-use image::{DynamicImage, GenericImageView, ImageReader};
-use crate::database::PhotoMetadata;
 use crate::constants::*;
+use crate::database::PhotoMetadata;
+use image::{DynamicImage, GenericImageView, ImageReader};
+use std::path::{Path, PathBuf};
 
 /// Creates a scaled JPG image from a DynamicImage.
 /// Can optionally pad the image to a square.
@@ -23,7 +23,12 @@ fn create_scaled_image(img: DynamicImage, size: u32, pad_to_square: bool) -> Res
         let y_offset = (size - height) / 2;
 
         // Copy the scaled image to the center
-        image::imageops::overlay(&mut canvas, &scaled.to_rgb8(), x_offset as i64, y_offset as i64);
+        image::imageops::overlay(
+            &mut canvas,
+            &scaled.to_rgb8(),
+            x_offset as i64,
+            y_offset as i64,
+        );
 
         // Encode to JPEG using turbojpeg
         let jpeg_data = turbojpeg::compress_image(&canvas, 85, turbojpeg::Subsamp::None)
@@ -35,7 +40,12 @@ fn create_scaled_image(img: DynamicImage, size: u32, pad_to_square: bool) -> Res
         let scaled = img.resize(size, size, image::imageops::FilterType::Lanczos3);
         let mut jpeg_data = Vec::new();
         let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_data, 85);
-        encoder.encode(scaled.as_bytes(), scaled.width(), scaled.height(), scaled.color().into())?;
+        encoder.encode(
+            scaled.as_bytes(),
+            scaled.width(),
+            scaled.height(),
+            scaled.color().into(),
+        )?;
         Ok(jpeg_data)
     }
 }
@@ -115,11 +125,16 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
         .unwrap_or_default();
 
     // If it's HEIC/HEIF and the extension is not lowercase, create a temporary symlink
-    if (ext_lower == "heic" || ext_lower == "heif") && original_path.extension().map_or(false, |ext| ext.to_ascii_lowercase() != ext) {
+    if (ext_lower == "heic" || ext_lower == "heif")
+        && original_path
+            .extension()
+            .map_or(false, |ext| ext.to_ascii_lowercase() != ext)
+    {
         let parent = original_path.parent().unwrap_or_else(|| Path::new("."));
-        let filename_stem = original_path.file_stem().and_then(|s| s.to_str()).unwrap_or("temp_heic");
-
-
+        let filename_stem = original_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("temp_heic");
 
         // Create a unique name for the symlink to avoid collisions
         let mut counter = 0;
@@ -132,8 +147,12 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
             counter += 1;
         };
 
-        std::os::unix::fs::symlink(original_path, &final_symlink_path)
-            .with_context(|| format!("Failed to create symlink for HEIC file: {:?}", original_path))?;
+        std::os::unix::fs::symlink(original_path, &final_symlink_path).with_context(|| {
+            format!(
+                "Failed to create symlink for HEIC file: {:?}",
+                original_path
+            )
+        })?;
         path_to_decode = final_symlink_path.clone();
         temp_symlink_path = Some(final_symlink_path);
     }

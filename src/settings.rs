@@ -1,9 +1,9 @@
-use std::path::PathBuf;
-use anyhow::{Result, Context};
-use serde::{Serialize, Deserialize};
+use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
 use std::fs::{File, OpenOptions};
+use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -12,9 +12,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self {
-            last_folder: None,
-        }
+        Self { last_folder: None }
     }
 }
 
@@ -43,7 +41,7 @@ impl Settings {
         if let Some(last_folder) = config_map.get("last_folder") {
             settings.last_folder = Some(last_folder.trim_matches('"').to_string());
         }
-                                         
+
         Ok(settings)
     }
 
@@ -53,7 +51,11 @@ impl Settings {
             std::fs::create_dir_all(parent).context("Creating config directory")?;
         }
 
-        let _file = OpenOptions::new().write(true).create(true).truncate(true).open(&config_path)?;
+        let _file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&config_path)?;
 
         let mut content = String::new();
         content.push_str("# PhotoMap Configuration File\n");
@@ -61,12 +63,11 @@ impl Settings {
         if let Some(ref last_folder) = self.last_folder {
             content.push_str(&format!("last_folder = \"{}\"\n", last_folder));
         }
-                
+
         std::fs::write(&config_path, content).context("Failed to write to config file")?;
         Ok(())
     }
 
-    
     pub fn config_path() -> PathBuf {
         let app_dir = crate::utils::get_app_data_dir();
 
@@ -76,4 +77,3 @@ impl Settings {
         crate::utils::get_config_path()
     }
 }
-

@@ -1,8 +1,8 @@
-use std::sync::{Arc, Mutex};
-use tokio::sync::broadcast;
+use super::events::ProcessingEvent;
 use crate::database::Database;
 use crate::settings::Settings;
-use super::events::ProcessingEvent;
+use std::sync::{Arc, Mutex};
+use tokio::sync::broadcast;
 
 // Application state for sharing database and settings
 #[derive(Clone)]

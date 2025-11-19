@@ -1,10 +1,10 @@
+use super::generic::{get_datetime_from_exif, get_gps_coord};
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use exif::Tag;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use super::generic::{get_gps_coord, get_datetime_from_exif};
-use chrono::{DateTime, Utc};
 
 pub fn extract_metadata_from_jpeg(path: &Path) -> Result<(f64, f64, Option<DateTime<Utc>>)> {
     let file = File::open(path)?;

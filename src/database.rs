@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
-use rusqlite::{Connection, params};
-use serde::{Serialize};
+use rusqlite::{params, Connection};
+use serde::Serialize;
 
 // Structure to store metadata for each photo in database
 #[derive(Debug, Clone)]
 pub struct PhotoMetadata {
     pub filename: String,
-    pub relative_path: String,  // Relative path from photos directory (e.g., "folder/IMG_0001.JPG")
+    pub relative_path: String, // Relative path from photos directory (e.g., "folder/IMG_0001.JPG")
     pub datetime: String,
     pub lat: f64,
     pub lng: f64,
@@ -39,9 +39,7 @@ pub struct Database {
 impl Database {
     pub fn new() -> Result<Self> {
         let db_path = Self::database_path();
-        let db = Database {
-            db_path,
-        };
+        let db = Database { db_path };
         db.init_tables()?;
         Ok(db)
     }
@@ -72,23 +70,27 @@ impl Database {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )",
             [],
-        ).with_context(|| "Failed to create photos table")?;
+        )
+        .with_context(|| "Failed to create photos table")?;
 
         // Create indexes for performance
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_photos_lat_lng ON photos(lat, lng)",
             [],
-        ).with_context(|| "Failed to create coordinates index")?;
+        )
+        .with_context(|| "Failed to create coordinates index")?;
 
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_photos_relative_path ON photos(relative_path)",
             [],
-        ).with_context(|| "Failed to create relative_path index")?;
+        )
+        .with_context(|| "Failed to create relative_path index")?;
 
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_photos_filename ON photos(filename)",
             [],
-        ).with_context(|| "Failed to create filename index")?;
+        )
+        .with_context(|| "Failed to create filename index")?;
 
         Ok(())
     }
@@ -125,37 +127,35 @@ impl Database {
     }
 
     pub fn get_all_photos(&self) -> Result<Vec<PhotoMetadata>> {
-        let conn = Connection::open(&self.db_path)
-            .with_context(|| "Failed to open database for query")?;
+        let conn =
+            Connection::open(&self.db_path).with_context(|| "Failed to open database for query")?;
 
         let mut stmt = conn.prepare(
             "SELECT filename, relative_path, datetime, lat, lng, file_path, is_heic FROM photos ORDER BY datetime DESC"
         )?;
 
-        let photos = stmt.query_map([], |row| {
-            Ok(PhotoMetadata {
-                filename: row.get(0)?,
-                relative_path: row.get(1)?,
-                datetime: row.get(2)?,
-                lat: row.get(3)?,
-                lng: row.get(4)?,
-                file_path: row.get(5)?,
-                is_heic: row.get(6)?,
-            })
-        })?.collect::<Result<Vec<_>, _>>()?;
+        let photos = stmt
+            .query_map([], |row| {
+                Ok(PhotoMetadata {
+                    filename: row.get(0)?,
+                    relative_path: row.get(1)?,
+                    datetime: row.get(2)?,
+                    lat: row.get(3)?,
+                    lng: row.get(4)?,
+                    file_path: row.get(5)?,
+                    is_heic: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(photos)
     }
 
     pub fn get_photos_count(&self) -> Result<usize> {
-        let conn = Connection::open(&self.db_path)
-            .with_context(|| "Failed to open database for count")?;
+        let conn =
+            Connection::open(&self.db_path).with_context(|| "Failed to open database for count")?;
 
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM photos",
-            [],
-            |row| row.get(0)
-        )?;
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM photos", [], |row| row.get(0))?;
         Ok(count as usize)
     }
 }

@@ -9,13 +9,13 @@ use tracing_subscriber::util::SubscriberInitExt;
 // Import modules
 mod constants;
 mod database;
+mod exif_parser;
 mod folder_picker;
 mod image_processing;
-mod exif_parser;
-mod processing;
-mod settings;
-pub mod server;
 mod process_manager;
+mod processing;
+pub mod server;
+mod settings;
 mod utils;
 
 use database::Database;
@@ -35,8 +35,7 @@ async fn main() -> Result<()> {
         .with_ansi(false) // No colors in log file
         .with_writer(non_blocking_file);
 
-    let console_layer = tracing_subscriber::fmt::layer()
-        .with_writer(std::io::stdout);
+    let console_layer = tracing_subscriber::fmt::layer().with_writer(std::io::stdout);
 
     tracing_subscriber::registry()
         .with(console_layer)
@@ -47,7 +46,10 @@ async fn main() -> Result<()> {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     info!("---");
     info!("🚀 Старт сессии: PhotoMap Processor v{}", VERSION);
-    info!("🕒 Время запуска: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
+    info!(
+        "🕒 Время запуска: {}",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+    );
     info!("---");
 
     // Register HEIC/HEIF decoder
@@ -60,14 +62,16 @@ async fn main() -> Result<()> {
 
     // Initialize database
     info!("🗄️  Initializing database...");
-    let db = Database::new()
-        .with_context(|| "Failed to initialize database")?;
+    let db = Database::new().with_context(|| "Failed to initialize database")?;
     info!("✅ Database initialized successfully");
 
     // Don't process photos here anymore - handled later with settings
 
     info!("🎉 Phase 3 implementation ready!");
-    info!("   📊 {} photos with GPS data in database", db.get_photos_count()?);
+    info!(
+        "   📊 {} photos with GPS data in database",
+        db.get_photos_count()?
+    );
     info!("   🚀 Starting HTTP server for on-demand marker generation");
 
     // Start HTTP server

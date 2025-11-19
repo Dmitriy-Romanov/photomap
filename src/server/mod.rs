@@ -50,7 +50,10 @@ async fn start_server_with_port(state: AppState, port: u16) -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = TcpListener::bind(addr).await?;
 
-    println!("   ✅ HTTP server started successfully at http://127.0.0.1:{}", port);
+    println!(
+        "   ✅ HTTP server started successfully at http://127.0.0.1:{}",
+        port
+    );
 
     axum::serve(listener, app).await?;
     Ok(())

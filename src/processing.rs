@@ -1,15 +1,22 @@
+use crate::database::{Database, PhotoMetadata};
+use crate::exif_parser::{
+    extract_metadata_from_heic, extract_metadata_from_jpeg, get_datetime_from_exif, get_gps_coord,
+};
 use anyhow::Result;
 use ignore::Walk;
 use rayon::prelude::*;
 use std::fs;
 use std::path::Path;
-use crate::database::{Database, PhotoMetadata};
-use crate::exif_parser::{extract_metadata_from_heic, extract_metadata_from_jpeg, get_gps_coord, get_datetime_from_exif};
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 /// Processes photos and saves metadata to the database
 /// Returns processing statistics: (total_files, processed_count, gps_count, no_gps_count, heic_count)
-pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: bool, clear_database: bool) -> Result<(usize, usize, usize, usize, usize)> {
+pub fn process_photos_with_stats(
+    db: &Database,
+    photos_dir: &Path,
+    silent_mode: bool,
+    clear_database: bool,
+) -> Result<(usize, usize, usize, usize, usize)> {
     if !silent_mode {
         info!("🔍 Scanning photos directory: {}", photos_dir.display());
     }
@@ -58,7 +65,11 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
             if let Some(components) = path.components().collect::<Vec<_>>().get(1..) {
                 for component in components {
                     if let Some(name) = component.as_os_str().to_str() {
-                        if name.starts_with('.') || name == "node_modules" || name == "target" || name == ".git" {
+                        if name.starts_with('.')
+                            || name == "node_modules"
+                            || name == "target"
+                            || name == ".git"
+                        {
                             return false;
                         }
                     }
@@ -123,9 +134,19 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
         info!("   🗺️  С GPS-данными: {}", gps_count);
         info!("   ❌ Без GPS: {}", no_gps_count);
         info!("   📱 HEIC файлов: {}", heic_count);
-        info!("   📷 JPEG/другие: {}", if final_count >= heic_count { final_count - heic_count } else { 0 });
+        info!(
+            "   📷 JPEG/другие: {}",
+            if final_count >= heic_count {
+                final_count - heic_count
+            } else {
+                0
+            }
+        );
         info!("   ⏱️  Время обработки: {:.2} сек", processing_secs);
-        info!("   📈 Среднее время на файл: {:.1} мс", avg_time_per_file_ms);
+        info!(
+            "   📈 Среднее время на файл: {:.1} мс",
+            avg_time_per_file_ms
+        );
 
         // Performance prediction for large collections
         if total_files >= 100 {
@@ -133,17 +154,35 @@ pub fn process_photos_with_stats(db: &Database, photos_dir: &Path, silent_mode: 
             let predicted_100k_time = (avg_time_per_file_ms * 100000.0) / 1000.0;
 
             info!("\n🔮 Прогноз производительности:");
-            info!("   📊 Для 10,000 фото: ~{:.1} минут", predicted_10k_time / 60.0);
-            info!("   📊 Для 100,000 фото: ~{:.1} минут", predicted_100k_time / 60.0);
+            info!(
+                "   📊 Для 10,000 фото: ~{:.1} минут",
+                predicted_10k_time / 60.0
+            );
+            info!(
+                "   📊 Для 100,000 фото: ~{:.1} минут",
+                predicted_100k_time / 60.0
+            );
             info!("   💡 On-demand генерация маркеров: ~0% времени на старте!");
-            info!("   💡 Экономия диска: {} файлов не создается", total_files * 2); // ~2KB per saved thumbnail
+            info!(
+                "   💡 Экономия диска: {} файлов не создается",
+                total_files * 2
+            ); // ~2KB per saved thumbnail
         }
 
         info!("\n🎉 Обработка завершена! Данные сохранены в базу данных 'photomap.db'.");
-        info!("   🗄️  База данных содержит {} фотографий с GPS-данными", final_count);
+        info!(
+            "   🗄️  База данных содержит {} фотографий с GPS-данными",
+            final_count
+        );
     }
 
-    Ok((total_files, final_count, gps_count, no_gps_count, heic_count))
+    Ok((
+        total_files,
+        final_count,
+        gps_count,
+        no_gps_count,
+        heic_count,
+    ))
 }
 
 /// Simplified version of the function for backward compatibility
@@ -153,8 +192,14 @@ pub fn process_photos_into_database(db: &Database, photos_dir: &Path) -> Result<
 }
 
 /// Processes photos from the specified folder and sends progress events
-pub fn process_photos_from_directory(db: &Database, photos_dir: &Path) -> Result<(usize, usize, usize, usize, usize)> {
-    info!("🔍 Processing photos from directory: {}", photos_dir.display());
+pub fn process_photos_from_directory(
+    db: &Database,
+    photos_dir: &Path,
+) -> Result<(usize, usize, usize, usize, usize)> {
+    info!(
+        "🔍 Processing photos from directory: {}",
+        photos_dir.display()
+    );
 
     // Use the new combined function, but without silent_mode
     process_photos_with_stats(db, photos_dir, false, true)
@@ -170,7 +215,9 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
         .unwrap_or_default();
 
     // Basic list of supported formats
-    let supported_formats = ["jpg", "jpeg", "png", "tiff", "tif", "webp", "bmp", "gif", "heic", "heif", "avif"];
+    let supported_formats = [
+        "jpg", "jpeg", "png", "tiff", "tif", "webp", "bmp", "gif", "heic", "heif", "avif",
+    ];
 
     if !supported_formats.contains(&ext_lower.as_str()) {
         anyhow::bail!("File is not a supported image");

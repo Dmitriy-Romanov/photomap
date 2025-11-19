@@ -1,11 +1,14 @@
-use chrono::{NaiveDateTime, Utc, DateTime};
 use anyhow::Result;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{In, Reader, Tag, Value};
 use std::fs;
 use std::path::Path;
 
 /// Applies EXIF orientation to the image
-pub fn apply_exif_orientation(source_path: &Path, img: image::DynamicImage) -> Result<image::DynamicImage> {
+pub fn apply_exif_orientation(
+    source_path: &Path,
+    img: image::DynamicImage,
+) -> Result<image::DynamicImage> {
     let file = match fs::File::open(source_path) {
         Ok(f) => f,
         Err(_) => return Ok(img),
@@ -39,11 +42,7 @@ pub fn apply_exif_orientation(source_path: &Path, img: image::DynamicImage) -> R
     Ok(rotated)
 }
 
-pub fn get_gps_coord(
-    exif: &exif::Exif,
-    coord_tag: Tag,
-    ref_tag: Tag,
-) -> Result<Option<f64>> {
+pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<Option<f64>> {
     let coord_field = exif.get_field(coord_tag, In::PRIMARY);
     let ref_field = exif.get_field(ref_tag, In::PRIMARY);
 
@@ -81,8 +80,13 @@ pub fn get_datetime_from_exif(exif: &exif::Exif) -> Option<DateTime<Utc>> {
                         let s = s.replacen(":", "-", 2); // Convert to "YYYY-MM-DD HH:MM:SS"
 
                         // Parse with NaiveDateTime first, then make it Utc
-                        if let Ok(naive_datetime) = NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S") {
-                            return Some(DateTime::<Utc>::from_naive_utc_and_offset(naive_datetime, Utc));
+                        if let Ok(naive_datetime) =
+                            NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S")
+                        {
+                            return Some(DateTime::<Utc>::from_naive_utc_and_offset(
+                                naive_datetime,
+                                Utc,
+                            ));
                         }
                     }
                 }

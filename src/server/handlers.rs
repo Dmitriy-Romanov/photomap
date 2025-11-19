@@ -11,7 +11,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::Stream;
 
 use crate::database::ImageMetadata;
-use crate::image_processing::{create_scaled_image_in_memory, convert_heic_to_jpeg, ImageType};
+use crate::image_processing::{convert_heic_to_jpeg, create_scaled_image_in_memory, ImageType};
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
@@ -21,40 +21,44 @@ use crate::processing::{process_photos_from_directory, process_photos_into_datab
 use crate::settings::Settings;
 use tokio::sync::mpsc;
 
+use super::events::{ProcessingData, ProcessingEvent};
 use super::state::AppState;
-use super::events::{ProcessingEvent, ProcessingData};
 
 // HTTP API Handlers
-pub async fn get_all_photos(State(state): State<AppState>) -> Result<Json<Vec<ImageMetadata>>, StatusCode> {
-    let photos = state.db.get_all_photos()
-        .map_err(|e| {
-            eprintln!("Database error: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+pub async fn get_all_photos(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<ImageMetadata>>, StatusCode> {
+    let photos = state.db.get_all_photos().map_err(|e| {
+        eprintln!("Database error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
-    let api_photos: Vec<ImageMetadata> = photos.into_iter().map(|photo| {
-        let (url, fallback_url) = if photo.is_heic {
-            // For HEIC files, the main URL is the converted JPG
-            let jpg_url = format!("/convert-heic?filename={}", photo.relative_path);
-            (jpg_url.clone(), jpg_url)
-        } else {
-            let photo_url = format!("/api/popup/{}", photo.relative_path);
-            (photo_url.clone(), photo_url)
-        };
+    let api_photos: Vec<ImageMetadata> = photos
+        .into_iter()
+        .map(|photo| {
+            let (url, fallback_url) = if photo.is_heic {
+                // For HEIC files, the main URL is the converted JPG
+                let jpg_url = format!("/convert-heic?filename={}", photo.relative_path);
+                (jpg_url.clone(), jpg_url)
+            } else {
+                let photo_url = format!("/api/popup/{}", photo.relative_path);
+                (photo_url.clone(), photo_url)
+            };
 
-        ImageMetadata {
-            filename: photo.filename.clone(),
-            relative_path: photo.relative_path.clone(),
-            url,
-            fallback_url,
-            marker_icon: format!("/api/marker/{}", photo.relative_path),
-            lat: photo.lat,
-            lng: photo.lng,
-            datetime: photo.datetime,
-            file_path: photo.file_path.clone(),
-            is_heic: photo.is_heic,
-        }
-    }).collect();
+            ImageMetadata {
+                filename: photo.filename.clone(),
+                relative_path: photo.relative_path.clone(),
+                url,
+                fallback_url,
+                marker_icon: format!("/api/marker/{}", photo.relative_path),
+                lat: photo.lat,
+                lng: photo.lng,
+                datetime: photo.datetime,
+                file_path: photo.file_path.clone(),
+                is_heic: photo.is_heic,
+            }
+        })
+        .collect();
 
     Ok(Json(api_photos))
 }
@@ -66,10 +70,13 @@ pub async fn serve_processed_image(
     image_type: ImageType,
 ) -> Result<Response, StatusCode> {
     // Get photo file path from database
-    let photos = state.db.get_all_photos()
+    let photos = state
+        .db
+        .get_all_photos()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let photo = photos.into_iter()
+    let photo = photos
+        .into_iter()
         .find(|p| p.relative_path == filename || p.filename == filename)
         .ok_or(StatusCode::NOT_FOUND)?;
 
@@ -87,11 +94,13 @@ pub async fn serve_processed_image(
     }
 
     // Generate image on-demand for non-HEIC files
-    let jpeg_data = create_scaled_image_in_memory(std::path::Path::new(&photo.file_path), image_type)
-        .map_err(|e| {
-            eprintln!("Failed to create {:?} for {}: {}", image_type, filename, e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let jpeg_data =
+        create_scaled_image_in_memory(std::path::Path::new(&photo.file_path), image_type).map_err(
+            |e| {
+                eprintln!("Failed to create {:?} for {}: {}", image_type, filename, e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            },
+        )?;
 
     Ok(Response::builder()
         .status(StatusCode::OK)
@@ -104,7 +113,7 @@ pub async fn serve_processed_image(
 /// Handler for image markers (40x40px)
 pub async fn get_marker_image(
     state: State<AppState>,
-    filename: AxumPath<String>
+    filename: AxumPath<String>,
 ) -> Result<Response, StatusCode> {
     serve_processed_image(state, filename, ImageType::Marker).await
 }
@@ -112,7 +121,7 @@ pub async fn get_marker_image(
 /// Handler for image thumbnails (60x60px)
 pub async fn get_thumbnail_image(
     state: State<AppState>,
-    filename: AxumPath<String>
+    filename: AxumPath<String>,
 ) -> Result<Response, StatusCode> {
     serve_processed_image(state, filename, ImageType::Thumbnail).await
 }
@@ -120,30 +129,35 @@ pub async fn get_thumbnail_image(
 /// Handler for popup images (700px)
 pub async fn get_popup_image(
     state: State<AppState>,
-    filename: AxumPath<String>
+    filename: AxumPath<String>,
 ) -> Result<Response, StatusCode> {
     serve_processed_image(state, filename, ImageType::Popup).await
 }
 
 pub async fn convert_heic(
     State(state): State<AppState>,
-    Query(query_params): Query<HashMap<String, String>>
+    Query(query_params): Query<HashMap<String, String>>,
 ) -> Result<Response, StatusCode> {
-    let filename = query_params.get("filename").ok_or(StatusCode::BAD_REQUEST)?;
+    let filename = query_params
+        .get("filename")
+        .ok_or(StatusCode::BAD_REQUEST)?;
     let default_size = "popup".to_string();
     let size_param = query_params.get("size").unwrap_or(&default_size);
 
     // Get full file path from database
-    let photos = state.db.get_all_photos()
+    let photos = state
+        .db
+        .get_all_photos()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let photo = photos.into_iter()
+    let photo = photos
+        .into_iter()
         .find(|p| p.relative_path == *filename)
         .ok_or(StatusCode::NOT_FOUND)?;
 
     // Convert HEIC to JPEG using our image processing module
-    let jpeg_data = convert_heic_to_jpeg(&photo, size_param)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let jpeg_data =
+        convert_heic_to_jpeg(&photo, size_param).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Response::builder()
         .status(StatusCode::OK)
@@ -180,8 +194,6 @@ pub async fn serve_photo(
     }
 }
 
-
-
 // API endpoint to get current settings
 pub async fn get_settings(State(state): State<AppState>) -> Result<Json<Settings>, StatusCode> {
     let settings = state.settings.lock().unwrap();
@@ -191,7 +203,7 @@ pub async fn get_settings(State(state): State<AppState>) -> Result<Json<Settings
 // API endpoint to set a folder path (receives path from browser's native dialog)
 pub async fn set_folder(
     State(state): State<AppState>,
-    Json(payload): Json<serde_json::Value>
+    Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     println!("🔍 Setting folder from browser dialog");
 
@@ -235,7 +247,7 @@ pub async fn set_folder(
 // API endpoint to update settings
 pub async fn update_settings(
     State(state): State<AppState>,
-    Json(new_settings): Json<Settings>
+    Json(new_settings): Json<Settings>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let mut settings = state.settings.lock().unwrap();
 
@@ -258,7 +270,7 @@ pub async fn update_settings(
 
 // API endpoint to clear database and reprocess from selected folder
 pub async fn reprocess_photos(
-    State(state): State<AppState>
+    State(state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     // Get photos directory from settings
     let photos_dir = {
@@ -313,7 +325,7 @@ pub async fn reprocess_photos(
 
 // API endpoint to start photo processing
 pub async fn initiate_processing(
-    State(state): State<AppState>
+    State(state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     // Clone the sender for the async task
     let event_sender = state.event_sender.clone();
@@ -345,7 +357,10 @@ pub async fn initiate_processing(
                         no_gps: Some(no_gps_count),
                         heic_files: Some(heic_count),
                         skipped: Some(total_files - processed_count),
-                        message: Some(format!("Processing finished! Processed {} photos out of {}", processed_count, total_files)),
+                        message: Some(format!(
+                            "Processing finished! Processed {} photos out of {}",
+                            processed_count, total_files
+                        )),
                         phase: Some("completed".to_string()),
                         ..Default::default()
                     },
