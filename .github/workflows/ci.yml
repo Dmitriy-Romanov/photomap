@@ -88,7 +88,11 @@ jobs:
 
       - name: Install macOS Dependencies
         if: runner.os == 'macOS'
-        run: brew install libheif jpeg-turbo || true
+        run: |
+          # Link cached libraries if they exist
+          brew link libheif jpeg-turbo 2>/dev/null || true
+          # Install if not already present
+          brew install libheif jpeg-turbo || true
 
       # === Common Steps ===
       - name: Install Rust toolchain
