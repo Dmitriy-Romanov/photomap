@@ -14,7 +14,13 @@
 - Removed dependency on ImageMagick.
 - HEIC processing is now handled by a native Rust-based solution.
 
-### Current: v0.6.6 - UI & UX Enhancement Edition ✅
+### Current: v0.7.0 - Windows Compatibility & Cleanup Edition ✅
+- [x] Automatic `photomap.ini` creation
+- [x] Fixed Windows folder selection dialog (foreground focus)
+- [x] Code cleanup and optimization
+- [x] Windows testing and verification
+
+### Previous: v0.6.6 - UI & UX Enhancement Edition ✅
 - [x] Year range filter
 - [x] Graceful shutdown button
 - [x] UI fixes (minimized window)

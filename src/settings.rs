@@ -16,7 +16,10 @@ impl Settings {
     pub fn load() -> Result<Self> {
         let config_path = Self::config_path();
         let mut settings = Settings::default();
+        
         if !config_path.exists() {
+            // Create default settings file
+            settings.save().context("Failed to create default settings file")?;
             return Ok(settings);
         }
 
@@ -71,5 +74,51 @@ impl Settings {
         let _ = crate::utils::ensure_directory_exists(&app_dir);
 
         crate::utils::get_config_path()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::fs;
+
+    #[test]
+    fn test_settings_creation() {
+        // Create a temp directory to act as HOME
+        let mut temp_path = env::temp_dir();
+        temp_path.push("photomap_test_settings");
+        
+        // Clean up previous run if exists
+        if temp_path.exists() {
+            fs::remove_dir_all(&temp_path).unwrap();
+        }
+        fs::create_dir_all(&temp_path).unwrap();
+        
+        // Override HOME/APPDATA/XDG_DATA_HOME based on OS to point to temp dir
+        // For this test, we'll just set all potentially used vars to be safe
+        unsafe {
+            env::set_var("HOME", &temp_path);
+            env::set_var("APPDATA", &temp_path);
+            env::set_var("XDG_DATA_HOME", &temp_path);
+        }
+
+        // Ensure the file doesn't exist yet
+        let config_path = Settings::config_path();
+        assert!(!config_path.exists());
+
+        // Load settings - this should trigger creation
+        let settings = Settings::load();
+        assert!(settings.is_ok());
+
+        // Verify file exists now
+        assert!(config_path.exists());
+
+        // Verify content
+        let content = fs::read_to_string(config_path).unwrap();
+        assert!(content.contains("# PhotoMap Configuration File"));
+        
+        // Cleanup
+        let _ = fs::remove_dir_all(&temp_path);
     }
 }

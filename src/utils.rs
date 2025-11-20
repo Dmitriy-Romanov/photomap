@@ -89,10 +89,20 @@ pub fn select_folder_native() -> Option<String> {
             // Работает на любой Windows 7/10/11 без установки лишнего софта
             let script = r#"
                 Add-Type -AssemblyName System.Windows.Forms
+                $dummy = New-Object System.Windows.Forms.Form
+                $dummy.TopMost = $true
+                $dummy.Opacity = 0
+                $dummy.ShowInTaskbar = $false
+                $dummy.Show()
+                
                 $f = New-Object System.Windows.Forms.FolderBrowserDialog
                 $f.Description = "Выберите папку с фото"
                 $f.ShowNewFolderButton = $true
-                if ($f.ShowDialog() -eq "OK") { Write-Host $f.SelectedPath }
+                
+                if ($f.ShowDialog($dummy) -eq "OK") { Write-Host $f.SelectedPath }
+                
+                $dummy.Close()
+                $dummy.Dispose()
             "#;
             
             let output = Command::new("powershell")
