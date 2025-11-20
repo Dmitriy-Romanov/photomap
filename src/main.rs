@@ -9,7 +9,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 mod constants;
 mod database;
 mod exif_parser;
-mod folder_picker;
+
 mod image_processing;
 mod process_manager;
 mod processing;
@@ -56,7 +56,6 @@ async fn main() -> Result<()> {
 
     // Don't process photos here anymore - handled later with settings
 
-    info!("🎉 Phase 3 implementation ready!");
     info!(
         "   📊 {} photos with GPS data in database",
         db.get_photos_count()?
