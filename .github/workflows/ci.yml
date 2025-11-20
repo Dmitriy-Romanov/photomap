@@ -56,8 +56,14 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/cache@v3
         with:
-          path: C:\vcpkg\installed
-          key: ${{ runner.os }}-vcpkg-${{ hashFiles('.github/workflows/ci.yml') }}
+          path: |
+            C:\vcpkg\installed
+            C:\vcpkg\packages
+            C:\vcpkg\buildtrees
+          key: ${{ runner.os }}-vcpkg-libheif-libjpeg-v2
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-libheif-libjpeg-
+            ${{ runner.os }}-vcpkg-
 
       - name: Install Windows Dependencies
         if: runner.os == 'Windows'
@@ -67,6 +73,19 @@ jobs:
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
 
       # === macOS Setup ===
+      - name: Homebrew Cache (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /opt/homebrew/Cellar/libheif
+            /opt/homebrew/Cellar/jpeg-turbo
+          key: ${{ runner.os }}-homebrew-libheif-jpeg-v2
+          restore-keys: |
+            ${{ runner.os }}-homebrew-libheif-jpeg-
+            ${{ runner.os }}-homebrew-
+
       - name: Install macOS Dependencies
         if: runner.os == 'macOS'
         run: brew install libheif jpeg-turbo || true
@@ -86,8 +105,13 @@ jobs:
       - name: Run Tests
         run: cargo test
 
-      - name: Build Release (Dry Run)
+      - name: Build Release (Dry Run) - Windows
+        if: runner.os == 'Windows'
         run: cargo build --release
         env:
           VCPKG_TARGET_TRIPLET: x64-windows-static
           RUSTFLAGS: "-C target-feature=+crt-static"
+
+      - name: Build Release (Dry Run) - Unix
+        if: runner.os != 'Windows'
+        run: cargo build --release
