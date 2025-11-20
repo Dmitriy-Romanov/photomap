@@ -28,3 +28,8 @@ temp_*
 
 # Private documentation
 AI_WORKFLOW.md
+
+# Exif Parser Test
+exif_parser_test/target/
+exif_parser_test/failures.txt
+exif_parser_test/JPG for checks/
