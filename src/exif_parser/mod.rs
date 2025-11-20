@@ -1,4 +1,5 @@
 pub mod generic;
+pub mod gps_parser;
 pub mod heic;
 pub mod jpeg;
 

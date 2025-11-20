@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
-use std::fs::{File, OpenOptions};
+use std::env;
+use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, Write, Read, Seek};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+
+mod gps_parser;
 
 fn main() -> Result<()> {
     println!("🚀 Starting Exif Parser Test...");
@@ -67,6 +70,41 @@ fn main() -> Result<()> {
     println!("Total processed: {}", count_processed);
     println!("Failures found: {}", count_failures);
     println!("See failures.txt for details.");
+    
+    // Copy failed files to 'JPG for checks' directory
+    if count_failures > 0 {
+        println!("\n📋 Copying failed files to 'JPG for checks' directory...");
+        let target_dir = PathBuf::from("/Users/dmitriiromanov/claude/photomap/exif_parser_test/JPG for checks");
+        
+        // Create target directory if it doesn't exist
+        std::fs::create_dir_all(&target_dir)
+            .with_context(|| "Failed to create 'JPG for checks' directory")?;
+        
+        // Read failures.txt and copy each file
+        let failures_content = std::fs::read_to_string("failures.txt")
+            .with_context(|| "Failed to read failures.txt")?;
+        
+        let mut copied = 0;
+        for line in failures_content.lines() {
+            let source_path = PathBuf::from(line.trim());
+            if source_path.exists() {
+                if let Some(filename) = source_path.file_name() {
+                    let target_path = target_dir.join(filename);
+                    match std::fs::copy(&source_path, &target_path) {
+                        Ok(_) => {
+                            copied += 1;
+                            println!("  ✓ Copied: {}", filename.to_string_lossy());
+                        }
+                        Err(e) => {
+                            println!("  ✗ Failed to copy {}: {}", filename.to_string_lossy(), e);
+                        }
+                    }
+                }
+            }
+        }
+        
+        println!("📦 Copied {} of {} failed files.", copied, count_failures);
+    }
 
     Ok(())
 }
@@ -129,11 +167,27 @@ fn extract_gps_our(path: &Path) -> Option<(f64, f64)> {
         // JPG/TIFF logic using kamadak-exif
         let file = File::open(path).ok()?;
         let mut bufreader = BufReader::new(file);
-        let exif_reader = exif::Reader::new();
+        // Enable continue_on_error to handle Lightroom-processed files with non-standard EXIF
+        let mut exif_reader = exif::Reader::new();
+        exif_reader.continue_on_error(true);
         
-        if let Ok(exif_data) = exif_reader.read_from_container(&mut bufreader) {
-            return parse_exif_gps(&exif_data);
+        match exif_reader.read_from_container(&mut bufreader) {
+            Ok(exif_data) => {
+                if let Some(gps) = parse_exif_gps(&exif_data) {
+                    return Some(gps);
+                }
+            }
+            Err(exif::Error::PartialResult(partial)) => {
+                let (exif_data, _errors) = partial.into_inner();
+                if let Some(gps) = parse_exif_gps(&exif_data) {
+                    return Some(gps);
+                }
+            }
+            _ => {}
         }
+        
+        // Fallback to custom GPS parser for malformed EXIF files (e.g., Lightroom-processed)
+        return gps_parser::extract_gps_from_malformed_exif(path);
     }
     None
 }

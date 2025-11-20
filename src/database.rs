@@ -57,6 +57,14 @@ impl Database {
         let conn = Connection::open(&self.db_path)
             .with_context(|| "Failed to open database for initialization")?;
 
+        // Enable WAL mode for better concurrent performance
+        conn.execute("PRAGMA journal_mode = WAL", [])
+            .with_context(|| "Failed to enable WAL mode")?;
+
+        // Set synchronous to NORMAL for better performance (safe for our use case)
+        conn.execute("PRAGMA synchronous = NORMAL", [])
+            .with_context(|| "Failed to set synchronous mode")?;
+
         conn.execute(
             "CREATE TABLE IF NOT EXISTS photos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +132,46 @@ impl Database {
         ).with_context(|| format!("Failed to insert photo: {}", photo.relative_path))?;
 
         Ok(())
+    }
+
+    /// Insert multiple photos in a single transaction for better performance
+    pub fn insert_photos_batch(&self, photos: &[PhotoMetadata]) -> Result<usize> {
+        if photos.is_empty() {
+            return Ok(0);
+        }
+
+        let mut conn = Connection::open(&self.db_path)
+            .with_context(|| "Failed to open database for batch insert")?;
+
+        let tx = conn.transaction()
+            .with_context(|| "Failed to start transaction")?;
+
+        let mut inserted = 0;
+        for photo in photos {
+            match tx.execute(
+                "INSERT OR REPLACE INTO photos (filename, relative_path, datetime, lat, lng, file_path, is_heic)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    photo.filename,
+                    photo.relative_path,
+                    photo.datetime,
+                    photo.lat,
+                    photo.lng,
+                    photo.file_path,
+                    photo.is_heic
+                ],
+            ) {
+                Ok(_) => inserted += 1,
+                Err(e) => {
+                    tracing::warn!("Failed to insert photo {}: {}", photo.relative_path, e);
+                }
+            }
+        }
+
+        tx.commit()
+            .with_context(|| "Failed to commit transaction")?;
+
+        Ok(inserted)
     }
 
     pub fn get_all_photos(&self) -> Result<Vec<PhotoMetadata>> {

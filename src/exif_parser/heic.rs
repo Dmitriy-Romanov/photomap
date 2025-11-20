@@ -2,7 +2,6 @@ use super::generic::{get_datetime_from_exif, get_gps_coord};
 use anyhow::{bail, Result};
 use chrono::{DateTime, Utc};
 use exif::Tag;
-use libheif_rs::ItemId;
 use std::path::Path;
 
 pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, Option<DateTime<Utc>>)> {

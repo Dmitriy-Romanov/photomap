@@ -1,13 +1,13 @@
-# PhotoMap Processor v0.7.1
+# PhotoMap Processor v0.7.2
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Key Technical Improvements (v0.7.1)
+## ✨ Key Technical Improvements (v0.7.2)
 
-- **Windows Compatibility**: Fully resolved folder selection dialog issues (focus, encoding) and path handling for Russian characters.
-- **Robust EXIF Parsing**: Fixed a critical bug where some Xiaomi HEIC files were actually JPEGs. Added "magic bytes" detection to handle this automatically.
-- **Exif Parser Test Tool**: Added a dedicated debugging tool (`exif_parser_test`) to verify EXIF extraction logic against reference libraries.
-- **Native Browser Launch**: Replaced external dependencies with native OS commands for faster startup and smaller binary size.
+- **Database Performance**: Implemented batch inserts and SQLite optimizations (WAL mode, synchronous=NORMAL) for significantly faster photo processing.
+- **Custom GPS Parser**: Added specialized low-level GPS parser for malformed EXIF files (Lightroom-processed JPEGs), 24% faster than reference parsers.
+- **Enhanced EXIF Handling**: Smart fallback logic handles non-standard EXIF structures with `continue_on_error` and custom byte-level parsing.
+- **Exif Parser Test**: Enhanced debugging tool with automatic failed file copying and performance benchmarking capabilities.
 
 ## 🚀 Quick Start
 
@@ -62,6 +62,12 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.7.2 - Performance & Parser Edition
+- **Database Optimization**: Batch inserts + WAL mode for significantly faster photo processing.
+- **Custom GPS Parser**: Low-level parser for malformed EXIF (24% faster, handles Lightroom files).
+- **Smart EXIF Fallback**: Multi-tier parsing strategy with `continue_on_error` and custom byte reader.
+- **Enhanced Test Tool**: Auto-copy failed files, performance benchmarking.
 
 ### v0.7.1 - Windows & Exif Stability
 - **Windows Fixes**: Fixed folder dialog focus and Russian path encoding issues.

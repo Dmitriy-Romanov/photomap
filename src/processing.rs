@@ -93,7 +93,7 @@ pub fn process_photos_with_stats(
         .filter(|e| e.file_type().is_some_and(|ft| ft.is_file()))
         .par_bridge() // Use par_bridge to enable parallel processing on the iterator
         .fold(
-            || (vec![], 0usize, 0usize), // Initial state for each thread: (processed_results, total_files, heic_count)
+            || (vec![], 0usize, 0usize), // Initial state for each thread: (photo_metadata_vec, total_files, heic_count)
             |mut acc, entry| {
                 let path = entry.into_path();
                 acc.1 += 1; // Increment total_files
@@ -104,28 +104,51 @@ pub fn process_photos_with_stats(
                     }
                 }
 
-                let result = process_file_to_database(&path, db, photos_dir);
-                if let Err(e) = &result {
-                    warn!("Failed to process file {}: {}", path.display(), e);
+                // Process file to metadata (don't insert yet)
+                match process_file_to_metadata(&path, photos_dir) {
+                    Ok(photo_metadata) => {
+                        acc.0.push(photo_metadata); // Collect successful metadata
+                    }
+                    Err(e) => {
+                        warn!("Failed to process file {}: {}", path.display(), e);
+                    }
                 }
-                acc.0.push(result); // Collect the processing result
                 acc
             },
         )
         .reduce(
             || (vec![], 0usize, 0usize), // Initial state for reduction
             |mut a, mut b| {
-                a.0.append(&mut b.0); // Combine processed_results
+                a.0.append(&mut b.0); // Combine photo_metadata vectors
                 a.1 += b.1; // Sum total_files
                 a.2 += b.2; // Sum heic_count
                 a
             },
         );
 
-    let (processed_results, total_files, heic_count) = reduction_result;
+    let (all_photos, total_files, heic_count) = reduction_result;
 
-    // Count successful results by checking each result
-    let successful_count = processed_results.iter().filter(|r| r.is_ok()).count();
+    // Insert photos in batches for better performance
+    let batch_size = 500;
+    let mut successful_count = 0;
+
+    if !silent_mode {
+        info!("💾 Inserting {} photos into database in batches of {}...", all_photos.len(), batch_size);
+    }
+
+    for (batch_num, chunk) in all_photos.chunks(batch_size).enumerate() {
+        match db.insert_photos_batch(chunk) {
+            Ok(inserted) => {
+                successful_count += inserted;
+                if !silent_mode && batch_num % 10 == 0 {
+                    info!("   Batch {}: {} photos inserted", batch_num + 1, inserted);
+                }
+            }
+            Err(e) => {
+                error!("Failed to insert batch {}: {}", batch_num + 1, e);
+            }
+        }
+    }
 
     let processing_time = start_time.elapsed();
     let processing_secs = processing_time.as_secs_f64();
@@ -214,8 +237,8 @@ pub fn process_photos_from_directory(
     process_photos_with_stats(db, photos_dir, false, true)
 }
 
-/// Processes a single file and saves it to the database
-fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Result<()> {
+/// Processes a single file and returns PhotoMetadata (without inserting to DB)
+fn process_file_to_metadata(path: &Path, photos_dir: &Path) -> Result<PhotoMetadata> {
     // Check the file extension, saving it in lowercase for checks
     let ext_lower = path
         .extension()
@@ -279,7 +302,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| filename.to_string());
 
-    let photo_metadata = PhotoMetadata {
+    Ok(PhotoMetadata {
         filename: filename.to_string(),
         relative_path,
         datetime: datetime_str,
@@ -287,10 +310,6 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
         lng,
         file_path: path.to_string_lossy().to_string(),
         is_heic: is_heif,
-    };
-
-    // Save to the database
-    db.insert_photo(&photo_metadata)?;
-
-    Ok(())
+    })
 }
+
