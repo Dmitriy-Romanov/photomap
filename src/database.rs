@@ -58,11 +58,11 @@ impl Database {
             .with_context(|| "Failed to open database for initialization")?;
 
         // Enable WAL mode for better concurrent performance
-        conn.execute("PRAGMA journal_mode = WAL", [])
+        conn.pragma_update(None, "journal_mode", "WAL")
             .with_context(|| "Failed to enable WAL mode")?;
 
         // Set synchronous to NORMAL for better performance (safe for our use case)
-        conn.execute("PRAGMA synchronous = NORMAL", [])
+        conn.pragma_update(None, "synchronous", "NORMAL")
             .with_context(|| "Failed to set synchronous mode")?;
 
         conn.execute(
