@@ -77,6 +77,19 @@ pub fn process_photos_with_stats(
             }
             true
         })
+        .filter(|e| {
+            // Filter by extension - only process supported image formats
+            // This prevents trying to process video files or other non-images
+            if let Some(ext) = e.path().extension().and_then(|s| s.to_str()) {
+                let ext_lower = ext.to_lowercase();
+                matches!(
+                    ext_lower.as_str(),
+                    "jpg" | "jpeg" | "png" | "tiff" | "tif" | "webp" | "bmp" | "gif" | "heic" | "heif" | "avif"
+                )
+            } else {
+                false
+            }
+        })
         .filter(|e| e.file_type().is_some_and(|ft| ft.is_file()))
         .par_bridge() // Use par_bridge to enable parallel processing on the iterator
         .fold(

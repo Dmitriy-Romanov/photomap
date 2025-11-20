@@ -88,12 +88,16 @@ pub fn select_folder_native() -> Option<String> {
             // Windows: Используем PowerShell и .NET (System.Windows.Forms)
             // Работает на любой Windows 7/10/11 без установки лишнего софта
             let script = r#"
+                [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
                 Add-Type -AssemblyName System.Windows.Forms
+                
                 $dummy = New-Object System.Windows.Forms.Form
                 $dummy.TopMost = $true
+                $dummy.StartPosition = "CenterScreen"
                 $dummy.Opacity = 0
                 $dummy.ShowInTaskbar = $false
                 $dummy.Show()
+                $dummy.Activate()
                 
                 $f = New-Object System.Windows.Forms.FolderBrowserDialog
                 $f.Description = "Выберите папку с фото"
@@ -133,4 +137,27 @@ pub fn select_folder_native() -> Option<String> {
     }
     
     None
+}
+
+/// Opens the specified URL in the default browser using native commands
+pub fn open_browser(url: &str) -> Result<(), std::io::Error> {
+    let os = env::consts::OS;
+    match os {
+        "macos" => {
+            Command::new("open").arg(url).spawn()?;
+        },
+        "windows" => {
+            Command::new("cmd").args(&["/C", "start", url]).spawn()?;
+        },
+        "linux" => {
+            Command::new("xdg-open").arg(url).spawn()?;
+        },
+        _ => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                format!("Unsupported OS: {}", os),
+            ));
+        }
+    }
+    Ok(())
 }

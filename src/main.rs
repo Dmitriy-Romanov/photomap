@@ -92,10 +92,27 @@ async fn main() -> Result<()> {
 
     let app_state = AppState {
         db,
-        settings,
+        settings: settings.clone(),
         event_sender,
         shutdown_sender,
     };
+
+    // Open browser if enabled in settings
+    {
+        let settings_guard = settings.lock().unwrap();
+        if settings_guard.start_browser {
+            let url = "http://127.0.0.1:3001";
+            info!("   🌐 Opening browser at {}", url);
+            
+            // Spawn a task to open the browser after a short delay to ensure server is up
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                if let Err(e) = utils::open_browser(url) {
+                    warn!("Failed to open browser: {}", e);
+                }
+            });
+        }
+    }
 
     server::start_server(app_state).await?;
 

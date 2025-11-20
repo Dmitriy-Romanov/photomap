@@ -5,12 +5,20 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub last_folder: Option<String>,
+    pub start_browser: bool,
 }
 
-
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            last_folder: None,
+            start_browser: true,
+        }
+    }
+}
 
 impl Settings {
     pub fn load() -> Result<Self> {
@@ -40,6 +48,12 @@ impl Settings {
         if let Some(last_folder) = config_map.get("last_folder") {
             settings.last_folder = Some(last_folder.trim_matches('"').to_string());
         }
+        
+        if let Some(start_browser) = config_map.get("start_browser") {
+            if let Ok(val) = start_browser.trim().parse::<bool>() {
+                settings.start_browser = val;
+            }
+        }
 
         Ok(settings)
     }
@@ -62,6 +76,8 @@ impl Settings {
         if let Some(ref last_folder) = self.last_folder {
             content.push_str(&format!("last_folder = \"{}\"\n", last_folder));
         }
+        
+        content.push_str(&format!("start_browser = {}\n", self.start_browser));
 
         std::fs::write(&config_path, content).context("Failed to write to config file")?;
         Ok(())
