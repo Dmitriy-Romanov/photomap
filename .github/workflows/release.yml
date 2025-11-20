@@ -87,8 +87,8 @@ jobs:
         id: cache-libheif
         uses: actions/cache@v3
         with:
-          path: /usr/local
-          key: ${{ runner.os }}-libheif-master-v1
+          path: ${{ github.workspace }}/libheif-install
+          key: ${{ runner.os }}-libheif-master-v2
 
       - name: Build and Install libheif (Source)
         if: steps.cache-libheif.outputs.cache-hit != 'true'
@@ -97,10 +97,9 @@ jobs:
           cd libheif
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/libheif-install -DCMAKE_INSTALL_LIBDIR=lib ..
           make -j$(nproc)
-          sudo make install
-          sudo ldconfig
+          make install
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -110,6 +109,9 @@ jobs:
 
       - name: Build Release
         run: cargo build --release
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/libheif-install/lib/pkgconfig
+          LD_LIBRARY_PATH: ${{ github.workspace }}/libheif-install/lib
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

@@ -8,10 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # 🚀 ГЛАВНОЕ ИСПРАВЛЕНИЕ:
-  # Мы говорим Rust'у искать библиотеки не только в /usr/lib, но и в /usr/local/lib,
-  # куда мы сейчас установим свежий libheif.
-  PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
+
 
 jobs:
   build_and_test:
@@ -32,14 +29,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake nasm clang pkg-config \
                                   libde265-dev libx265-dev libjpeg-turbo8-dev git
+          echo "PKG_CONFIG_PATH=${{ github.workspace }}/libheif-install/lib/pkgconfig" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${{ github.workspace }}/libheif-install/lib" >> $GITHUB_ENV
 
       - name: Cache Custom Libheif (Linux)
         if: runner.os == 'Linux'
         id: cache-libheif
         uses: actions/cache@v3
         with:
-          path: /usr/local
-          key: ${{ runner.os }}-libheif-master-v1
+          path: ${{ github.workspace }}/libheif-install
+          key: ${{ runner.os }}-libheif-master-v2
 
       - name: Build and Install libheif (Linux)
         if: runner.os == 'Linux' && steps.cache-libheif.outputs.cache-hit != 'true'
@@ -48,10 +47,9 @@ jobs:
           cd libheif
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/libheif-install -DCMAKE_INSTALL_LIBDIR=lib ..
           make -j$(nproc)
-          sudo make install
-          sudo ldconfig
+          make install
 
       # === Windows Setup ===
       - name: Vcpkg Cache (Windows)
