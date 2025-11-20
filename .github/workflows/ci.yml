@@ -89,6 +89,8 @@ jobs:
 
       - name: Install macOS Dependencies
         if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_INSTALL_UPGRADE: 1
         run: |
           # Link cached libraries if they exist
           brew link libheif jpeg-turbo x265 2>/dev/null || true
