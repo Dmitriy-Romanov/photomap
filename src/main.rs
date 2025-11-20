@@ -47,8 +47,6 @@ async fn main() -> Result<()> {
     // Ensure single instance - kill existing processes
     process_manager::ensure_single_instance()?;
 
-    info!("✅ Native HEIC/HEIF support enabled");
-
     // Initialize database
     info!("🗄️  Initializing database...");
     let db = Database::new().with_context(|| "Failed to initialize database")?;
