@@ -38,6 +38,7 @@ jobs:
         run: cargo build --release
         env:
           VCPKG_TARGET_TRIPLET: x64-windows-static
+          RUSTFLAGS: "-C target-feature=+crt-static"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
