@@ -81,18 +81,19 @@ jobs:
             ~/Library/Caches/Homebrew
             /opt/homebrew/Cellar/libheif
             /opt/homebrew/Cellar/jpeg-turbo
-          key: ${{ runner.os }}-homebrew-libheif-jpeg-v2
+            /opt/homebrew/Cellar/x265
+          key: ${{ runner.os }}-homebrew-libheif-jpeg-x265-v1
           restore-keys: |
-            ${{ runner.os }}-homebrew-libheif-jpeg-
+            ${{ runner.os }}-homebrew-libheif-jpeg-x265-
             ${{ runner.os }}-homebrew-
 
       - name: Install macOS Dependencies
         if: runner.os == 'macOS'
         run: |
           # Link cached libraries if they exist
-          brew link libheif jpeg-turbo 2>/dev/null || true
+          brew link libheif jpeg-turbo x265 2>/dev/null || true
           # Install if not already present
-          brew install libheif jpeg-turbo || true
+          brew install libheif jpeg-turbo x265 || true
 
       # === Common Steps ===
       - name: Install Rust toolchain
