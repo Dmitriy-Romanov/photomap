@@ -53,6 +53,7 @@ async fn main() -> Result<()> {
     info!("🗄️  Initializing database...");
     let db = Database::new().with_context(|| "Failed to initialize database")?;
     info!("✅ Database initialized successfully");
+    info!("   📂 Database opened from: {}", Database::database_path());
 
     // Don't process photos here anymore - handled later with settings
 
@@ -67,6 +68,7 @@ async fn main() -> Result<()> {
     let (shutdown_sender, _shutdown_receiver) = tokio::sync::broadcast::channel(1);
 
     let settings = Arc::new(Mutex::new(Settings::load()?));
+    info!("   ⚙️  Config file loaded from: {}", Settings::config_path().display());
 
     // Process photos from last_folder if available
     {
