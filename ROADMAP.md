@@ -89,6 +89,9 @@
 - [ ] Implement lazy loading for UI components
 
 #### Phase 2: Advanced UI Features
+**Future Plans:**
+- Improve Info Window UI (collaborate with nanobanana).
+
 **Research Tasks:**
 - [ ] "WebAssembly image processing 2025"
 - [ ] "JavaScript image clustering algorithms"
@@ -107,6 +110,9 @@
 - What additional EXIF data would be useful?
 - How can we extract location names from GPS coordinates?
 - What photo organization features would users want?
+
+**Future Plans:**
+- Develop improved parser in separate project: `/Users/dmitriiromanov/claude/exif_parser_test` (after Windows stability).
 
 **Research Tasks:**
 - [ ] Search: "Reverse geocoding Rust 2025"
