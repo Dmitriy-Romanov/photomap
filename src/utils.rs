@@ -96,6 +96,7 @@ pub fn select_folder_native() -> Option<String> {
             "#;
             
             let output = Command::new("powershell")
+                .arg("-Sta") // Required for System.Windows.Forms
                 .arg("-NoProfile") // Ускоряет запуск
                 .arg("-Command")
                 .arg(script)
