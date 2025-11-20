@@ -84,7 +84,7 @@ pub fn process_photos_with_stats(
                 let ext_lower = ext.to_lowercase();
                 matches!(
                     ext_lower.as_str(),
-                    "jpg" | "jpeg" | "png" | "heic" | "heif" | "avif"
+                    "jpg" | "jpeg" | "heic" | "heif" | "avif"
                 )
             } else {
                 false
@@ -225,7 +225,7 @@ fn process_file_to_database(path: &Path, db: &Database, photos_dir: &Path) -> Re
 
     // Basic list of supported formats
     let supported_formats = [
-        "jpg", "jpeg", "png", "heic", "heif", "avif",
+        "jpg", "jpeg", "heic", "heif", "avif",
     ];
 
     if !supported_formats.contains(&ext_lower.as_str()) {
