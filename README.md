@@ -1,13 +1,13 @@
-# PhotoMap Processor v0.7.0
+# PhotoMap Processor v0.7.1
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Key Technical Improvements (v0.6.7)
+## ✨ Key Technical Improvements (v0.7.1)
 
-- **Modern UI**: Redesigned info panel with glassmorphism, translucent background, and optimized layout.
-- **Map Coordinates**: Real-time display of map center coordinates with toggle control.
-- **Navigation**: Optional crosshair for precise map navigation.
-- **Code Quality**: Removed duplicate CSS definitions and optimized coordinate updates.
+- **Windows Compatibility**: Fully resolved folder selection dialog issues (focus, encoding) and path handling for Russian characters.
+- **Robust EXIF Parsing**: Fixed a critical bug where some Xiaomi HEIC files were actually JPEGs. Added "magic bytes" detection to handle this automatically.
+- **Exif Parser Test Tool**: Added a dedicated debugging tool (`exif_parser_test`) to verify EXIF extraction logic against reference libraries.
+- **Native Browser Launch**: Replaced external dependencies with native OS commands for faster startup and smaller binary size.
 
 ## 🚀 Quick Start
 
@@ -51,6 +51,10 @@ photomap/
 │   │   ├── heic.rs
 │   │   └── jpeg.rs
 │   └── ...
+├── exif_parser_test/    # Debugging tool for EXIF parsing
+│   ├── src/
+│   ├── README.md
+│   └── ...
 ├── frontend/            # Embedded web interface files
 ├── log/                 # Log files (git-ignored)
 ├── photos/              # Your photo collection (git-ignored)
@@ -58,6 +62,12 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.7.1 - Windows & Exif Stability
+- **Windows Fixes**: Fixed folder dialog focus and Russian path encoding issues.
+- **Exif Improvements**: Added fallback logic for misnamed HEIC files (Xiaomi bug).
+- **New Tool**: Added `exif_parser_test` for verifying EXIF extraction accuracy.
+- **Optimization**: Removed `open` crate dependency for smaller binary size.
 
 ### v0.6.7 - UI Redesign Edition
 - **Modern Info Panel**: Redesigned with glassmorphism, translucent background (560px width), and optimized positioning.
