@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-/// Возвращает кросс-платформенную директорию для данных приложения
+/// Returns the cross-platform directory for application data
 pub fn get_app_data_dir() -> PathBuf {
     // Cross-platform application data directory
     if cfg!(target_os = "macos") {
@@ -38,7 +38,7 @@ pub fn get_app_data_dir() -> PathBuf {
     }
 }
 
-/// Убеждается, что директория существует, создавая её при необходимости
+/// Ensures the directory exists, creating it if necessary
 pub fn ensure_directory_exists(path: &PathBuf) -> Result<(), std::io::Error> {
     if !path.exists() {
         std::fs::create_dir_all(path)?;
@@ -46,7 +46,7 @@ pub fn ensure_directory_exists(path: &PathBuf) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-/// Возвращает путь к файлу конфигурации приложения
+/// Returns the path to the application configuration file
 pub fn get_config_path() -> PathBuf {
     let mut config_dir = get_app_data_dir();
     config_dir.push("photomap.ini");
@@ -63,9 +63,9 @@ pub fn select_folder_native() -> Option<String> {
 
     match os {
         "macos" => {
-            // MacOS: Используем AppleScript через osascript
-            // Это создает нативное окно Finder, не блокируя основной поток сервера
-            let script = "return POSIX path of (choose folder with prompt \"Выберите папку с фото\")";
+            // MacOS: Use AppleScript via osascript
+            // This creates a native Finder window without blocking the main server thread
+            let script = "return POSIX path of (choose folder with prompt \"Select photo folder\")";
             let output = Command::new("osascript")
                 .arg("-e")
                 .arg(script)
@@ -80,8 +80,8 @@ pub fn select_folder_native() -> Option<String> {
             }
         },
         "windows" => {
-            // Windows: Используем PowerShell и .NET (System.Windows.Forms)
-            // Работает на любой Windows 7/10/11 без установки лишнего софта
+            // Windows: Use PowerShell and .NET (System.Windows.Forms)
+            // Works on any Windows 7/10/11 without installing extra software
             let script = r#"
                 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
                 Add-Type -AssemblyName System.Windows.Forms
@@ -95,7 +95,7 @@ pub fn select_folder_native() -> Option<String> {
                 $dummy.Activate()
                 
                 $f = New-Object System.Windows.Forms.FolderBrowserDialog
-                $f.Description = "Выберите папку с фото"
+                $f.Description = "Select photo folder"
                 $f.ShowNewFolderButton = $true
                 
                 if ($f.ShowDialog($dummy) -eq "OK") { Write-Host $f.SelectedPath }
@@ -106,7 +106,7 @@ pub fn select_folder_native() -> Option<String> {
             
             let output = Command::new("powershell")
                 .arg("-Sta") // Required for System.Windows.Forms
-                .arg("-NoProfile") // Ускоряет запуск
+                .arg("-NoProfile") // Speeds up startup
                 .arg("-Command")
                 .arg(script)
                 .output()
@@ -120,7 +120,9 @@ pub fn select_folder_native() -> Option<String> {
             }
         },
         "linux" => {
-            // Linux: Пробуем zenity или kdialog (стандартные утилиты)
+            // Linux: Try zenity or kdialog (standard utilities)
+            // ...
+            // Can add fallback to kdialog if needed
             if let Ok(output) = Command::new("zenity").arg("--file-selection").arg("--directory").output() {
                 if output.status.success() {
                     return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());

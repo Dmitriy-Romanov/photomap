@@ -160,19 +160,19 @@ pub fn process_photos_with_stats(
 
     // Print processing statistics
     if !silent_mode {
-        info!("\n📊 Статистика обработки:");
-        info!("   🔍 Всего файлов проверено: {}", total_files);
-        info!("   📸 Обработано фотографий: {}", final_count);
-        info!("   🗺️  С GPS-данными: {}", gps_count);
-        info!("   ❌ Без GPS: {}", no_gps_count);
-        info!("   📱 HEIC файлов: {}", heic_count);
+        info!("\n📊 Processing Statistics:");
+        info!("   🔍 Total files checked: {}", total_files);
+        info!("   📸 Photos processed: {}", final_count);
+        info!("   🗺️  With GPS data: {}", gps_count);
+        info!("   ❌ Without GPS: {}", no_gps_count);
+        info!("   📱 HEIC files: {}", heic_count);
         info!(
-            "   📷 JPEG/другие: {}",
+            "   📷 JPEG/other: {}",
             final_count.saturating_sub(heic_count)
         );
-        info!("   ⏱️  Время обработки: {:.2} сек", processing_secs);
+        info!("   ⏱️  Processing time: {:.2} sec", processing_secs);
         info!(
-            "   📈 Среднее время на файл: {:.1} мс",
+            "   📈 Average time per file: {:.1} ms",
             avg_time_per_file_ms
         );
 
@@ -181,25 +181,25 @@ pub fn process_photos_with_stats(
             let predicted_10k_time = (avg_time_per_file_ms * 10000.0) / 1000.0;
             let predicted_100k_time = (avg_time_per_file_ms * 100000.0) / 1000.0;
 
-            info!("\n🔮 Прогноз производительности:");
+            info!("\n🔮 Performance Forecast:");
             info!(
-                "   📊 Для 10,000 фото: ~{:.1} минут",
+                "   📊 For 10,000 photos: ~{:.1} minutes",
                 predicted_10k_time / 60.0
             );
             info!(
-                "   📊 Для 100,000 фото: ~{:.1} минут",
+                "   📊 For 100,000 photos: ~{:.1} minutes",
                 predicted_100k_time / 60.0
             );
-            info!("   💡 On-demand генерация маркеров: ~0% времени на старте!");
+            info!("   💡 On-demand marker generation: ~0% time at startup!");
             info!(
-                "   💡 Экономия диска: {} файлов не создается",
+                "   💡 Disk savings: {} files not created",
                 total_files * 2
             ); // ~2KB per saved thumbnail
         }
 
-        info!("\n🎉 Обработка завершена! Данные сохранены в памяти.");
+        info!("\n🎉 Processing complete! Data stored in memory.");
         info!(
-            "   🗄️  База данных содержит {} фотографий с GPS-данными",
+            "   🗄️  Database contains {} photos with GPS data",
             final_count
         );
     }

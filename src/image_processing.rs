@@ -180,7 +180,7 @@ impl ImageType {
     }
 }
 
-/// Конвертирует HEIC файл в JPEG с указанными размерами, используя нативный код
+/// Converts a HEIC file to JPEG with specified dimensions using native code
 fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Result<Vec<u8>> {
     let max_dimension = match size_param {
         "thumbnail" => THUMBNAIL_SIZE,

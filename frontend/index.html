@@ -59,16 +59,31 @@
 
             <!-- Folder Selection -->
             <div class="control-group">
-                <label class="group-label">Source Folder</label>
+                <div class="control-header">
+                    <label class="group-label">Source Folder</label>
+                    <div class="header-actions">
+                        <button id="open-button" class="icon-btn primary" onclick="openFolderDialog()"
+                            title="Open Folder">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
+                                </path>
+                            </svg>
+                            Open
+                        </button>
+                        <button id="process-button" class="icon-btn secondary" onclick="processFolder()"
+                            title="Process Current Path">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            Process
+                        </button>
+                    </div>
+                </div>
                 <div class="input-wrapper">
-                    <input type="text" id="folder-input" class="folder-input" placeholder="No folder selected" readonly>
-                    <button id="open-button" class="icon-btn primary" onclick="openFolderDialog()" title="Open Folder">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
-                            </path>
-                        </svg>
-                    </button>
+                    <input type="text" id="folder-input" class="folder-input full-width"
+                        placeholder="Enter or select folder path..." value="">
                 </div>
             </div>
 
@@ -102,6 +117,66 @@
                         <span class="stat-label">Visible on Map</span>
                         <span id="visible-photos" class="stat-value">-</span>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cluster Gallery Modal -->
+    <div id="cluster-modal" class="cluster-modal hidden">
+        <div class="cluster-modal-content">
+            <div class="cluster-modal-header">
+                <button id="cluster-back-btn" class="icon-btn hidden" onclick="showClusterGrid()" title="Back to Grid">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                </button>
+                <h3 id="cluster-title">Photos in this location</h3>
+                <button class="icon-btn close-modal" onclick="closeClusterModal()" title="Close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Grid View -->
+            <div id="cluster-grid-view" class="cluster-view">
+                <div id="cluster-grid" class="cluster-grid">
+                    <!-- Thumbnails will be injected here -->
+                </div>
+
+                <!-- Pagination Controls -->
+                <div id="cluster-pagination" class="cluster-pagination hidden">
+                    <button id="pagination-prev" class="pagination-btn" onclick="changeGalleryPage(-1)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                        Prev
+                    </button>
+                    <span id="pagination-info" class="pagination-info">Page 1 of 1</span>
+                    <button id="pagination-next" class="pagination-btn" onclick="changeGalleryPage(1)">
+                        Next
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Detail View -->
+            <div id="cluster-detail-view" class="cluster-view hidden">
+                <div class="detail-image-container">
+                    <img id="cluster-detail-img" src="" alt="Photo">
+                </div>
+                <div class="detail-info">
+                    <div id="cluster-detail-filename" class="detail-filename"></div>
+                    <div id="cluster-detail-date" class="detail-date"></div>
                 </div>
             </div>
         </div>

@@ -100,7 +100,7 @@ const markerClusterGroup = L.markerClusterGroup({
         });
     },
     maxClusterRadius: 80,
-    spiderfyOnMaxZoom: true,
+    spiderfyOnMaxZoom: false,
     showCoverageOnHover: true,
     zoomToBoundsOnClick: true
 });
@@ -142,7 +142,10 @@ function addMarkers() {
         // Use thumbnail for better visibility when zoomed in
         const icon = createPhotoIcon(photo, true);
 
-        const marker = L.marker([photo.lat, photo.lng], { icon: icon });
+        const marker = L.marker([photo.lat, photo.lng], {
+            icon: icon,
+            photoData: photo
+        });
 
         const popupContent = `
             <div class="photo-popup">
@@ -243,7 +246,7 @@ function getYearFromDatetime(datetime) {
     match = datetime.match(/^(\d{4})-/);
     if (match) return parseInt(match[1]);
 
-    // Pattern 3: Russian format "Дата съемки: 30.05.2025 11:04"
+    // Pattern 3: Russian format "Date taken: 30.05.2025 11:04"
     match = datetime.match(/(\d{2})\.(\d{2})\.(\d{4})/);
     if (match) return parseInt(match[3]);
 
@@ -632,6 +635,214 @@ document.addEventListener('DOMContentLoaded', () => {
         if (toggleButton) {
             toggleButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"></polyline></svg>';
             toggleButton.title = "Expand";
+        }
+    }
+});
+
+// === Cluster Gallery Logic ===
+
+// Handle cluster clicks
+markerClusterGroup.on('clusterclick', function (a) {
+    const cluster = a.layer;
+    const childCount = cluster.getChildCount();
+    const markers = cluster.getAllChildMarkers();
+
+    // Check if all markers are at the exact same location
+    let allSameLocation = true;
+    if (markers.length > 0) {
+        const firstLatLng = markers[0].getLatLng();
+        for (let i = 1; i < markers.length; i++) {
+            if (!markers[i].getLatLng().equals(firstLatLng)) {
+                allSameLocation = false;
+                break;
+            }
+        }
+    }
+
+    // If markers are spread out and we can still zoom in, let the map zoom
+    if (!allSameLocation && map.getZoom() < map.getMaxZoom()) {
+        a.layer.zoomToBounds();
+        return;
+    }
+
+    // If we are here, it means either:
+    // 1. All markers are at the same location
+    // 2. We are at max zoom
+
+    // If cluster is small, just spiderfy (expand) as usual
+    if (childCount < 10) {
+        cluster.spiderfy();
+    } else {
+        // If cluster is large, open the gallery modal
+        openClusterGallery(cluster);
+    }
+});
+
+// Gallery State
+let galleryState = {
+    photos: [],
+    currentPage: 1,
+    itemsPerPage: 28
+};
+
+// Open the cluster gallery modal
+function openClusterGallery(cluster) {
+    const markers = cluster.getAllChildMarkers();
+    const photos = markers.map(marker => {
+        return marker.options.photoData;
+    });
+
+    // Initialize state
+    galleryState.photos = photos;
+    galleryState.currentPage = 1;
+
+    const modal = document.getElementById('cluster-modal');
+    const title = document.getElementById('cluster-title');
+
+    // Update title
+    title.textContent = `${photos.length} Photos in this location`;
+
+    // Render first page
+    renderGalleryPage(1);
+
+    // Show Grid View, Hide Detail View
+    showClusterGrid();
+
+    // Show Modal
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex'; // Ensure flex display
+
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
+}
+
+// Render specific page of gallery
+function renderGalleryPage(page) {
+    const grid = document.getElementById('cluster-grid');
+    const pagination = document.getElementById('cluster-pagination');
+    const prevBtn = document.getElementById('pagination-prev');
+    const nextBtn = document.getElementById('pagination-next');
+    const pageInfo = document.getElementById('pagination-info');
+
+    // Calculate slice
+    const start = (page - 1) * galleryState.itemsPerPage;
+    const end = start + galleryState.itemsPerPage;
+    const pagePhotos = galleryState.photos.slice(start, end);
+    const totalPages = Math.ceil(galleryState.photos.length / galleryState.itemsPerPage);
+
+    // Update state
+    galleryState.currentPage = page;
+
+    // Clear existing grid
+    grid.innerHTML = '';
+
+    // Populate grid
+    pagePhotos.forEach(photo => {
+        if (!photo) return; // Safety check
+
+        const thumb = document.createElement('div');
+        thumb.className = 'cluster-thumbnail';
+        thumb.onclick = () => showPhotoInGallery(photo);
+
+        const img = document.createElement('img');
+        img.src = `/api/thumbnail/${photo.relative_path}`;
+        img.alt = photo.filename;
+        img.loading = 'lazy';
+
+        thumb.appendChild(img);
+        grid.appendChild(thumb);
+    });
+
+    // Update Pagination Controls
+    if (totalPages > 1) {
+        pagination.classList.remove('hidden');
+        pageInfo.textContent = `Page ${page} of ${totalPages}`;
+        prevBtn.disabled = page === 1;
+        nextBtn.disabled = page === totalPages;
+    } else {
+        pagination.classList.add('hidden');
+    }
+
+    // Scroll grid to top
+    grid.scrollTop = 0;
+}
+
+// Change gallery page
+function changeGalleryPage(delta) {
+    const newPage = galleryState.currentPage + delta;
+    const totalPages = Math.ceil(galleryState.photos.length / galleryState.itemsPerPage);
+
+    if (newPage >= 1 && newPage <= totalPages) {
+        renderGalleryPage(newPage);
+    }
+}
+
+// Close the cluster gallery modal
+function closeClusterModal() {
+    const modal = document.getElementById('cluster-modal');
+    modal.classList.add('hidden');
+
+    // Allow background scrolling again
+    document.body.style.overflow = '';
+
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+}
+
+// Show specific photo in Detail View
+function showPhotoInGallery(photo) {
+    const gridView = document.getElementById('cluster-grid-view');
+    const detailView = document.getElementById('cluster-detail-view');
+    const backBtn = document.getElementById('cluster-back-btn');
+
+    const detailImg = document.getElementById('cluster-detail-img');
+    const detailFilename = document.getElementById('cluster-detail-filename');
+    const detailDate = document.getElementById('cluster-detail-date');
+
+    // Update content
+    detailImg.src = photo.url;
+    detailImg.onerror = () => { detailImg.src = photo.fallback_url; };
+    detailFilename.textContent = photo.filename;
+    detailDate.textContent = photo.datetime;
+
+    // Switch views
+    gridView.classList.add('hidden');
+    detailView.classList.remove('hidden');
+    backBtn.classList.remove('hidden');
+}
+
+// Switch back to Grid View
+function showClusterGrid() {
+    const gridView = document.getElementById('cluster-grid-view');
+    const detailView = document.getElementById('cluster-detail-view');
+    const backBtn = document.getElementById('cluster-back-btn');
+
+    // Switch views
+    detailView.classList.add('hidden');
+    gridView.classList.remove('hidden');
+    backBtn.classList.add('hidden');
+}
+
+// Close modal when clicking outside content
+document.getElementById('cluster-modal').addEventListener('click', function (e) {
+    if (e.target === this) {
+        closeClusterModal();
+    }
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('cluster-modal');
+        if (!modal.classList.contains('hidden')) {
+            // If in detail view, go back to grid
+            const detailView = document.getElementById('cluster-detail-view');
+            if (!detailView.classList.contains('hidden')) {
+                showClusterGrid();
+            } else {
+                closeClusterModal();
+            }
         }
     }
 });

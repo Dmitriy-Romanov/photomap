@@ -5,7 +5,7 @@ use sysinfo::{Signal, System};
 
 use tracing::info;
 
-/// Проверяет, запущен ли уже процесс PhotoMap и убивает его при необходимости
+/// Checks if the PhotoMap process is already running and kills it if necessary
 pub fn ensure_single_instance() -> Result<()> {
     info!("🔍 Checking for existing PhotoMap processes...");
 

@@ -1,13 +1,13 @@
-# PhotoMap Processor v0.7.3
+# PhotoMap Processor v0.7.4
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Key Technical Improvements (v0.7.3)
+## ✨ Key Technical Improvements (v0.7.4)
 
-- **In-Memory Database**: Replaced SQLite with `Arc<RwLock<Vec<PhotoMetadata>>>` for zero-latency access and to resolve Windows file locking issues.
-- **Standardized Logging**: Implemented uniform `DD HH:MM:SS` logging format and filtered out noisy dependency logs.
-- **Simplified Architecture**: Removed external C-dependencies (SQLite) and complex migration logic, making the app lighter and more robust.
-- **Performance**: Database operations are now purely in-memory, eliminating disk I/O bottlenecks during photo processing.
+- **Cluster Gallery**: Replaced the chaotic "spiderfy" animation for large clusters with a clean, paginated gallery modal.
+- **UI Refinement**: Redesigned "Source Folder" controls with a compact layout and a new "Process" button for quick re-indexing.
+- **High-Quality Thumbnails**: Switched to 240px square thumbnails with smart padding for a consistent grid layout.
+- **Performance**: Implemented pagination for large photo clusters to ensure smooth UI rendering.
 
 ## 🚀 Quick Start
 
@@ -39,7 +39,7 @@ A modern, high-performance photo mapping application with SQLite database storag
 photomap/
 ├── src/                 # Rust source code
 │   ├── main.rs          # Application entry point
-│   ├── database.rs      # SQLite database operations
+│   ├── database.rs      # In-memory database operations
 │   ├── processing.rs    # Core photo processing logic
 │   ├── image_processing.rs # Image manipulation
 │   ├── server/          # HTTP Server (Axum)
@@ -63,10 +63,16 @@ photomap/
 
 ## 📈 Version History
 
+### v0.7.4 - Cluster Gallery & UI Polish
+- **Cluster Gallery**: New modal interface for viewing large clusters (10+ photos), replacing the "spiderfy" effect.
+- **Pagination**: Added pagination (28 items/page) to the gallery for better performance with hundreds of photos.
+- **UI Updates**: "Source Folder" input is now editable and full-width. Added "Process" button for quick re-runs.
+- **Thumbnails**: Standardized on 240x240px square thumbnails with white padding for non-square images.
+
 ### v0.7.3 - In-Memory Database & Logging
-- **In-Memory Database**: Полный отказ от SQLite (`rusqlite`) в пользу `Arc<RwLock<Vec<PhotoMetadata>>>`. Решена проблема блокировок файлов на Windows (`SQLITE_BUSY`).
-- **Logging**: Стандартизирован формат логов (`DD HH:MM:SS`), убран шум от зависимостей (`ignore` crate).
-- **Cleanup**: Удален код миграций и работы с файловой БД.
+- **In-Memory Database**: Complete migration from SQLite (`rusqlite`) to `Arc<RwLock<Vec<PhotoMetadata>>>`. Solved Windows file locking issues (`SQLITE_BUSY`).
+- **Logging**: Standardized log format (`DD HH:MM:SS`) and removed noise from dependencies (`ignore` crate).
+- **Cleanup**: Removed migration code and file-based DB logic.
 
 ### v0.7.2 - Performance & Parser Edition
 - **Database Optimization**: Batch inserts + WAL mode for significantly faster photo processing.

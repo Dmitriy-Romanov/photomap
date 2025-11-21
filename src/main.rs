@@ -51,9 +51,9 @@ async fn main() -> Result<()> {
     // === Log Session Start ===
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     info!("---");
-    info!("🚀 Старт сессии: PhotoMap Processor v{}", VERSION);
+    info!("🚀 Session start: PhotoMap Processor v{}", VERSION);
     info!(
-        "🕒 Время запуска: {}",
+        "🕒 Launch time: {}",
         chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
     );
     info!("---");
