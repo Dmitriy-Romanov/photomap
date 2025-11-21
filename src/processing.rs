@@ -127,26 +127,22 @@ pub fn process_photos_with_stats(
         );
 
     let (all_photos, total_files, heic_count) = reduction_result;
-
-    // Insert photos in batches for better performance
-    let batch_size = 500;
     let mut successful_count = 0;
 
+    // Insert all photos into database at once
     if !silent_mode {
-        info!("💾 Inserting {} photos into database in batches of {}...", all_photos.len(), batch_size);
+        info!("💾 Inserting {} photos into database...", all_photos.len());
     }
 
-    for (batch_num, chunk) in all_photos.chunks(batch_size).enumerate() {
-        match db.insert_photos_batch(chunk) {
-            Ok(inserted) => {
-                successful_count += inserted;
-                if !silent_mode && batch_num % 10 == 0 {
-                    info!("   Batch {}: {} photos inserted", batch_num + 1, inserted);
-                }
+    match db.insert_photos_batch(&all_photos) {
+        Ok(inserted) => {
+            successful_count = inserted;
+            if !silent_mode {
+                info!("✅ Successfully inserted {} photos", inserted);
             }
-            Err(e) => {
-                error!("Failed to insert batch {}: {}", batch_num + 1, e);
-            }
+        }
+        Err(e) => {
+            error!("Failed to insert photos: {}", e);
         }
     }
 
@@ -299,7 +295,7 @@ fn process_file_to_metadata(path: &Path, photos_dir: &Path) -> Result<PhotoMetad
     // Generate relative path from photos directory
     let relative_path = path
         .strip_prefix(photos_dir)
-        .map(|p| p.to_string_lossy().to_string())
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
         .unwrap_or_else(|_| filename.to_string());
 
     Ok(PhotoMetadata {
