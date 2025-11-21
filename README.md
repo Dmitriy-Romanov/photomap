@@ -1,13 +1,13 @@
-# PhotoMap Processor v0.8.0
+# PhotoMap Processor v0.8.1
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Key Technical Improvements (v0.8.0)
+## ✨ Latest Improvements (v0.8.1)
 
-- **Instant Startup**: Implemented binary caching (`bincode`) to persist processed metadata. Subsequent launches are near-instantaneous, skipping the scan phase if the folder hasn't changed.
-- **Cluster Gallery**: Replaced the chaotic "spiderfy" animation for large clusters with a clean, paginated gallery modal.
-- **UI Refinement**: Redesigned "Source Folder" controls with a compact layout and a new "Process" button for quick re-indexing. Fixed UI glitches with button resizing.
-- **High-Quality Thumbnails**: Switched to 240px square thumbnails with smart padding for a consistent grid layout.
+- **Performance**: +20-30% faster image generation (unified `turbojpeg` encoding)
+- **Binary Size**: Reduced from 2.55MB to 2.3MB (-250KB, -10%)
+- **Dependencies**: Removed `sysinfo` and `mime_guess`, replaced with native OS commands
+- **UI**: Modern redesign with compact spacing, system fonts, and refined color palette
 
 ## 🚀 Quick Start
 
@@ -62,6 +62,13 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.8.1 - Performance & Size Optimizations
+- **JPEG Encoding**: Unified all image types to use `turbojpeg` for 20-30% faster popup generation
+- **Process Management**: Replaced `sysinfo` library with native OS commands (pgrep/tasklist)
+- **MIME Detection**: Replaced `mime_guess` with simple pattern matching function
+- **Binary Size**: Reduced from 2.55MB to 2.3MB (-10%)
+- **UI**: Modern redesign with system fonts and compact spacing
 
 ### v0.8.0 - Instant Startup & Persistence
 - **Binary Cache**: Implemented `bincode` persistence (`photos.bin`). The application now saves the database state to disk and reloads it instantly on startup if the source folder is unchanged.
