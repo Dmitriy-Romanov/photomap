@@ -29,7 +29,6 @@ rust-embed = "8.0.0"
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-sysinfo = "0.30"
 bincode = "1.3"
 
 
