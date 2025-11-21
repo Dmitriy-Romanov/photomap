@@ -90,7 +90,12 @@ jobs:
           HOMEBREW_NO_INSTALL_UPGRADE: 1
         run: |
           # Install libheif and jpeg-turbo (Homebrew will handle all dependencies)
-          brew install libheif jpeg-turbo
+          brew install libheif jpeg-turbo cmake nasm
+          
+          # Set library paths for linking
+          echo "LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       # === Common Steps ===
       - name: Install Rust toolchain
