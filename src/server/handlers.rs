@@ -18,6 +18,20 @@ use rust_embed::RustEmbed;
 #[folder = "frontend/"]
 struct Asset;
 use crate::processing::{process_photos_from_directory, process_photos_into_database};
+
+/// Simple MIME type detection based on file extension
+fn get_mime_type(path: &std::path::Path) -> &'static str {
+    match path.extension().and_then(|s| s.to_str()) {
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("png") => "image/png",
+        Some("heic") | Some("heif") => "image/heic",
+        Some("gif") => "image/gif",
+        Some("webp") => "image/webp",
+        Some("bmp") => "image/bmp",
+        Some("svg") => "image/svg+xml",
+        _ => "application/octet-stream",
+    }
+}
 use crate::settings::Settings;
 use crate::utils::select_folder_native;
 use tokio::sync::mpsc;
@@ -183,12 +197,12 @@ pub async fn serve_photo(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    let content_type = mime_guess::from_path(&path).first_or_octet_stream();
+    let content_type = get_mime_type(&path);
 
     match std::fs::read(&path) {
         Ok(data) => Ok(Response::builder()
             .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, content_type.as_ref())
+            .header(header::CONTENT_TYPE, content_type)
             .body(data.into())
             .unwrap()),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),

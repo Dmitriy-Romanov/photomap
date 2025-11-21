@@ -775,7 +775,6 @@ dependencies = [
  "image",
  "kamadak-exif",
  "libheif-rs",
- "mime_guess",
  "rayon",
  "rust-embed",
  "serde",
