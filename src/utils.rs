@@ -53,12 +53,7 @@ pub fn get_config_path() -> PathBuf {
     config_dir
 }
 
-/// Возвращает путь к файлу базы данных приложения
-pub fn get_database_path() -> String {
-    let mut db_dir = get_app_data_dir();
-    db_dir.push("photomap.db");
-    db_dir.to_string_lossy().to_string()
-}
+
 
 use std::process::Command;
 use std::env;

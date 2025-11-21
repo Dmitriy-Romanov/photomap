@@ -1,13 +1,13 @@
-# PhotoMap Processor v0.7.2
+# PhotoMap Processor v0.7.3
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Key Technical Improvements (v0.7.2)
+## ✨ Key Technical Improvements (v0.7.3)
 
-- **Database Performance**: Implemented batch inserts and SQLite optimizations (WAL mode, synchronous=NORMAL) for significantly faster photo processing.
-- **Custom GPS Parser**: Added specialized low-level GPS parser for malformed EXIF files (Lightroom-processed JPEGs), 24% faster than reference parsers.
-- **Enhanced EXIF Handling**: Smart fallback logic handles non-standard EXIF structures with `continue_on_error` and custom byte-level parsing.
-- **Exif Parser Test**: Enhanced debugging tool with automatic failed file copying and performance benchmarking capabilities.
+- **In-Memory Database**: Replaced SQLite with `Arc<RwLock<Vec<PhotoMetadata>>>` for zero-latency access and to resolve Windows file locking issues.
+- **Standardized Logging**: Implemented uniform `DD HH:MM:SS` logging format and filtered out noisy dependency logs.
+- **Simplified Architecture**: Removed external C-dependencies (SQLite) and complex migration logic, making the app lighter and more robust.
+- **Performance**: Database operations are now purely in-memory, eliminating disk I/O bottlenecks during photo processing.
 
 ## 🚀 Quick Start
 
@@ -62,6 +62,11 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.7.3 - In-Memory Database & Logging
+- **In-Memory Database**: Полный отказ от SQLite (`rusqlite`) в пользу `Arc<RwLock<Vec<PhotoMetadata>>>`. Решена проблема блокировок файлов на Windows (`SQLITE_BUSY`).
+- **Logging**: Стандартизирован формат логов (`DD HH:MM:SS`), убран шум от зависимостей (`ignore` crate).
+- **Cleanup**: Удален код миграций и работы с файловой БД.
 
 ### v0.7.2 - Performance & Parser Edition
 - **Database Optimization**: Batch inserts + WAL mode for significantly faster photo processing.

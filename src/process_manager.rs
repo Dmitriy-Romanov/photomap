@@ -3,9 +3,11 @@ use std::thread;
 use std::time::Duration;
 use sysinfo::{Signal, System};
 
+use tracing::info;
+
 /// Проверяет, запущен ли уже процесс PhotoMap и убивает его при необходимости
 pub fn ensure_single_instance() -> Result<()> {
-    println!("🔍 Checking for existing PhotoMap processes...");
+    info!("🔍 Checking for existing PhotoMap processes...");
 
     let mut system = System::new_all();
     system.refresh_all();
@@ -25,14 +27,14 @@ pub fn ensure_single_instance() -> Result<()> {
     }
 
     if !pids_to_kill.is_empty() {
-        println!(
+        info!(
             "🔄 Found {} existing PhotoMap process(es), terminating...",
             pids_to_kill.len()
         );
 
         for pid in pids_to_kill {
             if let Some(process) = system.process(pid) {
-                 println!("   🚫 Terminating process PID: {}", pid);
+                 info!("   🚫 Terminating process PID: {}", pid);
                  
                  // Try graceful termination first
                  if process.kill_with(Signal::Term).unwrap_or(false) {
@@ -42,12 +44,12 @@ pub fn ensure_single_instance() -> Result<()> {
                      // Refresh system to check if it's still there
                      system.refresh_process(pid);
                      if let Some(p) = system.process(pid) {
-                         println!("   ⚡ Process still alive, force killing PID: {}", pid);
+                         info!("   ⚡ Process still alive, force killing PID: {}", pid);
                          p.kill_with(Signal::Kill);
                      }
                  } else {
                      // If SIGTERM not supported, try Kill directly
-                      println!("   ⚡ Could not send SIGTERM, force killing PID: {}", pid);
+                      info!("   ⚡ Could not send SIGTERM, force killing PID: {}", pid);
                       process.kill_with(Signal::Kill);
                  }
             }
@@ -55,9 +57,9 @@ pub fn ensure_single_instance() -> Result<()> {
         
         // Give time for cleanup
         thread::sleep(Duration::from_secs(1));
-        println!("✅ All existing processes terminated");
+        info!("✅ All existing processes terminated");
     } else {
-        println!("✅ No existing PhotoMap processes found");
+        info!("✅ No existing PhotoMap processes found");
     }
 
     Ok(())

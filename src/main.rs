@@ -25,10 +25,27 @@ use settings::Settings;
 #[tokio::main]
 async fn main() -> Result<()> {
     // === Setup Logging ===
-    let console_layer = tracing_subscriber::fmt::layer().with_writer(std::io::stdout);
+    struct CustomTimer;
+
+    impl tracing_subscriber::fmt::time::FormatTime for CustomTimer {
+        fn format_time(&self, w: &mut tracing_subscriber::fmt::format::Writer<'_>) -> std::fmt::Result {
+            let now = chrono::Local::now();
+            write!(w, "{}", now.format("%d %H:%M:%S"))
+        }
+    }
+
+    let console_layer = tracing_subscriber::fmt::layer()
+        .with_writer(std::io::stdout)
+        .with_timer(CustomTimer);
+    
+    // Set default log level to INFO, but allow overriding via RUST_LOG env var
+    // This prevents verbose logs from dependencies like 'ignore' unless explicitly requested
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
 
     tracing_subscriber::registry()
         .with(console_layer)
+        .with(env_filter)
         .init();
 
     // === Log Session Start ===
@@ -48,17 +65,12 @@ async fn main() -> Result<()> {
     process_manager::ensure_single_instance()?;
 
     // Initialize database
-    info!("🗄️  Initializing database...");
+    info!("🗄️  Initializing database (In-Memory)...");
     let db = Database::new().with_context(|| "Failed to initialize database")?;
     info!("✅ Database initialized successfully");
-    info!("   📂 Database opened from: {}", Database::database_path());
 
     // Don't process photos here anymore - handled later with settings
 
-    info!(
-        "   📊 {} photos with GPS data in database",
-        db.get_photos_count()?
-    );
     info!("   🚀 Starting HTTP server for on-demand marker generation");
 
     // Start HTTP server
@@ -78,15 +90,10 @@ async fn main() -> Result<()> {
                 processing::process_photos_into_database(&db, photos_path)?;
             } else {
                 warn!("⚠️  Saved folder not found: {}", folder_path);
-                warn!("   Clearing database to remove stale data...");
-                db.clear_all_photos()?;
                 warn!("   Please select a folder using the web interface");
             }
         } else {
-            warn!("⚠️  No saved folder found");
-            warn!("   Clearing database to remove stale data...");
-            db.clear_all_photos()?;
-            warn!("   Please select a folder using the web interface");
+            info!("ℹ️  No saved folder found. Please select a folder using the web interface");
         }
     } // Release the lock
 

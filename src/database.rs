@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
-use rusqlite::{params, Connection};
+use anyhow::Result;
 use serde::Serialize;
+use std::sync::{Arc, RwLock};
 
 // Structure to store metadata for each photo in database
 #[derive(Debug, Clone)]
@@ -32,178 +32,68 @@ pub struct ImageMetadata {
 // Database connection wrapper
 #[derive(Clone)]
 pub struct Database {
-    // SQLite connections aren't thread-safe, so we'll create connections per thread
-    pub db_path: String,
+    // In-memory storage for photos
+    photos: Arc<RwLock<Vec<PhotoMetadata>>>,
 }
 
 impl Database {
     pub fn new() -> Result<Self> {
-        let db_path = Self::database_path();
-        let db = Database { db_path };
-        db.init_tables()?;
-        Ok(db)
-    }
-
-    pub fn database_path() -> String {
-        let app_dir = crate::utils::get_app_data_dir();
-
-        // Create directory if it doesn't exist
-        let _ = crate::utils::ensure_directory_exists(&app_dir);
-
-        crate::utils::get_database_path()
-    }
-
-    pub fn init_tables(&self) -> Result<()> {
-        let conn = Connection::open(&self.db_path)
-            .with_context(|| "Failed to open database for initialization")?;
-
-        // Enable WAL mode for better concurrent performance
-        conn.pragma_update(None, "journal_mode", "WAL")
-            .with_context(|| "Failed to enable WAL mode")?;
-
-        // Set synchronous to NORMAL for better performance (safe for our use case)
-        conn.pragma_update(None, "synchronous", "NORMAL")
-            .with_context(|| "Failed to set synchronous mode")?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS photos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                filename TEXT NOT NULL,
-                relative_path TEXT NOT NULL UNIQUE,
-                datetime TEXT NOT NULL,
-                lat REAL NOT NULL,
-                lng REAL NOT NULL,
-                file_path TEXT NOT NULL,
-                is_heic BOOLEAN NOT NULL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
-        )
-        .with_context(|| "Failed to create photos table")?;
-
-        // Create indexes for performance
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_photos_lat_lng ON photos(lat, lng)",
-            [],
-        )
-        .with_context(|| "Failed to create coordinates index")?;
-
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_photos_relative_path ON photos(relative_path)",
-            [],
-        )
-        .with_context(|| "Failed to create relative_path index")?;
-
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_photos_filename ON photos(filename)",
-            [],
-        )
-        .with_context(|| "Failed to create filename index")?;
-
-        Ok(())
+        Ok(Database {
+            photos: Arc::new(RwLock::new(Vec::new())),
+        })
     }
 
     pub fn clear_all_photos(&self) -> Result<()> {
-        let conn = Connection::open(&self.db_path)
-            .with_context(|| "Failed to open database for clearing")?;
-
-        conn.execute("DELETE FROM photos", params![])
-            .with_context(|| "Failed to clear photos table")?;
-
+        let mut photos = self.photos.write().unwrap();
+        photos.clear();
         Ok(())
     }
 
     pub fn insert_photo(&self, photo: &PhotoMetadata) -> Result<()> {
-        let conn = Connection::open(&self.db_path)
-            .with_context(|| "Failed to open database for insert")?;
-
-        conn.execute(
-            "INSERT OR REPLACE INTO photos (filename, relative_path, datetime, lat, lng, file_path, is_heic)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![
-                photo.filename,
-                photo.relative_path,
-                photo.datetime,
-                photo.lat,
-                photo.lng,
-                photo.file_path,
-                photo.is_heic
-            ],
-        ).with_context(|| format!("Failed to insert photo: {}", photo.relative_path))?;
-
+        let mut photos = self.photos.write().unwrap();
+        // Check if photo already exists (by relative_path) to mimic "INSERT OR REPLACE"
+        if let Some(existing) = photos.iter_mut().find(|p| p.relative_path == photo.relative_path) {
+            *existing = photo.clone();
+        } else {
+            photos.push(photo.clone());
+        }
         Ok(())
     }
 
     /// Insert multiple photos in a single transaction for better performance
-    pub fn insert_photos_batch(&self, photos: &[PhotoMetadata]) -> Result<usize> {
-        if photos.is_empty() {
+    pub fn insert_photos_batch(&self, new_photos: &[PhotoMetadata]) -> Result<usize> {
+        if new_photos.is_empty() {
             return Ok(0);
         }
 
-        let mut conn = Connection::open(&self.db_path)
-            .with_context(|| "Failed to open database for batch insert")?;
-
-        let tx = conn.transaction()
-            .with_context(|| "Failed to start transaction")?;
-
+        let mut photos = self.photos.write().unwrap();
         let mut inserted = 0;
-        for photo in photos {
-            match tx.execute(
-                "INSERT OR REPLACE INTO photos (filename, relative_path, datetime, lat, lng, file_path, is_heic)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![
-                    photo.filename,
-                    photo.relative_path,
-                    photo.datetime,
-                    photo.lat,
-                    photo.lng,
-                    photo.file_path,
-                    photo.is_heic
-                ],
-            ) {
-                Ok(_) => inserted += 1,
-                Err(e) => {
-                    tracing::warn!("Failed to insert photo {}: {}", photo.relative_path, e);
-                }
+
+        for photo in new_photos {
+             // Check if photo already exists (by relative_path) to mimic "INSERT OR REPLACE"
+            if let Some(existing) = photos.iter_mut().find(|p| p.relative_path == photo.relative_path) {
+                *existing = photo.clone();
+                inserted += 1;
+            } else {
+                photos.push(photo.clone());
+                inserted += 1;
             }
         }
-
-        tx.commit()
-            .with_context(|| "Failed to commit transaction")?;
 
         Ok(inserted)
     }
 
     pub fn get_all_photos(&self) -> Result<Vec<PhotoMetadata>> {
-        let conn =
-            Connection::open(&self.db_path).with_context(|| "Failed to open database for query")?;
-
-        let mut stmt = conn.prepare(
-            "SELECT filename, relative_path, datetime, lat, lng, file_path, is_heic FROM photos ORDER BY datetime DESC"
-        )?;
-
-        let photos = stmt
-            .query_map([], |row| {
-                Ok(PhotoMetadata {
-                    filename: row.get(0)?,
-                    relative_path: row.get(1)?,
-                    datetime: row.get(2)?,
-                    lat: row.get(3)?,
-                    lng: row.get(4)?,
-                    file_path: row.get(5)?,
-                    is_heic: row.get(6)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(photos)
+        let photos = self.photos.read().unwrap();
+        // Return cloned vector. In a real DB we'd query.
+        // Sorting by datetime DESC as in original query
+        let mut result = photos.clone();
+        result.sort_by(|a, b| b.datetime.cmp(&a.datetime));
+        Ok(result)
     }
 
     pub fn get_photos_count(&self) -> Result<usize> {
-        let conn =
-            Connection::open(&self.db_path).with_context(|| "Failed to open database for count")?;
-
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM photos", [], |row| row.get(0))?;
-        Ok(count as usize)
+        let photos = self.photos.read().unwrap();
+        Ok(photos.len())
     }
 }
