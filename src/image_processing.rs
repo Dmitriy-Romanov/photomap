@@ -39,15 +39,13 @@ fn create_scaled_image(img: DynamicImage, size: u32, pad_to_square: bool) -> Res
     } else {
         // Just resize the image to the given size (max dimension) while maintaining the aspect ratio
         let scaled = img.resize(size, size, image::imageops::FilterType::Triangle);
-        let mut jpeg_data = Vec::new();
-        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_data, 85);
-        encoder.encode(
-            scaled.as_bytes(),
-            scaled.width(),
-            scaled.height(),
-            scaled.color().into(),
-        )?;
-        Ok(jpeg_data)
+        
+        // Convert to RGB8 and encode with turbojpeg (faster than image crate's encoder)
+        let rgb_image = scaled.to_rgb8();
+        let jpeg_data = turbojpeg::compress_image(&rgb_image, 85, turbojpeg::Subsamp::None)
+            .with_context(|| "Failed to compress image with turbojpeg")?;
+        
+        Ok(jpeg_data.to_vec())
     }
 }
 
