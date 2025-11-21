@@ -65,20 +65,10 @@ jobs:
             ${{ runner.os }}-vcpkg-libheif-libjpeg-
             ${{ runner.os }}-vcpkg-
 
-      - name: Export GitHub Actions Cache Environment (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-
       - name: Install Windows Dependencies
         if: runner.os == 'Windows'
         timeout-minutes: 30
         shell: bash
-        env:
-          VCPKG_BINARY_SOURCES: 'clear;x-gha,readwrite'
         run: |
           vcpkg install libheif:x64-windows-static libjpeg-turbo:x64-windows-static
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
@@ -97,16 +87,7 @@ jobs:
 
       - name: Install macOS Dependencies
         if: runner.os == 'macOS'
-        env:
-          HOMEBREW_NO_INSTALL_UPGRADE: 1
-        run: |
-          # Install libheif and jpeg-turbo (Homebrew will handle all dependencies)
-          brew install libheif jpeg-turbo cmake nasm
-          
-          # Set library paths for linking
-          echo "LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH" >> $GITHUB_ENV
-          echo "DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+        run: brew install libheif jpeg-turbo || true
 
       # === Common Steps ===
       - name: Install Rust toolchain
