@@ -110,7 +110,12 @@ pub fn process_photos_with_stats(
                         acc.0.push(photo_metadata); // Collect successful metadata
                     }
                     Err(e) => {
-                        warn!("Failed to process file {}: {}", path.display(), e);
+                        let err_msg = e.to_string();
+                        if err_msg.contains("GPS data not found") {
+                            info!("ℹ️  Skipped {}: No GPS data", path.display());
+                        } else {
+                            warn!("Failed to process file {}: {}", path.display(), e);
+                        }
                     }
                 }
                 acc
