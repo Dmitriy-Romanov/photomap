@@ -1,9 +1,9 @@
 use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 
 // Structure to store metadata for each photo in database
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PhotoMetadata {
     pub filename: String,
     pub relative_path: String, // Relative path from photos directory (e.g., "folder/IMG_0001.JPG")
@@ -27,6 +27,13 @@ pub struct ImageMetadata {
     pub datetime: String,
     pub file_path: String,
     pub is_heic: bool,
+}
+
+// Structure for disk persistence
+#[derive(Serialize, Deserialize)]
+pub struct CachedDatabase {
+    pub source_path: String,
+    pub photos: Vec<PhotoMetadata>,
 }
 
 // Database connection wrapper
@@ -95,5 +102,47 @@ impl Database {
     pub fn get_photos_count(&self) -> Result<usize> {
         let photos = self.photos.read().unwrap();
         Ok(photos.len())
+    }
+
+    /// Save the current database state to disk using bincode
+    pub fn save_to_disk(&self, source_path: &str) -> Result<()> {
+        let photos = self.photos.read().unwrap();
+        let cache = CachedDatabase {
+            source_path: source_path.to_string(),
+            photos: photos.clone(),
+        };
+        
+        let app_dir = crate::utils::get_app_data_dir();
+        crate::utils::ensure_directory_exists(&app_dir)?;
+        let cache_path = app_dir.join("photos.bin");
+        
+        let file = std::fs::File::create(cache_path)?;
+        bincode::serialize_into(file, &cache)?;
+        
+        Ok(())
+    }
+
+    /// Load database state from disk if source path matches
+    pub fn load_from_disk(&self, expected_source_path: &str) -> Result<bool> {
+        let app_dir = crate::utils::get_app_data_dir();
+        let cache_path = app_dir.join("photos.bin");
+        
+        if !cache_path.exists() {
+            return Ok(false);
+        }
+        
+        let file = std::fs::File::open(cache_path)?;
+        let cache: CachedDatabase = match bincode::deserialize_from(file) {
+            Ok(c) => c,
+            Err(_) => return Ok(false), // Corrupted or incompatible cache
+        };
+        
+        if cache.source_path != expected_source_path {
+            return Ok(false);
+        }
+
+        let mut photos = self.photos.write().unwrap();
+        *photos = cache.photos;
+        Ok(true)
     }
 }

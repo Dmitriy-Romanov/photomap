@@ -326,6 +326,8 @@ body {
     justify-content: center;
     gap: 6px;
     padding: 6px 12px;
+    min-width: 80px;
+    /* Prevent resize on text change */
     border: none;
     border-radius: 6px;
     cursor: pointer;

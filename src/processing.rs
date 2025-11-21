@@ -202,6 +202,17 @@ pub fn process_photos_with_stats(
             "   🗄️  Database contains {} photos with GPS data",
             final_count
         );
+
+    }
+
+    // Save to disk cache (always, regardless of silent_mode)
+    if let Some(path_str) = photos_dir.to_str() {
+        // We want to log this even in silent mode if it fails, or maybe just info
+        if let Err(e) = db.save_to_disk(path_str) {
+            warn!("⚠️  Failed to save cache to disk: {}", e);
+        } else if !silent_mode {
+            info!("💾 Cache saved to disk successfully");
+        }
     }
 
     Ok((

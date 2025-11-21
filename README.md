@@ -1,13 +1,13 @@
-# PhotoMap Processor v0.7.4
+# PhotoMap Processor v0.8.0
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Key Technical Improvements (v0.7.4)
+## ✨ Key Technical Improvements (v0.8.0)
 
+- **Instant Startup**: Implemented binary caching (`bincode`) to persist processed metadata. Subsequent launches are near-instantaneous, skipping the scan phase if the folder hasn't changed.
 - **Cluster Gallery**: Replaced the chaotic "spiderfy" animation for large clusters with a clean, paginated gallery modal.
-- **UI Refinement**: Redesigned "Source Folder" controls with a compact layout and a new "Process" button for quick re-indexing.
+- **UI Refinement**: Redesigned "Source Folder" controls with a compact layout and a new "Process" button for quick re-indexing. Fixed UI glitches with button resizing.
 - **High-Quality Thumbnails**: Switched to 240px square thumbnails with smart padding for a consistent grid layout.
-- **Performance**: Implemented pagination for large photo clusters to ensure smooth UI rendering.
 
 ## 🚀 Quick Start
 
@@ -62,6 +62,11 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.8.0 - Instant Startup & Persistence
+- **Binary Cache**: Implemented `bincode` persistence (`photos.bin`). The application now saves the database state to disk and reloads it instantly on startup if the source folder is unchanged.
+- **UI Fixes**: Fixed "Open" button resizing glitch by enforcing minimum width.
+- **Optimization**: Zero-latency startup for large collections (20k+ photos).
 
 ### v0.7.4 - Cluster Gallery & UI Polish
 - **Cluster Gallery**: New modal interface for viewing large clusters (10+ photos), replacing the "spiderfy" effect.

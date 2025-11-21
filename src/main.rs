@@ -86,8 +86,24 @@ async fn main() -> Result<()> {
         if let Some(ref folder_path) = settings_guard.last_folder {
             let photos_path = Path::new(folder_path);
             if photos_path.exists() {
-                info!("🚀 Processing photos from saved folder: {}", folder_path);
-                processing::process_photos_into_database(&db, photos_path)?;
+                info!("📂 Checking saved folder: {}", folder_path);
+                
+                // Try to load from cache first
+                let cache_loaded = match db.load_from_disk(folder_path) {
+                    Ok(loaded) => loaded,
+                    Err(e) => {
+                        warn!("⚠️  Failed to load cache: {}", e);
+                        false
+                    }
+                };
+
+                if cache_loaded {
+                    let count = db.get_photos_count().unwrap_or(0);
+                    info!("✅ Loaded {} photos from cache. Skipping processing.", count);
+                } else {
+                    info!("🚀 Cache miss or mismatch. Starting processing...");
+                    processing::process_photos_into_database(&db, photos_path)?;
+                }
             } else {
                 warn!("⚠️  Saved folder not found: {}", folder_path);
                 warn!("   Please select a folder using the web interface");
