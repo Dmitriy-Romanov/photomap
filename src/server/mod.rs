@@ -6,6 +6,7 @@ use axum::{
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 
 pub mod events;
@@ -40,7 +41,11 @@ async fn create_app(state: AppState) -> Router {
         .route("/api/reprocess", axum::routing::post(reprocess_photos))
         .route("/api/shutdown", post(shutdown_app))
         .route("/photos/*filepath", get(serve_photo))
-        .layer(ServiceBuilder::new().layer(CorsLayer::permissive()))
+        .layer(
+            ServiceBuilder::new()
+                .layer(CorsLayer::permissive())
+                .layer(CompressionLayer::new()),
+        )
         .with_state(state)
 }
 

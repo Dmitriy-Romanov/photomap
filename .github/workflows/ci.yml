@@ -120,10 +120,7 @@ jobs:
       - name: Build Release (Dry Run) - Windows
         if: runner.os == 'Windows'
         run: cargo build --release
-        env:
-        env:
-          # VCPKG_TARGET_TRIPLET and RUSTFLAGS are now set globally for Windows
-          dummy: "var"
+
 
       - name: Build Release (Dry Run) - Unix
         if: runner.os != 'Windows'
