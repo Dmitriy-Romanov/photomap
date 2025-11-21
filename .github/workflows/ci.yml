@@ -14,6 +14,7 @@ jobs:
   build_and_test:
     name: Build, Test & Lint
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -63,32 +64,41 @@ jobs:
 
       - name: Install Windows Dependencies
         if: runner.os == 'Windows'
-        timeout-minutes: 60
+        timeout-minutes: 120
         shell: bash
         run: |
           vcpkg install libheif:x64-windows-static libjpeg-turbo:x64-windows-static
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
 
       # === macOS Setup ===
-      - name: Homebrew Cache (macOS)
+      - name: Cache Custom Libheif (macOS)
         if: runner.os == 'macOS'
+        id: cache-libheif-macos
         uses: actions/cache@v3
         with:
-          path: |
-            ~/Library/Caches/Homebrew
-            /opt/homebrew/Cellar
-          key: ${{ runner.os }}-homebrew-${{ hashFiles('.github/workflows/ci.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-homebrew-
+          path: ${{ github.workspace }}/libheif-install
+          key: ${{ runner.os }}-libheif-master-v2
 
-      - name: Install macOS Dependencies
+      - name: Install macOS Build Dependencies
+        if: runner.os == 'macOS'
+        run: brew install cmake libde265 x265 jpeg-turbo pkg-config
+
+      - name: Build and Install libheif (macOS)
+        if: runner.os == 'macOS' && steps.cache-libheif-macos.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/strukturag/libheif.git
+          cd libheif
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/libheif-install -DCMAKE_INSTALL_LIBDIR=lib -DWITH_LIBDE265=ON -DWITH_X265=ON ..
+          make -j$(sysctl -n hw.ncpu)
+          make install
+
+      - name: Set Environment Variables (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install libheif jpeg-turbo pkg-config
-          brew link libheif
-          echo "PKG_CONFIG_PATH=$(brew --prefix libheif)/lib/pkgconfig" >> $GITHUB_ENV
-          echo "LIBRARY_PATH=$(brew --prefix libheif)/lib" >> $GITHUB_ENV
-          echo "INCLUDE_PATH=$(brew --prefix libheif)/include" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=${{ github.workspace }}/libheif-install/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/libheif-install/lib" >> $GITHUB_ENV
 
       # === Common Steps ===
       - name: Install Rust toolchain
