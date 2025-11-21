@@ -2,7 +2,9 @@ use anyhow::Result;
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
-use tracing::{info, warn};
+use tracing::info;
+#[cfg(not(target_os = "windows"))]
+use tracing::warn;
 
 #[cfg(target_os = "windows")]
 use anyhow::Context;

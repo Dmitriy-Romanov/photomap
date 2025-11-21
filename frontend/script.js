@@ -116,6 +116,12 @@ async function loadPhotos() {
 
         const response = await fetch('/api/photos');
         photoData = await response.json();
+
+        // Pre-calculate years for performance
+        photoData.forEach(photo => {
+            photo.year = getYearFromDatetime(photo.datetime);
+        });
+
         console.log(`Loaded ${photoData.length} photos from database`);
         addMarkers();
         return photoData; // Return the loaded data
@@ -274,8 +280,8 @@ function filterMarkers() {
 
     // Filter photos
     const filteredPhotos = photoData.filter(photo => {
-        const year = getYearFromDatetime(photo.datetime);
-        return year !== null && year >= fromYear && year <= toYear;
+        // Use pre-calculated year
+        return photo.year !== null && photo.year >= fromYear && photo.year <= toYear;
     });
 
     console.log(`Found ${filteredPhotos.length} photos in range`);
@@ -315,9 +321,9 @@ function initializeYearControls() {
         return;
     }
 
-    // Extract years using helper
+    // Extract years using pre-calculated value
     const years = photoData
-        .map(photo => getYearFromDatetime(photo.datetime))
+        .map(photo => photo.year)
         .filter(year => year !== null);
 
     if (years.length === 0) {
