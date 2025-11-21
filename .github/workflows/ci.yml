@@ -56,18 +56,14 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/cache@v3
         with:
-          path: |
-            C:\vcpkg\installed
-            C:\vcpkg\packages
-            C:\vcpkg\buildtrees
-          key: ${{ runner.os }}-vcpkg-libheif-libjpeg-v2
+          path: C:\vcpkg\installed
+          key: ${{ runner.os }}-vcpkg-libheif-libjpeg-v3
           restore-keys: |
-            ${{ runner.os }}-vcpkg-libheif-libjpeg-
-            ${{ runner.os }}-vcpkg-
+            ${{ runner.os }}-vcpkg-libheif-libjpeg-v3
 
       - name: Install Windows Dependencies
         if: runner.os == 'Windows'
-        timeout-minutes: 30
+        timeout-minutes: 60
         shell: bash
         run: |
           vcpkg install libheif:x64-windows-static libjpeg-turbo:x64-windows-static
@@ -87,7 +83,12 @@ jobs:
 
       - name: Install macOS Dependencies
         if: runner.os == 'macOS'
-        run: brew install libheif jpeg-turbo || true
+        run: |
+          brew install libheif jpeg-turbo pkg-config
+          brew link libheif
+          echo "PKG_CONFIG_PATH=$(brew --prefix libheif)/lib/pkgconfig" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=$(brew --prefix libheif)/lib" >> $GITHUB_ENV
+          echo "INCLUDE_PATH=$(brew --prefix libheif)/include" >> $GITHUB_ENV
 
       # === Common Steps ===
       - name: Install Rust toolchain
