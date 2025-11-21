@@ -144,7 +144,7 @@ pub fn open_browser(url: &str) -> Result<(), std::io::Error> {
             Command::new("open").arg(url).spawn()?;
         },
         "windows" => {
-            Command::new("cmd").args(&["/C", "start", url]).spawn()?;
+            Command::new("cmd").args(["/C", "start", url]).spawn()?;
         },
         "linux" => {
             Command::new("xdg-open").arg(url).spawn()?;

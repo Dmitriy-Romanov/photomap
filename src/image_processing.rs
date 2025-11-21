@@ -69,8 +69,8 @@ fn try_load_jpeg(path: &Path, target_size: u32) -> Result<Option<DynamicImage>> 
         // Find the smallest factor that produces an image >= target_size
         factors.iter()
             .filter(|f| {
-                let scaled_w = (header.width * f.num() + f.denom() - 1) / f.denom();
-                let scaled_h = (header.height * f.num() + f.denom() - 1) / f.denom();
+                let scaled_w = (header.width * f.num()).div_ceil(f.denom());
+                let scaled_h = (header.height * f.num()).div_ceil(f.denom());
                 let scaled_min = std::cmp::min(scaled_w, scaled_h);
                 scaled_min >= target_size as usize
             })
@@ -102,8 +102,8 @@ fn try_load_jpeg(path: &Path, target_size: u32) -> Result<Option<DynamicImage>> 
     // Actually, `turbojpeg-rs` documentation says `read_header` returns `Header`.
     // `ScalingFactor` has `apply_to(width, height)`.
     
-    let scaled_width = (header.width * scaling_factor.num() + scaling_factor.denom() - 1) / scaling_factor.denom();
-    let scaled_height = (header.height * scaling_factor.num() + scaling_factor.denom() - 1) / scaling_factor.denom();
+    let scaled_width = (header.width * scaling_factor.num()).div_ceil(scaling_factor.denom());
+    let scaled_height = (header.height * scaling_factor.num()).div_ceil(scaling_factor.denom());
     
     let mut image = image::RgbImage::new(scaled_width as u32, scaled_height as u32);
     

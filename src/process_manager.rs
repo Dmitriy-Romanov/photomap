@@ -109,7 +109,7 @@ fn kill_existing_windows() -> Result<()> {
 
     // Use tasklist to find photomap_processor.exe processes
     let output = Command::new("tasklist")
-        .args(&["/FI", "IMAGENAME eq photomap_processor.exe", "/FO", "CSV", "/NH"])
+        .args(["/FI", "IMAGENAME eq photomap_processor.exe", "/FO", "CSV", "/NH"])
         .output()
         .context("Failed to run tasklist command")?;
 
@@ -149,7 +149,7 @@ fn kill_existing_windows() -> Result<()> {
 
         // Try graceful termination first
         let term_result = Command::new("taskkill")
-            .args(&["/PID", &pid.to_string()])
+            .args(["/PID", &pid.to_string()])
             .status();
 
         if term_result.is_ok() {
@@ -157,7 +157,7 @@ fn kill_existing_windows() -> Result<()> {
 
             // Check if process still exists
             let check_output = Command::new("tasklist")
-                .args(&["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
+                .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
                 .output();
 
             if let Ok(out) = check_output {
@@ -165,7 +165,7 @@ fn kill_existing_windows() -> Result<()> {
                     // Process still alive, force kill
                     info!("   ⚡ Process still alive, force killing PID: {}", pid);
                     let _ = Command::new("taskkill")
-                        .args(&["/F", "/PID", &pid.to_string()])
+                        .args(["/F", "/PID", &pid.to_string()])
                         .status();
                 }
             }
@@ -173,7 +173,7 @@ fn kill_existing_windows() -> Result<()> {
             // Graceful kill failed, force kill
             info!("   ⚡ Graceful kill failed, force killing PID: {}", pid);
             let _ = Command::new("taskkill")
-                .args(&["/F", "/PID", &pid.to_string()])
+                .args(["/F", "/PID", &pid.to_string()])
                 .status();
         }
     }
