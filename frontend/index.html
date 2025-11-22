@@ -72,8 +72,19 @@
             </div>
         </div>
         <div class="exp-row">
-            <div class="exp-cell w-60 cell-left">
-                <span class="group-label" style="margin: 0; color: inherit;">Source folder</span>
+            <div class="exp-cell w-40 cell-left">
+                <span class="group-label" style="margin: 0; color: inherit; padding-left: 4px;">Source folder</span>
+            </div>
+            <div class="exp-cell w-20">
+                <button id="exp-wheremi-button" class="icon-btn" onclick="goToUserLocation()"
+                    style="background: #34A853; color: white;" title="Go to My Location">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    Where I
+                </button>
             </div>
             <div class="exp-cell w-20">
                 <button id="exp-open-button" class="icon-btn primary" onclick="openFolderDialog('exp')"

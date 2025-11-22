@@ -50,6 +50,20 @@ body {
     /* Add subtle shadow for depth */
     max-height: 800px;
     /* Arbitrary large height for transition */
+    cursor: move;
+}
+
+.exp-panel button,
+.exp-panel input,
+.exp-panel label,
+.exp-panel select,
+.exp-panel a {
+    cursor: pointer;
+}
+
+.exp-panel input[type="text"],
+.exp-panel input[type="number"] {
+    cursor: text;
 }
 
 .photo-popup {
@@ -88,6 +102,19 @@ body {
     color: #666;
     margin: 4px 0;
     font-size: 0.8em;
+}
+
+/* Compact popup for user location marker */
+.compact-popup .leaflet-popup-content-wrapper {
+    min-width: auto !important;
+    width: auto !important;
+}
+
+.compact-popup .leaflet-popup-content {
+    min-width: auto !important;
+    max-width: 300px !important;
+    width: auto !important;
+    margin: 8px 12px;
 }
 
 .thumbnail-icon {

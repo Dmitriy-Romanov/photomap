@@ -276,6 +276,8 @@ pub async fn update_settings(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let mut settings = state.settings.lock().unwrap();
 
+    println!("📝 Received settings update: top={}, left={}", new_settings.top, new_settings.left);
+
     // Update settings
     *settings = new_settings.clone();
 

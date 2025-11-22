@@ -6,6 +6,50 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
+// Add user location marker
+let userLocationMarker = null;
+let userLocation = null; // Store user's coordinates
+
+map.locate({ setView: false, maxZoom: 16 });
+
+map.on('locationfound', function (e) {
+    const radius = e.accuracy / 2;
+
+    // Save user location
+    userLocation = e.latlng;
+
+    // Remove old marker if exists
+    if (userLocationMarker) {
+        map.removeLayer(userLocationMarker);
+    }
+
+    // Create custom icon for user location (green)
+    const userIcon = L.divIcon({
+        className: 'user-location-marker',
+        html: '<div style="background:#34A853;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 8px rgba(52,168,83,0.6);"></div>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
+    });
+
+    // Add marker with compact popup
+    userLocationMarker = L.marker(e.latlng, { icon: userIcon }).addTo(map)
+        .bindPopup(`📍 Your location (±${Math.round(radius)}m)`, {
+            className: 'compact-popup'
+        });
+
+    // Optional: add accuracy circle (green)
+    L.circle(e.latlng, radius, {
+        color: '#34A853',
+        fillColor: '#34A853',
+        fillOpacity: 0.1,
+        weight: 1
+    }).addTo(map);
+});
+
+map.on('locationerror', function (e) {
+    console.log('Geolocation access denied or unavailable:', e.message);
+});
+
 // Hide SVG path elements that look like flags
 function hideSvgFlags() {
     // Hide SVG elements with flag class (most reliable method)
@@ -328,14 +372,136 @@ function updateStatistics() {
 
 
 
+// Make element draggable
+function makeDraggable(element) {
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+
+    element.onmousedown = dragMouseDown;
+
+    function dragMouseDown(e) {
+        // Don't drag if clicking on inputs or buttons
+        if (['INPUT', 'BUTTON', 'LABEL', 'A', 'SELECT', 'TEXTAREA'].includes(e.target.tagName) ||
+            e.target.closest('button') || e.target.closest('label')) {
+            return;
+        }
+
+        e = e || window.event;
+        e.preventDefault();
+        // get the mouse cursor position at startup:
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        // call a function whenever the cursor moves:
+        document.onmousemove = elementDrag;
+    }
+
+    function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        // calculate the new cursor position:
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+
+        // Calculate new position
+        let newTop = element.offsetTop - pos2;
+        let newLeft = element.offsetLeft - pos1;
+
+        // Get panel dimensions
+        const panelWidth = element.offsetWidth;
+        const panelHeight = element.offsetHeight;
+
+        // Get viewport dimensions
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Constrain to viewport boundaries
+        // Top: must be >= 0
+        if (newTop < 0) newTop = 0;
+        // Left: must be >= 0
+        if (newLeft < 0) newLeft = 0;
+        // Bottom: panel bottom edge must be <= viewport height
+        if (newTop + panelHeight > viewportHeight) {
+            newTop = viewportHeight - panelHeight;
+        }
+        // Right: panel right edge must be <= viewport width
+        if (newLeft + panelWidth > viewportWidth) {
+            newLeft = viewportWidth - panelWidth;
+        }
+
+        // Set the element's new position:
+        element.style.top = newTop + "px";
+        element.style.left = newLeft + "px";
+    }
+
+    function closeDragElement() {
+        // stop moving when mouse button is released:
+        document.onmouseup = null;
+        document.onmousemove = null;
+    }
+}
+
+// Initialize draggable panel
+document.addEventListener('DOMContentLoaded', () => {
+    const panel = document.getElementById('experimental-panel');
+    if (panel) {
+        makeDraggable(panel);
+    }
+});
+
 // Minimize/Close buttons
 document.getElementById('minimize-btn')?.addEventListener('click', toggleExpPanel);
 document.getElementById('close-btn')?.addEventListener('click', async () => {
     if (confirm('Are you sure you want to close PhotoMap?')) {
         try {
-            await fetch('/api/shutdown', { method: 'POST' });
-            window.close();
-            document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h1>PhotoMap is closed</h1></div>';
+            // 1. Get current panel position
+            const panel = document.getElementById('experimental-panel');
+            let top = 12;
+            let left = 52;
+
+            if (panel) {
+                const rect = panel.getBoundingClientRect();
+                top = Math.round(rect.top);
+                left = Math.round(rect.left);
+            }
+
+            // 2. Fetch current settings to avoid overwriting other fields
+            const settingsResponse = await fetch('/api/settings');
+            if (settingsResponse.ok) {
+                const currentSettings = await settingsResponse.json();
+
+                // 3. Update settings
+                currentSettings.top = top;
+                currentSettings.left = left;
+
+                // 4. Save settings
+                const updateResponse = await fetch('/api/update_settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(currentSettings)
+                });
+
+                if (!updateResponse.ok) {
+                    console.error('Failed to save settings before shutdown');
+                } else {
+                    const result = await updateResponse.json();
+                }
+            } else {
+                console.error('Failed to fetch current settings');
+            }
+
+            // 5. Shutdown - wait 300ms to ensure settings are written to disk
+            setTimeout(async () => {
+                try {
+                    await fetch('/api/shutdown', { method: 'POST' });
+                    document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h1>PhotoMap is closed</h1></div>';
+                } catch (e) {
+                    console.error('Shutdown request failed', e);
+                }
+            }, 300);
         } catch (e) {
             console.error('Shutdown failed', e);
         }
@@ -359,6 +525,39 @@ async function loadSettings() {
         const browserAutostartToggle = document.getElementById('exp-browser-autostart-toggle');
         if (browserAutostartToggle) {
             browserAutostartToggle.checked = settings.start_browser;
+        }
+
+        // Apply panel position
+        const panel = document.getElementById('experimental-panel');
+        if (panel) {
+            let top = settings.top !== undefined ? settings.top : 12;
+            let left = settings.left !== undefined ? settings.left : 52;
+
+            // Check if panel would be outside viewport - reset to defaults if so
+            // We need to get panel dimensions after it's rendered
+            setTimeout(() => {
+                const panelWidth = panel.offsetWidth;
+                const panelHeight = panel.offsetHeight;
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                // Check boundaries
+                let needsReset = false;
+                if (top < 0 || left < 0) {
+                    needsReset = true;
+                } else if (top + panelHeight > viewportHeight || left + panelWidth > viewportWidth) {
+                    needsReset = true;
+                }
+
+                if (needsReset) {
+                    console.log('Panel position outside viewport, resetting to defaults');
+                    panel.style.top = '12px';
+                    panel.style.left = '52px';
+                } else {
+                    panel.style.top = `${top}px`;
+                    panel.style.left = `${left}px`;
+                }
+            }, 0);
         }
     } catch (error) {
         console.error('Failed to load settings:', error);
@@ -585,23 +784,67 @@ async function shutdownApp() {
     }
 
     try {
-        const response = await fetch('/api/shutdown', {
-            method: 'POST'
-        });
+        // 1. Get current panel position
+        const panel = document.getElementById('experimental-panel');
+        let top = 12;
+        let left = 52;
 
-        if (response.ok) {
-            showNotification('👋 Server stopped. Closing...', 'success');
-            setTimeout(() => {
-                window.close();
-                // Fallback if window.close() is blocked
-                document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif;"><h1>👋 PhotoMap is closed</h1><p>You can close this tab now.</p></div>';
-            }, 1000);
-        } else {
-            showNotification('❌ Failed to stop server', 'error');
+        if (panel) {
+            const rect = panel.getBoundingClientRect();
+            top = Math.round(rect.top);
+            left = Math.round(rect.left);
         }
+
+        // 2. Fetch current settings to avoid overwriting other fields
+        const settingsResponse = await fetch('/api/settings');
+        if (settingsResponse.ok) {
+            const currentSettings = await settingsResponse.json();
+
+            // 3. Update settings
+            currentSettings.top = top;
+            currentSettings.left = left;
+
+            // 4. Save settings
+            const updateResponse = await fetch('/api/update_settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(currentSettings)
+            });
+
+            if (updateResponse.ok) {
+                showNotification('💾 Saved', 'success');
+            } else {
+                console.error('Failed to save settings before shutdown');
+                showNotification('⚠️ Failed to save settings', 'error');
+            }
+        } else {
+            console.error('Failed to fetch current settings');
+        }
+
+        // 5. Wait 300ms before shutdown so you can see logs
+        showNotification('👋 Shutting down...', 'info');
+
+        setTimeout(async () => {
+            try {
+                const response = await fetch('/api/shutdown', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif;"><h1>👋 PhotoMap is closed</h1><p>You can close this tab now.</p></div>';
+                } else {
+                    showNotification('❌ Failed to stop server', 'error');
+                }
+            } catch (error) {
+                console.error('Shutdown error:', error);
+                showNotification('❌ Error stopping server', 'error');
+            }
+        }, 5000);
     } catch (error) {
         console.error('Shutdown error:', error);
-        showNotification('❌ Error stopping server', 'error');
+        showNotification('❌ Error during shutdown', 'error');
     }
 }
 
@@ -1031,6 +1274,21 @@ document.addEventListener('keydown', function (e) {
 function toggleExpPanel() {
     const panel = document.getElementById('experimental-panel');
     panel.classList.toggle('collapsed');
+}
+
+// Go to user's current location
+function goToUserLocation() {
+    if (userLocation) {
+        map.setView(userLocation, 15);
+        // Open popup if marker exists
+        if (userLocationMarker) {
+            userLocationMarker.openPopup();
+        }
+    } else {
+        showNotification('⚠️ Location not available. Please allow geolocation.', 'warning');
+        // Try to request location again
+        map.locate({ setView: true, maxZoom: 15 });
+    }
 }
 
 // Toggle travel routes
