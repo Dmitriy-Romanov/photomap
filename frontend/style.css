@@ -23,7 +23,7 @@ body {
     z-index: 1;
 }
 
-/* ... (rest of file) ... */
+
 
 /* --- Experimental Panel --- */
 .exp-panel {
@@ -182,10 +182,10 @@ body {
 .exp-cell {
     display: flex;
     align-items: center;
-    /* Fix vertical alignment */
+    justify-content: center;
     padding: 0 4px;
     height: 100%;
-    /* Ensure full height for alignment */
+    box-sizing: border-box;
 }
 
 /* Notification Toast */
@@ -507,7 +507,6 @@ body {
 }
 
 
-
 /* --- Cluster Gallery Modal --- */
 
 .cluster-modal {
@@ -764,10 +763,7 @@ body {
     padding: 4px;
 }
 
-/* --- Experimental Panel --- */
-/* .exp-panel removed to avoid conflict with top definition */
 
-/* .exp-panel.collapsed removed to avoid conflict */
 
 .exp-row {
     height: 40px;
@@ -792,13 +788,7 @@ body {
     border-bottom: none;
 }
 
-.exp-cell {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    /* border-right: 1px solid black; REMOVED */
-    box-sizing: border-box;
-}
+
 
 .exp-cell:last-child {
     border-right: none;
