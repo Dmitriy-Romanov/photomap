@@ -13,8 +13,12 @@
 ### v0.6.0 - Native HEIC Processing
 - Removed dependency on ImageMagick.
 - HEIC processing is now handled by a native Rust-based solution.
+### Current: v0.8.2 - UI Polish & CI Fixes ✅
+- [x] **Browser Autostart**: Added toggle to control automatic browser launch.
+- [x] **UI Polish**: Improved typography (Sentence case) and added GitHub link.
+- [x] **CI Fixes**: Fixed Windows and macOS build failures.
 
-### Current: v0.7.0 - Windows Compatibility & Cleanup Edition ✅
+### Previous: v0.7.0 - Windows Compatibility & Cleanup Edition ✅
 - [x] Automatic `photomap.ini` creation
 - [x] Fixed Windows folder selection dialog (foreground focus)
 - [x] Code cleanup and optimization

@@ -20,7 +20,8 @@
         <!-- Title Bar -->
         <div class="panel-header">
             <div class="app-title">
-                <span>🗺️</span> PhotoMap
+                <span>🗺️</span> <a href="https://github.com/Dmitriy-Romanov/photomap" target="_blank"
+                    style="text-decoration: none; color: inherit;">PhotoMap</a>
             </div>
             <label class="map-coords-toggle">
                 <span class="toggle-label">Map coord:</span>
@@ -48,6 +49,24 @@
 
         <!-- Content Area -->
         <div id="window-content" class="panel-content">
+            <!-- Display Options (Routes, Heatmap) -->
+            <div class="control-group" style="margin-bottom: 8px;">
+                <div class="toggles-group">
+                    <label class="map-coords-toggle" style="margin-left: 0;">
+                        <span class="toggle-label">Routes:</span>
+                        <input type="checkbox" id="routes-toggle">
+                    </label>
+                    <label class="map-coords-toggle" style="margin-left: 16px;">
+                        <span class="toggle-label">Heatmap:</span>
+                        <input type="checkbox" id="heatmap-toggle">
+                    </label>
+                    <label class="map-coords-toggle" style="margin-left: 16px;">
+                        <span class="toggle-label">Browser autostart:</span>
+                        <input type="checkbox" id="browser-autostart-toggle">
+                    </label>
+                </div>
+            </div>
+
             <!-- Processing Status Overlay -->
             <div id="processing-status" class="processing-overlay">
                 <div class="spinner"></div>
@@ -60,7 +79,7 @@
             <!-- Folder Selection -->
             <div class="control-group">
                 <div class="control-header">
-                    <label class="group-label">Source Folder</label>
+                    <label class="group-label">Source folder</label>
                     <div class="header-actions">
                         <button id="open-button" class="icon-btn primary" onclick="openFolderDialog()"
                             title="Open Folder">
@@ -91,7 +110,7 @@
             <div class="year-range-row">
                 <div class="year-range-left">
                     <label class="group-label">
-                        Year Range
+                        Year range
                         <span id="year-range-info" class="year-range-info"></span>
                     </label>
                     <div class="year-inputs">
@@ -110,11 +129,11 @@
                 <!-- Statistics (inline) -->
                 <div class="stats-bar">
                     <div class="stat-item">
-                        <span class="stat-label">Total Photos</span>
+                        <span class="stat-label">Total photos</span>
                         <span id="total-photos" class="stat-value">-</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">Visible on Map</span>
+                        <span class="stat-label">Visible on map</span>
                         <span id="visible-photos" class="stat-value">-</span>
                     </div>
                 </div>
@@ -184,6 +203,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     <script src="/script.js"></script>
 </body>
 

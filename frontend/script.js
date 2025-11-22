@@ -105,6 +105,12 @@ const markerClusterGroup = L.markerClusterGroup({
     zoomToBoundsOnClick: true
 });
 
+// Layer group for travel lines
+const routesLayerGroup = L.layerGroup().addTo(map);
+
+// Heatmap layer
+var heatLayer = null;
+
 // Load photo data from API
 var photoData = [];
 
@@ -182,6 +188,13 @@ function addMarkers() {
     map.on('zoomend', function () {
         console.log('Zoom ended, updating statistics');
         updateStatistics();
+        map.on('moveend', function () {
+            console.log('Move ended, updating statistics');
+            updateStatistics();
+        });
+
+        // Draw routes if enabled
+        drawPolylines();
     });
 
     map.on('moveend', function () {
@@ -234,11 +247,58 @@ async function loadSettings() {
         } else {
             document.getElementById('folder-input').value = '';
         }
+
+        // Set browser autostart toggle
+        const browserAutostartToggle = document.getElementById('browser-autostart-toggle');
+        if (browserAutostartToggle) {
+            browserAutostartToggle.checked = settings.start_browser;
+        }
     } catch (error) {
         console.error('Failed to load settings:', error);
         document.getElementById('folder-input').value = '';
     }
 }
+
+// Event listener for browser autostart toggle
+document.addEventListener('DOMContentLoaded', () => {
+    const browserAutostartToggle = document.getElementById('browser-autostart-toggle');
+    if (browserAutostartToggle) {
+        browserAutostartToggle.addEventListener('change', async function () {
+            const startBrowser = this.checked;
+            try {
+                // We need to fetch current settings first to preserve other fields (like last_folder)
+                // Or the backend could handle partial updates, but our backend replaces the whole struct.
+                // Let's fetch first.
+                const getResponse = await fetch('/api/settings');
+                const currentSettings = await getResponse.json();
+
+                const newSettings = {
+                    ...currentSettings,
+                    start_browser: startBrowser
+                };
+
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(newSettings)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to update settings');
+                }
+                console.log('Browser autostart setting updated:', startBrowser);
+                showNotification('✅ Settings saved', 'success');
+            } catch (error) {
+                console.error('Error updating settings:', error);
+                showNotification('❌ Failed to save settings', 'error');
+                // Revert toggle if failed
+                this.checked = !startBrowser;
+            }
+        });
+    }
+});
 
 // Helper to extract year from datetime string
 function getYearFromDatetime(datetime) {
@@ -276,7 +336,12 @@ function filterMarkers() {
     console.log(`Filtering photos: ${fromYear} - ${toYear}`);
 
     // Clear existing markers
+    // Clear existing markers
     markerClusterGroup.clearLayers();
+    routesLayerGroup.clearLayers();
+    if (heatLayer) {
+        map.removeLayer(heatLayer);
+    }
 
     // Filter photos
     const filteredPhotos = photoData.filter(photo => {
@@ -286,27 +351,36 @@ function filterMarkers() {
 
     console.log(`Found ${filteredPhotos.length} photos in range`);
 
-    // Add filtered markers
-    filteredPhotos.forEach(photo => {
-        const icon = createPhotoIcon(photo, true);
-        const marker = L.marker([photo.lat, photo.lng], { icon: icon });
-
-        const popupContent = `
-            <div class="photo-popup">
-                <img src="${photo.url}"
-                     onerror="this.src='${photo.fallback_url}'"
-                     alt="${photo.filename}" />
-                <div class="filename">${photo.file_path}</div>
-                <div class="datetime">${photo.datetime}</div>
-            </div>
-        `;
-
-        marker.bindPopup(popupContent);
-        markerClusterGroup.addLayer(marker);
-    });
-
     // Update statistics
     updateStatistics();
+
+    // Check if heatmap is enabled
+    const heatmapToggle = document.getElementById('heatmap-toggle');
+    if (heatmapToggle && heatmapToggle.checked) {
+        updateHeatmap(filteredPhotos);
+    } else {
+        // Add filtered markers
+        filteredPhotos.forEach(photo => {
+            const icon = createPhotoIcon(photo, true);
+            const marker = L.marker([photo.lat, photo.lng], { icon: icon });
+
+            const popupContent = `
+                <div class="photo-popup">
+                    <img src="${photo.url}"
+                         onerror="this.src='${photo.fallback_url}'"
+                         alt="${photo.filename}" />
+                    <div class="filename">${photo.file_path}</div>
+                    <div class="datetime">${photo.datetime}</div>
+                </div>
+            `;
+
+            marker.bindPopup(popupContent);
+            markerClusterGroup.addLayer(marker);
+        });
+
+        // Redraw routes (only if heatmap is OFF, usually looks better)
+        drawPolylines();
+    }
 }
 
 // Initialize year range controls
@@ -604,7 +678,133 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Function to toggle info panel height
+
+
+// === Routes / Polylines Logic ===
+
+function drawPolylines() {
+    const routesToggle = document.getElementById('routes-toggle');
+    if (!routesToggle || !routesToggle.checked) {
+        routesLayerGroup.clearLayers();
+        return;
+    }
+
+    // Get currently visible photos (based on filter)
+    // If filter is active, we use filtered list. If not, we need to know which ones are "active".
+    // Actually, `addMarkers` uses `photoData` directly. `filterMarkers` filters `photoData` and adds to map.
+    // But `filterMarkers` creates a local `filteredPhotos`. We need to know what is currently on map.
+    // A better approach: `drawPolylines` should take a list of photos, or we store "currentPhotos" globally.
+    // For now, let's assume we want to draw lines for ALL photos that satisfy the current filter.
+
+    // We need to know the current filter state.
+    // Let's reuse the logic: if we are in `filterMarkers`, we have `filteredPhotos`.
+    // If we are in `addMarkers`, we have `photoData`.
+    // To make it consistent, let's store `currentPhotos` globally.
+
+    // Wait, `photoData` is all photos. `filterMarkers` doesn't update `photoData`.
+    // Let's make `drawPolylines` use the same filtering logic or accept an argument.
+    // To avoid code duplication, let's extract the filtering logic or just re-run it.
+    // Re-running it is cheap (O(N)).
+
+    const yearFromInput = document.getElementById('year-from');
+    const yearToInput = document.getElementById('year-to');
+
+    let photosToDraw = photoData;
+
+    if (yearFromInput && yearToInput) {
+        const fromYear = parseInt(yearFromInput.value);
+        const toYear = parseInt(yearToInput.value);
+        if (!isNaN(fromYear) && !isNaN(toYear)) {
+            photosToDraw = photoData.filter(photo => {
+                return photo.year !== null && photo.year >= fromYear && photo.year <= toYear;
+            });
+        }
+    }
+
+    // Sort by time
+    photosToDraw.sort((a, b) => {
+        return new Date(a.datetime) - new Date(b.datetime);
+    });
+
+    routesLayerGroup.clearLayers();
+
+    if (photosToDraw.length < 2) return;
+
+    let currentLine = [];
+    let lastDate = null;
+
+    // Helper to get YYYY-MM-DD
+    const getDateString = (datetime) => {
+        if (!datetime) return null;
+        // datetime is "YYYY:MM:DD HH:MM:SS" or similar
+        // Simple parsing: take first 10 chars if they look like date
+        // Or use the regex we already have logic for.
+        // Let's use a simple split since our format is standardized in backend to "YYYY-MM-DD HH:MM:SS"
+        return datetime.split(' ')[0].replace(/:/g, '-');
+    };
+
+    photosToDraw.forEach(photo => {
+        if (!photo.lat || !photo.lng) return;
+
+        const photoDate = getDateString(photo.datetime);
+
+        if (lastDate !== photoDate) {
+            // New day, finish previous line and start new
+            if (currentLine.length > 1) {
+                L.polyline(currentLine, { color: '#ff7800', weight: 3, opacity: 0.7, smoothFactor: 1 }).addTo(routesLayerGroup);
+            }
+            currentLine = [];
+            lastDate = photoDate;
+        }
+
+        currentLine.push([photo.lat, photo.lng]);
+    });
+
+    // Add the last line
+    if (currentLine.length > 1) {
+        L.polyline(currentLine, { color: '#ff7800', weight: 3, opacity: 0.7, smoothFactor: 1 }).addTo(routesLayerGroup);
+    }
+}
+
+// Event listener for toggle
+document.addEventListener('DOMContentLoaded', () => {
+    const routesToggle = document.getElementById('routes-toggle');
+    if (routesToggle) {
+        routesToggle.addEventListener('change', () => {
+            drawPolylines();
+        });
+    }
+});
+
+// === Heatmap Logic ===
+
+function updateHeatmap(photos) {
+    if (!L.heatLayer) return;
+
+    const points = photos.map(p => [p.lat, p.lng, 1]); // 1 is intensity
+
+    if (heatLayer) {
+        map.removeLayer(heatLayer);
+    }
+
+    heatLayer = L.heatLayer(points, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 10,
+    }).addTo(map);
+}
+
+// Event listener for heatmap toggle
+document.addEventListener('DOMContentLoaded', () => {
+    const heatmapToggle = document.getElementById('heatmap-toggle');
+    if (heatmapToggle) {
+        heatmapToggle.addEventListener('change', function () {
+            // Re-run filter to update view
+            filterMarkers();
+        });
+    }
+});
+
 function toggleInfoWindow() {
     const panel = document.getElementById('floating-info-window');
     const toggleButton = document.getElementById('toggle-window-btn');

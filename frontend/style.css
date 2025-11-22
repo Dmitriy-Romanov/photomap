@@ -144,6 +144,14 @@ body {
     cursor: default;
 }
 
+
+
+.toggles-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
 .app-title {
     font-size: 16px;
     font-weight: 600;
@@ -190,7 +198,7 @@ body {
     color: #888;
     margin-left: 4px;
     margin-right: 2px;
-    text-transform: uppercase;
+    margin-right: 2px;
     letter-spacing: 0.5px;
 }
 
@@ -273,7 +281,6 @@ body {
 
 .group-label {
     font-size: 13px;
-    text-transform: uppercase;
     letter-spacing: 0.5px;
     color: #888;
     font-weight: 600;
@@ -428,7 +435,6 @@ body {
 .stat-label {
     font-size: 12px;
     color: #9ca3af;
-    text-transform: uppercase;
     font-weight: 600;
     line-height: 1.5;
 }

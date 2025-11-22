@@ -1,13 +1,12 @@
-# PhotoMap Processor v0.8.1
+# PhotoMap Processor v0.8.2
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.8.1)
+## ✨ Latest Improvements (v0.8.2)
 
-- **Performance**: +20-30% faster image generation (unified `turbojpeg` encoding)
-- **Binary Size**: Reduced from 2.55MB to 2.3MB (-250KB, -10%)
-- **Dependencies**: Removed `sysinfo` and `mime_guess`, replaced with native OS commands
-- **UI**: Modern redesign with compact spacing, system fonts, and refined color palette
+- **Browser Autostart**: Added toggle to control automatic browser launch.
+- **UI Polish**: Improved typography (Sentence case) and added GitHub link.
+- **CI Fixes**: Fixed Windows and macOS build failures.
 
 ## 🚀 Quick Start
 
@@ -62,6 +61,11 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.8.2 - UI Polish & CI Fixes
+- **Browser Autostart**: Added toggle to control automatic browser launch.
+- **UI Polish**: Improved typography (Sentence case) and added GitHub link.
+- **CI Fixes**: Fixed Windows and macOS build failures.
 
 ### v0.8.1 - Performance & Size Optimizations
 - **JPEG Encoding**: Unified all image types to use `turbojpeg` for 20-30% faster popup generation
