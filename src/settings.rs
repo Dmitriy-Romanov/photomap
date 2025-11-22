@@ -74,7 +74,6 @@ impl Settings {
         // If file exists but some fields are missing, save defaults back to file
         let needs_save = !config_map.contains_key("top") || !config_map.contains_key("left");
         if needs_save {
-            println!("⚠️  Settings file missing 'top' or 'left', writing defaults...");
             if let Err(e) = settings.save() {
                 eprintln!("Failed to save default settings: {}", e);
             }
@@ -85,8 +84,6 @@ impl Settings {
 
     pub fn save(&self) -> Result<()> {
         let config_path = Self::config_path();
-        println!("💾 Saving settings to: {:?}", config_path);
-        println!("💾 Settings values: top={}, left={}, start_browser={}", self.top, self.left, self.start_browser);
         
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent).context("Creating config directory")?;
@@ -110,7 +107,6 @@ impl Settings {
         content.push_str(&format!("left = {}\n", self.left));
 
         std::fs::write(&config_path, content).context("Failed to write to config file")?;
-        println!("✅ Settings saved successfully");
         Ok(())
     }
 

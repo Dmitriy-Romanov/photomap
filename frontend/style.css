@@ -859,8 +859,8 @@ body {
 }
 
 .year-input {
-    width: 80px;
-    /* Increased width */
+    width: 60px;
+    /* Narrower for 4 digits */
     padding: 2px 4px;
     border: 1px solid #ccc;
     border-radius: 3px;

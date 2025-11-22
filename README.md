@@ -1,14 +1,15 @@
-# PhotoMap Processor v0.8.2
+# PhotoMap Processor v0.9.0
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.8.2)
+## ✨ Latest Improvements (v0.9.0)
 
-- **Visualization**: Added **Heatmap** and **Routes** layers to visualize photo density and travel paths.
-- **Performance**: Added JSON compression to efficiently handle large collections (10k+ photos).
-- **Browser Autostart**: Added toggle to control automatic browser launch.
-- **UI Polish**: Improved typography (Sentence case) and added GitHub link.
-- **Note**: Binary size increased (~3.5MB) to support these new visualization and performance features.
+- **Redesigned UI Panel**: Completely rebuilt experimental panel with modern row-based layout
+- **Draggable Panel**: Move the control panel anywhere on the screen - position is saved automatically
+- **User Location**: New "Where I" button to quickly center the map on your current location with green marker
+- **Visual Polish**: Added subtle gray backgrounds to panel rows for better readability
+- **Boundary Protection**: Panel automatically stays within viewport and resets to default position if off-screen
+- **Compact Design**: Optimized input widths and spacing for a cleaner interface
 
 ## 🚀 Quick Start
 
@@ -63,6 +64,15 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.9.0 - UI Redesign & Interaction
+- **Redesigned Control Panel**: Complete rebuild of UI panel with modern row-based layout
+- **Draggable Panel**: Drag the panel to reposition it - automatically saves position to config
+- **User Location Marker**: Green marker shows your current location, "Where I" button centers map on you
+- **Boundary Protection**: Panel automatically stays within viewport and resets if moved off-screen
+- **Visual Improvements**: Added subtle gray backgrounds to panel rows for better visual separation
+- **Compact Inputs**: Narrower year inputs (60px) optimized for 4-digit years
+- **CSS Cleanup**: Removed duplicate definitions and unnecessary comments
 
 ### v0.8.2 - Visualization & Polish
 - **Heatmap & Routes**: Added visual layers to see photo density and travel paths.
