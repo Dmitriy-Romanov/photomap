@@ -4,8 +4,6 @@ A modern, high-performance photo mapping application with SQLite database storag
 
 ## ✨ Latest Improvements (v0.8.2)
 
-## ✨ Latest Improvements (v0.8.2)
-
 - **Visualization**: Added **Heatmap** and **Routes** layers to visualize photo density and travel paths.
 - **Performance**: Added JSON compression to efficiently handle large collections (10k+ photos).
 - **Browser Autostart**: Added toggle to control automatic browser launch.

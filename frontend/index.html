@@ -15,128 +15,125 @@
     <!-- Full-screen Map -->
     <div id="map"></div>
 
-    <!-- Floating Info Window -->
-    <div id="floating-info-window" class="info-panel">
-        <!-- Title Bar -->
-        <div class="panel-header">
-            <div class="app-title">
-                <span>🗺️</span> <a href="https://github.com/Dmitriy-Romanov/photomap" target="_blank"
-                    style="text-decoration: none; color: inherit;">PhotoMap</a>
+    <!-- Experimental UI Panel -->
+    <div id="experimental-panel" class="exp-panel">
+        <div class="exp-row">
+            <div class="exp-cell w-25 cell-left">
+                <a href="https://github.com/Dmitriy-Romanov/photomap" target="_blank"
+                    style="text-decoration: none; color: inherit; font-weight: bold; padding-left: 4px;">🗺️
+                    PhotoMap</a>
             </div>
-            <label class="map-coords-toggle">
-                <span class="toggle-label">Map coord:</span>
-                <input type="checkbox" id="coords-toggle" checked>
-            </label>
-            <div class="coords-wrapper">
-                <span id="map-coordinates" class="map-coordinates">Lat: 0.00000, Lon: 0.00000</span>
+            <div class="exp-cell w-60">
+                <span id="exp-coordinates" class="map-coordinates" style="margin: 0; color: inherit;">Lat: 0.00000, Lon:
+                    0.00000</span>
             </div>
-            <div class="window-controls">
-                <button id="toggle-window-btn" class="control-btn" onclick="toggleInfoWindow()" title="Minimize">
+            <div class="exp-cell w-15" style="justify-content: center;">
+                <div class="window-controls">
+                    <button class="control-btn" onclick="toggleExpPanel()" title="Minimize">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                    <button class="control-btn close" onclick="shutdownApp()" title="Close App">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="exp-row row-small">
+            <div class="exp-cell w-23">
+                <label class="map-coords-toggle" style="margin-left: 0;">
+                    <span class="toggle-label">Map coord:</span>
+                    <input type="checkbox" id="exp-map-coords-toggle" checked>
+                </label>
+            </div>
+            <div class="exp-cell w-23">
+                <label class="map-coords-toggle" style="margin-left: 0;">
+                    <span class="toggle-label">Routes:</span>
+                    <input type="checkbox" id="exp-routes-toggle">
+                </label>
+            </div>
+            <div class="exp-cell w-23">
+                <label class="map-coords-toggle" style="margin-left: 0;">
+                    <span class="toggle-label">Heatmap:</span>
+                    <input type="checkbox" id="exp-heatmap-toggle">
+                </label>
+            </div>
+            <div class="exp-cell w-31">
+                <label class="map-coords-toggle" style="margin-left: 0;">
+                    <span class="toggle-label">Browser autostart:</span>
+                    <input type="checkbox" id="exp-browser-autostart-toggle">
+                </label>
+            </div>
+        </div>
+        <div class="exp-row">
+            <div class="exp-cell w-60 cell-left">
+                <span class="group-label" style="margin: 0; color: inherit;">Source folder</span>
+            </div>
+            <div class="exp-cell w-20">
+                <button id="exp-open-button" class="icon-btn primary" onclick="openFolderDialog('exp')"
+                    title="Open Folder">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="6 9 12 15 18 9"></polyline>
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
+                        </path>
                     </svg>
+                    Open
                 </button>
-                <button class="control-btn close" onclick="shutdownApp()" title="Close App">
+            </div>
+            <div class="exp-cell w-20">
+                <button id="exp-process-button" class="icon-btn secondary" onclick="processFolder('exp')"
+                    title="Process Current Path">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
                     </svg>
+                    Process
                 </button>
             </div>
         </div>
-
-        <!-- Content Area -->
-        <div id="window-content" class="panel-content">
-            <!-- Display Options (Routes, Heatmap) -->
-            <div class="control-group" style="margin-bottom: 8px;">
-                <div class="toggles-group">
-                    <label class="map-coords-toggle" style="margin-left: 0;">
-                        <span class="toggle-label">Routes:</span>
-                        <input type="checkbox" id="routes-toggle">
-                    </label>
-                    <label class="map-coords-toggle" style="margin-left: 16px;">
-                        <span class="toggle-label">Heatmap:</span>
-                        <input type="checkbox" id="heatmap-toggle">
-                    </label>
-                    <label class="map-coords-toggle" style="margin-left: 16px;">
-                        <span class="toggle-label">Browser autostart:</span>
-                        <input type="checkbox" id="browser-autostart-toggle">
-                    </label>
-                </div>
-            </div>
-
-            <!-- Processing Status Overlay -->
-            <div id="processing-status" class="processing-overlay">
-                <div class="spinner"></div>
-                <div style="text-align: center;">
-                    <div id="status-text">Processing...</div>
-                    <div id="progress-text">Initializing...</div>
-                </div>
-            </div>
-
-            <!-- Folder Selection -->
-            <div class="control-group">
-                <div class="control-header">
-                    <label class="group-label">Source folder</label>
-                    <div class="header-actions">
-                        <button id="open-button" class="icon-btn primary" onclick="openFolderDialog()"
-                            title="Open Folder">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
-                                </path>
-                            </svg>
-                            Open
-                        </button>
-                        <button id="process-button" class="icon-btn secondary" onclick="processFolder()"
-                            title="Process Current Path">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                            </svg>
-                            Process
-                        </button>
-                    </div>
-                </div>
-                <div class="input-wrapper">
-                    <input type="text" id="folder-input" class="folder-input full-width"
+        <div class="exp-row">
+            <div class="exp-cell w-100">
+                <div class="input-wrapper" style="width: 95%;">
+                    <input type="text" id="exp-folder-input" class="folder-input full-width"
                         placeholder="Enter or select folder path..." value="">
                 </div>
             </div>
-
-            <!-- Year Range with Statistics -->
-            <div class="year-range-row">
-                <div class="year-range-left">
-                    <label class="group-label">
-                        Year range
-                        <span id="year-range-info" class="year-range-info"></span>
-                    </label>
-                    <div class="year-inputs">
-                        <div class="year-field">
-                            <label>From</label>
-                            <input type="number" id="year-from" min="1900" max="2100" placeholder="YYYY">
-                        </div>
-                        <span class="year-separator">—</span>
-                        <div class="year-field">
-                            <label>To</label>
-                            <input type="number" id="year-to" min="1900" max="2100" placeholder="YYYY">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Statistics (inline) -->
-                <div class="stats-bar">
-                    <div class="stat-item">
-                        <span class="stat-label">Total photos</span>
-                        <span id="total-photos" class="stat-value">-</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Visible on map</span>
-                        <span id="visible-photos" class="stat-value">-</span>
-                    </div>
-                </div>
+        </div>
+        <div class="exp-row row-small">
+            <div class="exp-cell w-60">
+                <span class="group-label" style="margin: 0; color: inherit;">Year range <span
+                        id="exp-year-range-label"></span></span>
+            </div>
+            <div class="exp-cell w-20">
+                <span class="stat-label" style="margin: 0; color: inherit;">Total photos</span>
+            </div>
+            <div class="exp-cell w-20">
+                <span class="stat-label" style="margin: 0; color: inherit;">Visible on map</span>
+            </div>
+        </div>
+        <div class="exp-row">
+            <div class="exp-cell w-60" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                <span>From:</span>
+                <input type="number" id="exp-year-from" name="pm-year-from" class="year-input" placeholder="From"
+                    min="1900" max="2099" autocomplete="new-password" data-lpignore="true" onkeydown="return false">
+                <span>-</span>
+                <span>To:</span>
+                <input type="number" id="exp-year-to" name="pm-year-to" class="year-input" placeholder="To" min="1900"
+                    max="2099" autocomplete="new-password" data-lpignore="true" onkeydown="return false">
+                <span id="exp-year-range-label" class="stat-label"
+                    style="margin-left: 4px; font-weight: normal;"></span>
+            </div>
+            <div class="exp-cell w-20">
+                <span id="exp-total-photos" class="stat-value" style="color: inherit;">0</span>
+            </div>
+            <div class="exp-cell w-20">
+                <span id="exp-visible-photos" class="stat-value" style="color: inherit;">0</span>
             </div>
         </div>
     </div>
@@ -161,6 +158,8 @@
                     </svg>
                 </button>
             </div>
+
+
 
             <!-- Grid View -->
             <div id="cluster-grid-view" class="cluster-view">

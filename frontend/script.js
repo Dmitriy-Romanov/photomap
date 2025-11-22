@@ -42,26 +42,111 @@ function updateMapCoordinates() {
     if (coordsElement) {
         coordsElement.textContent = `Lat: ${center.lat.toFixed(5)}, Lon: ${center.lng.toFixed(5)}`;
     }
+
+    // Sync coordinates to experimental panel
+    const expCoords = document.getElementById('exp-coordinates');
+    if (expCoords) {
+        expCoords.textContent = `Lat: ${center.lat.toFixed(5)}, Lon: ${center.lng.toFixed(5)}`;
+    }
 }
 
-// Update coordinates on map move (real-time updates)
+// Bind coordinate updates to map events
 map.on('move', updateMapCoordinates);
+map.on('zoom', updateMapCoordinates);
 
-// Initial update
-updateMapCoordinates();
+// Sync toggle helper
+function syncToggles(mainId, expId, callback) {
+    const main = document.getElementById(mainId);
+    const exp = document.getElementById(expId);
 
-// Toggle coordinates and crosshair visibility
-const coordsToggle = document.getElementById('coords-toggle');
-const coordsElement = document.getElementById('map-coordinates');
-const mapContainer = document.querySelector('.leaflet-container');
+    if (!main) return;
 
-coordsToggle.addEventListener('change', function () {
-    if (this.checked) {
-        coordsElement.classList.remove('hidden');
-        mapContainer.classList.remove('hide-crosshair');
-    } else {
-        coordsElement.classList.add('hidden');
-        mapContainer.classList.add('hide-crosshair');
+    function update(checked, source) {
+        if (source !== main) main.checked = checked;
+        if (exp && source !== exp) exp.checked = checked;
+        if (callback) callback(checked);
+    }
+
+    main.addEventListener('change', (e) => update(e.target.checked, main));
+    if (exp) {
+        exp.addEventListener('change', (e) => update(e.target.checked, exp));
+        // Initial sync from main to exp
+        exp.checked = main.checked;
+    }
+}
+
+// Initialize syncs
+document.addEventListener('DOMContentLoaded', () => {
+    // Coordinates Toggle
+    // Note: The toggle ID in HTML is 'exp-map-coords-toggle'
+    const expCoordsToggle = document.getElementById('exp-map-coords-toggle');
+    const expCoordsDisplay = document.getElementById('exp-coordinates'); // Correct ID from HTML
+
+    if (expCoordsToggle) {
+        expCoordsToggle.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                if (expCoordsDisplay) expCoordsDisplay.style.visibility = 'visible';
+                document.querySelector('.map-crosshair').style.display = 'block';
+            } else {
+                if (expCoordsDisplay) expCoordsDisplay.style.visibility = 'hidden';
+                document.querySelector('.map-crosshair').style.display = 'none';
+            }
+        });
+        // Initial state
+        const isChecked = expCoordsToggle.checked;
+        if (expCoordsDisplay) expCoordsDisplay.style.visibility = isChecked ? 'visible' : 'hidden';
+        const crosshair = document.querySelector('.map-crosshair');
+        if (crosshair) crosshair.style.display = isChecked ? 'block' : 'none';
+    }
+
+    // Routes Toggle
+    const expRoutesToggle = document.getElementById('exp-routes-toggle');
+    if (expRoutesToggle) {
+        expRoutesToggle.addEventListener('change', () => {
+            toggleRoutes(); // Call the function directly
+        });
+    }
+
+    // Heatmap Toggle
+    const expHeatmapToggle = document.getElementById('exp-heatmap-toggle');
+    if (expHeatmapToggle) {
+        expHeatmapToggle.addEventListener('change', () => {
+            // We need to trigger the filter/update logic
+            // If we have filtered markers, we should use them, otherwise all photos
+            // But filterMarkers() handles the heatmap toggle check internally!
+            // So we just need to re-run filterMarkers() or updateStatistics/addMarkers logic.
+            // Let's call filterMarkers() as it seems to be the central place for deciding what to show.
+            filterMarkers();
+        });
+    }
+
+    // Browser Autostart Toggle
+    const expAutostartToggle = document.getElementById('exp-browser-autostart-toggle');
+    if (expAutostartToggle) {
+        expAutostartToggle.addEventListener('change', async (e) => {
+            const startBrowser = e.target.checked;
+            try {
+                const getResponse = await fetch('/api/settings');
+                const currentSettings = await getResponse.json();
+                const newSettings = { ...currentSettings, start_browser: startBrowser };
+
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newSettings)
+                });
+
+                if (response.ok) {
+                    showNotification('✅ Settings saved', 'success');
+                } else {
+                    throw new Error('Failed to save');
+                }
+            } catch (error) {
+                console.error('Error updating settings:', error);
+                showNotification('❌ Failed to save settings', 'error');
+                e.target.checked = !startBrowser;
+            }
+        });
     }
 });
 
@@ -231,35 +316,56 @@ function updateStatistics() {
         }
     });
 
-    document.getElementById('total-photos').textContent = totalPhotos;
-    document.getElementById('visible-photos').textContent = visiblePhotos;
+    // Update experimental panel stats
+    const expTotal = document.getElementById('exp-total-photos');
+    const expVisible = document.getElementById('exp-visible-photos');
+
+    if (expTotal) expTotal.textContent = totalPhotos;
+    if (expVisible) expVisible.textContent = visiblePhotos;
 
     console.log('Statistics updated - Total:', totalPhotos, 'Visible:', visiblePhotos);
 }
+
+
+
+// Minimize/Close buttons
+document.getElementById('minimize-btn')?.addEventListener('click', toggleExpPanel);
+document.getElementById('close-btn')?.addEventListener('click', async () => {
+    if (confirm('Are you sure you want to close PhotoMap?')) {
+        try {
+            await fetch('/api/shutdown', { method: 'POST' });
+            window.close();
+            document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h1>PhotoMap is closed</h1></div>';
+        } catch (e) {
+            console.error('Shutdown failed', e);
+        }
+    }
+});
+
+
 
 // Load settings when page loads
 async function loadSettings() {
     try {
         const response = await fetch('/api/settings');
         const settings = await response.json();
+
         if (settings.last_folder) {
-            document.getElementById('folder-input').value = settings.last_folder;
-        } else {
-            document.getElementById('folder-input').value = '';
+            const input = document.getElementById('exp-folder-input');
+            if (input) input.value = settings.last_folder;
         }
 
         // Set browser autostart toggle
-        const browserAutostartToggle = document.getElementById('browser-autostart-toggle');
+        const browserAutostartToggle = document.getElementById('exp-browser-autostart-toggle');
         if (browserAutostartToggle) {
             browserAutostartToggle.checked = settings.start_browser;
         }
     } catch (error) {
         console.error('Failed to load settings:', error);
-        document.getElementById('folder-input').value = '';
     }
 }
 
-// Event listener for browser autostart toggle
+// Browser autostart toggle logic
 document.addEventListener('DOMContentLoaded', () => {
     const browserAutostartToggle = document.getElementById('browser-autostart-toggle');
     if (browserAutostartToggle) {
@@ -325,8 +431,8 @@ function getYearFromDatetime(datetime) {
 
 // Filter markers based on year range
 function filterMarkers() {
-    const yearFromInput = document.getElementById('year-from');
-    const yearToInput = document.getElementById('year-to');
+    const yearFromInput = document.getElementById('exp-year-from');
+    const yearToInput = document.getElementById('exp-year-to');
 
     const fromYear = parseInt(yearFromInput.value);
     const toYear = parseInt(yearToInput.value);
@@ -351,11 +457,15 @@ function filterMarkers() {
 
     console.log(`Found ${filteredPhotos.length} photos in range`);
 
-    // Update statistics
+    // Update statistics immediately
     updateStatistics();
 
+    // Update again after a short delay to ensure cluster animations/updates are done
+    // This fixes the issue where visible count stays 0 until map move
+    setTimeout(updateStatistics, 100);
+
     // Check if heatmap is enabled
-    const heatmapToggle = document.getElementById('heatmap-toggle');
+    const heatmapToggle = document.getElementById('exp-heatmap-toggle');
     if (heatmapToggle && heatmapToggle.checked) {
         updateHeatmap(filteredPhotos);
     } else {
@@ -385,13 +495,14 @@ function filterMarkers() {
 
 // Initialize year range controls
 function initializeYearControls() {
-    const yearFromInput = document.getElementById('year-from');
-    const yearToInput = document.getElementById('year-to');
+    const expYearFrom = document.getElementById('exp-year-from');
+    const expYearTo = document.getElementById('exp-year-to');
+    const expRangeLabel = document.getElementById('exp-year-range-label');
 
     if (photoData.length === 0) {
         const currentYear = new Date().getFullYear();
-        yearFromInput.value = currentYear;
-        yearToInput.value = currentYear;
+        if (expYearFrom) expYearFrom.value = currentYear;
+        if (expYearTo) expYearTo.value = currentYear;
         return;
     }
 
@@ -402,10 +513,9 @@ function initializeYearControls() {
 
     if (years.length === 0) {
         const currentYear = new Date().getFullYear();
-        yearFromInput.value = currentYear;
-        yearToInput.value = currentYear;
-        const rangeInfo = document.getElementById('year-range-info');
-        if (rangeInfo) rangeInfo.textContent = '';
+        if (expYearFrom) expYearFrom.value = currentYear;
+        if (expYearTo) expYearTo.value = currentYear;
+        if (expRangeLabel) expRangeLabel.textContent = '';
         return;
     }
 
@@ -413,60 +523,57 @@ function initializeYearControls() {
     const maxYear = Math.max(...years);
 
     // Update info label
-    const rangeInfo = document.getElementById('year-range-info');
-    if (rangeInfo) {
-        rangeInfo.textContent = `(${minYear}—${maxYear})`;
+    if (expRangeLabel) {
+        expRangeLabel.textContent = ` (${minYear}—${maxYear})`;
     }
 
     // Set initial values
-    yearFromInput.value = minYear;
-    yearToInput.value = maxYear;
+    if (expYearFrom) expYearFrom.value = minYear;
+    if (expYearTo) expYearTo.value = maxYear;
 
     // Set min/max attributes
-    yearFromInput.min = minYear;
-    yearFromInput.max = maxYear;
-    yearToInput.min = minYear;
-    yearToInput.max = maxYear;
-
-    // Add event listeners for validation and filtering
-    yearFromInput.addEventListener('change', function () {
-        let fromValue = parseInt(this.value);
-        const toValue = parseInt(yearToInput.value);
-
-        // Validation
-        if (fromValue > toValue) {
-            fromValue = toValue;
-            this.value = toValue;
+    [expYearFrom, expYearTo].forEach(input => {
+        if (input) {
+            input.min = minYear;
+            input.max = maxYear;
         }
-        if (fromValue < minYear) {
-            fromValue = minYear;
-            this.value = minYear;
-        }
-
-        // Trigger filter
-        filterMarkers();
     });
 
-    yearToInput.addEventListener('change', function () {
-        const fromValue = parseInt(yearFromInput.value);
-        let toValue = parseInt(this.value);
+    // Helper to sync and filter
+    function handleYearChange(source, fromInput, toInput) {
+        let fromValue = parseInt(fromInput.value);
+        let toValue = parseInt(toInput.value);
 
-        // Validation
-        if (toValue < fromValue) {
-            toValue = fromValue;
-            this.value = fromValue;
+        // Basic bounds validation (min/max)
+        if (fromValue < minYear) {
+            fromValue = minYear;
+            fromInput.value = minYear;
         }
         if (toValue > maxYear) {
             toValue = maxYear;
-            this.value = maxYear;
+            toInput.value = maxYear;
         }
 
-        // Trigger filter
-        filterMarkers();
-    });
+        // Smart range adjustment
+        if (fromValue > toValue) {
+            if (source === fromInput) {
+                // User increased From past To -> Push To up
+                toValue = fromValue;
+                toInput.value = fromValue;
+            } else {
+                // User decreased To past From -> Push From down
+                fromValue = toValue;
+                fromInput.value = toValue;
+            }
+        }
 
-    // Initial filter (show all)
-    // No need to call filterMarkers() here as addMarkers() already added everything
+        filterMarkers();
+    }
+
+    if (expYearFrom && expYearTo) {
+        expYearFrom.addEventListener('change', () => handleYearChange(expYearFrom, expYearFrom, expYearTo));
+        expYearTo.addEventListener('change', () => handleYearChange(expYearTo, expYearFrom, expYearTo));
+    }
 
     console.log(`Year controls initialized: ${minYear} to ${maxYear}`);
 }
@@ -508,13 +615,27 @@ loadSettings().then(() => {
 // === UI Control Functions ===
 
 // Open native folder selection dialog
+// Open native folder selection dialog
 async function openFolderDialog() {
-    const openButton = document.getElementById('open-button');
-    const folderInput = document.getElementById('folder-input');
+    const openButton = document.getElementById('exp-open-button');
+    const folderInput = document.getElementById('exp-folder-input');
+
+    if (!openButton || !folderInput) {
+        console.error('Open button or folder input not found');
+        return;
+    }
+
+    const originalText = openButton.innerHTML;
 
     try {
         openButton.disabled = true;
-        openButton.textContent = '⏳...';
+        // Keep icon, change text
+        openButton.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Wait...`;
 
         const response = await fetch('/api/select-folder', {
             method: 'POST'
@@ -539,20 +660,17 @@ async function openFolderDialog() {
         console.error('Error selecting folder:', error);
         showNotification('❌ Error selecting folder', 'error');
     } finally {
-        openButton.disabled = false;
-        openButton.textContent = '📂 Open';
+        if (openButton) {
+            openButton.disabled = false;
+            openButton.innerHTML = originalText;
+        }
     }
 }
 
 // Browse for folder and immediately start processing
 async function processFolder() {
-    const folderInput = document.getElementById('folder-input');
-    const statusDiv = document.getElementById('processing-status');
-    const statusText = document.getElementById('status-text');
-    const progressText = document.getElementById('progress-text');
-
-    // Get folder path from input
-    const folderPath = folderInput.value.trim();
+    const folderInput = document.getElementById('exp-folder-input');
+    const folderPath = folderInput ? folderInput.value.trim() : '';
 
     // Validate folder path
     if (!folderPath) {
@@ -561,10 +679,7 @@ async function processFolder() {
     }
 
     try {
-        // Show processing status
-        statusDiv.style.display = 'flex';
-        statusText.textContent = 'Processing photos...';
-        progressText.textContent = 'Analyzing folder...';
+        showNotification('⏳ Processing started...', 'info');
 
         // Step 1: Send folder path to server
         const response = await fetch('/api/set-folder', {
@@ -609,7 +724,6 @@ async function processFolder() {
             const data = JSON.parse(event.data);
             if (data.event_type === 'processing_complete') {
                 eventSource.close();
-                statusDiv.style.display = 'none';
                 loadPhotos().then(() => {
                     initializeYearControls(); // Re-initialize year controls with new data
                 }); // Refresh map
@@ -617,64 +731,61 @@ async function processFolder() {
                 showNotification(`🎉 Processing completed! Found ${data.data.processed || 0} photos`, 'success');
             } else if (data.event_type === 'processing_error') {
                 eventSource.close();
-                statusDiv.style.display = 'none';
                 showNotification(`❌ Error: ${data.data.message}`, 'error');
             } else {
                 // Handle other events like progress updates
-                statusText.textContent = data.data.message || 'Processing...';
-                if (data.data.total_files && data.data.processed) {
-                    progressText.textContent = `${data.data.processed} / ${data.data.total_files}`;
-                }
+                // Optional: Show progress in notification or console
+                // console.log('Processing progress:', data.data.message);
             }
         };
 
         eventSource.onerror = function () {
             eventSource.close();
-            statusDiv.style.display = 'none';
             showNotification('❌ Error connecting to the server for updates.', 'error');
         };
 
     } catch (error) {
         // Handle errors
-        statusDiv.style.display = 'none';
         showNotification('❌ Error: ' + error.message, 'error');
     }
 }
 
 
 // Show notification
+// Show notification
 function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 10000;
-        padding: 15px 20px;
-        border-radius: 5px;
-        color: white;
-        font-weight: bold;
-        max-width: 300px;
-        word-wrap: break-word;
-        animation: slideIn 0.3s ease-out;
-    `;
+    // Remove any existing notifications to prevent stacking
+    const existingNotifications = document.querySelectorAll('.notification-toast');
+    existingNotifications.forEach(n => n.remove());
 
-    if (type === 'success') {
-        notification.style.background = '#28a745';
-    } else if (type === 'error') {
-        notification.style.background = '#dc3545';
+    const notification = document.createElement('div');
+    notification.className = `notification-toast ${type}`;
+
+    // Add icon based on type
+    let icon = '';
+    if (type === 'success') icon = '✅';
+    else if (type === 'error') icon = '❌';
+    else icon = 'ℹ️';
+
+    // If message already contains icon, don't add it
+    if (message.includes('✅') || message.includes('❌') || message.includes('🎉') || message.includes('⏳')) {
+        notification.textContent = message;
     } else {
-        notification.style.background = '#007bff';
+        notification.textContent = `${icon} ${message}`;
     }
 
-    notification.textContent = message;
     document.body.appendChild(notification);
 
     setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease-in';
-        setTimeout(() => {
-            document.body.removeChild(notification);
-        }, 300);
+        // Check if it's still there (might have been removed by a newer notification)
+        if (document.body.contains(notification)) {
+            notification.style.animation = 'slideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }
     }, 3000);
 }
 
@@ -682,99 +793,10 @@ function showNotification(message, type = 'info') {
 
 // === Routes / Polylines Logic ===
 
-function drawPolylines() {
-    const routesToggle = document.getElementById('routes-toggle');
-    if (!routesToggle || !routesToggle.checked) {
-        routesLayerGroup.clearLayers();
-        return;
-    }
 
-    // Get currently visible photos (based on filter)
-    // If filter is active, we use filtered list. If not, we need to know which ones are "active".
-    // Actually, `addMarkers` uses `photoData` directly. `filterMarkers` filters `photoData` and adds to map.
-    // But `filterMarkers` creates a local `filteredPhotos`. We need to know what is currently on map.
-    // A better approach: `drawPolylines` should take a list of photos, or we store "currentPhotos" globally.
-    // For now, let's assume we want to draw lines for ALL photos that satisfy the current filter.
-
-    // We need to know the current filter state.
-    // Let's reuse the logic: if we are in `filterMarkers`, we have `filteredPhotos`.
-    // If we are in `addMarkers`, we have `photoData`.
-    // To make it consistent, let's store `currentPhotos` globally.
-
-    // Wait, `photoData` is all photos. `filterMarkers` doesn't update `photoData`.
-    // Let's make `drawPolylines` use the same filtering logic or accept an argument.
-    // To avoid code duplication, let's extract the filtering logic or just re-run it.
-    // Re-running it is cheap (O(N)).
-
-    const yearFromInput = document.getElementById('year-from');
-    const yearToInput = document.getElementById('year-to');
-
-    let photosToDraw = photoData;
-
-    if (yearFromInput && yearToInput) {
-        const fromYear = parseInt(yearFromInput.value);
-        const toYear = parseInt(yearToInput.value);
-        if (!isNaN(fromYear) && !isNaN(toYear)) {
-            photosToDraw = photoData.filter(photo => {
-                return photo.year !== null && photo.year >= fromYear && photo.year <= toYear;
-            });
-        }
-    }
-
-    // Sort by time
-    photosToDraw.sort((a, b) => {
-        return new Date(a.datetime) - new Date(b.datetime);
-    });
-
-    routesLayerGroup.clearLayers();
-
-    if (photosToDraw.length < 2) return;
-
-    let currentLine = [];
-    let lastDate = null;
-
-    // Helper to get YYYY-MM-DD
-    const getDateString = (datetime) => {
-        if (!datetime) return null;
-        // datetime is "YYYY:MM:DD HH:MM:SS" or similar
-        // Simple parsing: take first 10 chars if they look like date
-        // Or use the regex we already have logic for.
-        // Let's use a simple split since our format is standardized in backend to "YYYY-MM-DD HH:MM:SS"
-        return datetime.split(' ')[0].replace(/:/g, '-');
-    };
-
-    photosToDraw.forEach(photo => {
-        if (!photo.lat || !photo.lng) return;
-
-        const photoDate = getDateString(photo.datetime);
-
-        if (lastDate !== photoDate) {
-            // New day, finish previous line and start new
-            if (currentLine.length > 1) {
-                L.polyline(currentLine, { color: '#ff7800', weight: 3, opacity: 0.7, smoothFactor: 1 }).addTo(routesLayerGroup);
-            }
-            currentLine = [];
-            lastDate = photoDate;
-        }
-
-        currentLine.push([photo.lat, photo.lng]);
-    });
-
-    // Add the last line
-    if (currentLine.length > 1) {
-        L.polyline(currentLine, { color: '#ff7800', weight: 3, opacity: 0.7, smoothFactor: 1 }).addTo(routesLayerGroup);
-    }
-}
 
 // Event listener for toggle
-document.addEventListener('DOMContentLoaded', () => {
-    const routesToggle = document.getElementById('routes-toggle');
-    if (routesToggle) {
-        routesToggle.addEventListener('change', () => {
-            drawPolylines();
-        });
-    }
-});
+
 
 // === Heatmap Logic ===
 
@@ -795,55 +817,9 @@ function updateHeatmap(photos) {
 }
 
 // Event listener for heatmap toggle
-document.addEventListener('DOMContentLoaded', () => {
-    const heatmapToggle = document.getElementById('heatmap-toggle');
-    if (heatmapToggle) {
-        heatmapToggle.addEventListener('change', function () {
-            // Re-run filter to update view
-            filterMarkers();
-        });
-    }
-});
 
-function toggleInfoWindow() {
-    const panel = document.getElementById('floating-info-window');
-    const toggleButton = document.getElementById('toggle-window-btn');
 
-    // Check if currently collapsed
-    const isCollapsed = panel.classList.contains('collapsed');
 
-    if (isCollapsed) {
-        // Expand
-        panel.classList.remove('collapsed');
-        toggleButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
-        toggleButton.title = "Minimize";
-        localStorage.setItem('infoWindowState', 'expanded');
-    } else {
-        // Collapse
-        panel.classList.add('collapsed');
-        toggleButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"></polyline></svg>';
-        toggleButton.title = "Expand";
-        localStorage.setItem('infoWindowState', 'collapsed');
-    }
-}
-
-// Attach event listener to the button after DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    const toggleButton = document.getElementById('toggle-window-btn');
-    // Event listener removed to avoid double-toggling (onclick is in HTML)
-
-    // Restore saved window state
-    const savedState = localStorage.getItem('infoWindowState');
-    const panel = document.getElementById('floating-info-window');
-
-    if (savedState === 'collapsed') {
-        panel.classList.add('collapsed');
-        if (toggleButton) {
-            toggleButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"></polyline></svg>';
-            toggleButton.title = "Expand";
-        }
-    }
-});
 
 // === Cluster Gallery Logic ===
 
@@ -1052,3 +1028,73 @@ document.addEventListener('keydown', function (e) {
         }
     }
 });
+function toggleExpPanel() {
+    const panel = document.getElementById('experimental-panel');
+    panel.classList.toggle('collapsed');
+}
+
+// Toggle travel routes
+function toggleRoutes() {
+    const toggle = document.getElementById('exp-routes-toggle');
+    if (toggle && toggle.checked) {
+        drawPolylines();
+    } else {
+        routesLayerGroup.clearLayers();
+    }
+}
+
+// Draw travel routes (polylines)
+function drawPolylines() {
+    routesLayerGroup.clearLayers();
+
+    // Only draw if toggle is checked
+    const toggle = document.getElementById('exp-routes-toggle');
+    if (!toggle || !toggle.checked) return;
+
+    // Group photos by date
+    const photosByDate = {};
+
+    // Use filtered photos if available (from marker cluster), otherwise all photos
+    // But we need the actual photo objects. 
+    // Let's use the global photoData for now, or we could try to filter again.
+    // For simplicity and performance, let's use the visible markers if possible, 
+    // or just iterate photoData and check if they are in the current filter range.
+
+    // Actually, the best way is to use the same filter logic. 
+    // But let's just use photoData and filter by the current year range inputs.
+    const yearFromInput = document.getElementById('exp-year-from');
+    const yearToInput = document.getElementById('exp-year-to');
+    const fromYear = yearFromInput ? parseInt(yearFromInput.value) : 1900;
+    const toYear = yearToInput ? parseInt(yearToInput.value) : 2100;
+
+    const activePhotos = photoData.filter(p => {
+        const y = p.year;
+        return y !== null && y >= fromYear && y <= toYear;
+    });
+
+    activePhotos.forEach(photo => {
+        const date = photo.datetime.split(' ')[0].replace(/:/g, '-'); // YYYY-MM-DD
+        if (!photosByDate[date]) {
+            photosByDate[date] = [];
+        }
+        photosByDate[date].push(photo);
+    });
+
+    // Draw lines for each date
+    Object.keys(photosByDate).forEach(date => {
+        const dayPhotos = photosByDate[date];
+        if (dayPhotos.length < 2) return;
+
+        // Sort by time
+        dayPhotos.sort((a, b) => a.datetime.localeCompare(b.datetime));
+
+        const latlngs = dayPhotos.map(p => [p.lat, p.lng]);
+
+        L.polyline(latlngs, {
+            color: '#3388ff',
+            weight: 3,
+            opacity: 0.7,
+            dashArray: '5, 10'
+        }).addTo(routesLayerGroup);
+    });
+}
