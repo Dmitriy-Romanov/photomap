@@ -4,9 +4,13 @@ A modern, high-performance photo mapping application with SQLite database storag
 
 ## ✨ Latest Improvements (v0.8.2)
 
+## ✨ Latest Improvements (v0.8.2)
+
+- **Visualization**: Added **Heatmap** and **Routes** layers to visualize photo density and travel paths.
+- **Performance**: Added JSON compression to efficiently handle large collections (10k+ photos).
 - **Browser Autostart**: Added toggle to control automatic browser launch.
 - **UI Polish**: Improved typography (Sentence case) and added GitHub link.
-- **CI Fixes**: Fixed Windows and macOS build failures.
+- **Note**: Binary size increased (~3.5MB) to support these new visualization and performance features.
 
 ## 🚀 Quick Start
 
@@ -62,9 +66,12 @@ photomap/
 
 ## 📈 Version History
 
-### v0.8.2 - UI Polish & CI Fixes
+### v0.8.2 - Visualization & Polish
+- **Heatmap & Routes**: Added visual layers to see photo density and travel paths.
+- **Performance**: Added JSON compression for efficient handling of large photo collections.
 - **Browser Autostart**: Added toggle to control automatic browser launch.
 - **UI Polish**: Improved typography (Sentence case) and added GitHub link.
+- **Note**: Binary size increased to ~3.5MB due to new visualization features and compression support.
 - **CI Fixes**: Fixed Windows and macOS build failures.
 
 ### v0.8.1 - Performance & Size Optimizations

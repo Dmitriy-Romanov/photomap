@@ -13,7 +13,9 @@
 ### v0.6.0 - Native HEIC Processing
 - Removed dependency on ImageMagick.
 - HEIC processing is now handled by a native Rust-based solution.
-### Current: v0.8.2 - UI Polish & CI Fixes ✅
+### Current: v0.8.2 - Visualization & Polish ✅
+- [x] **Heatmap & Routes**: Added visual layers to see photo density and travel paths.
+- [x] **Performance**: Added JSON compression for large collections.
 - [x] **Browser Autostart**: Added toggle to control automatic browser launch.
 - [x] **UI Polish**: Improved typography (Sentence case) and added GitHub link.
 - [x] **CI Fixes**: Fixed Windows and macOS build failures.
