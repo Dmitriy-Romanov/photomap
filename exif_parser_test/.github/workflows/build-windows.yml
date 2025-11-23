@@ -41,6 +41,7 @@ jobs:
           vcpkg install libheif:x64-windows-static
 
       - name: Build release
+        working-directory: exif_parser_test
         env:
           VCPKG_ROOT: C:\vcpkg
           RUSTFLAGS: -C target-feature=+crt-static
@@ -48,8 +49,9 @@ jobs:
           cargo build --release --bin exif_parser_test
 
       - name: Rename binary
+        working-directory: exif_parser_test
         run: |
-          Copy-Item target/release/exif_parser_test.exe exif_parser_test_windows-x64.exe
+          Copy-Item target/release/exif_parser_test.exe ../exif_parser_test_windows-x64.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
