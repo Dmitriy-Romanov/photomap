@@ -291,11 +291,9 @@ function addMarkers() {
     // Check if heatmap mode is enabled
     const heatmapToggle = document.getElementById('exp-heatmap-toggle');
     if (heatmapToggle && heatmapToggle.checked) {
-        // Use heatmap instead of markers
+        // Use heatmap instead of markers (routes not compatible with heatmap)
         updateHeatmap(photoData);
         updateStatistics();
-        // Draw routes if enabled (routes can show with heatmap)
-        drawPolylines();
         return;
     }
 
@@ -1382,9 +1380,13 @@ function toggleRoutes() {
 function drawPolylines() {
     routesLayerGroup.clearLayers();
 
-    // Only draw if toggle is checked
+    // Only draw if routes toggle is checked
     const toggle = document.getElementById('exp-routes-toggle');
     if (!toggle || !toggle.checked) return;
+
+    // Don't draw routes if heatmap is enabled (incompatible)
+    const heatmapToggle = document.getElementById('exp-heatmap-toggle');
+    if (heatmapToggle && heatmapToggle.checked) return;
 
     // Group photos by date
     const photosByDate = {};
