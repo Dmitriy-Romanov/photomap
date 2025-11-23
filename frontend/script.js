@@ -818,13 +818,13 @@ function initializeYearControls() {
             // User changed From field
             if (fromValue > toValue) {
                 fromValue = toValue;
-                fromInput.value = toValue;
+                fromInput.value = fromValue;  // Write clamped FROM value
             }
         } else {
             // User changed To field
             if (toValue < fromValue) {
                 toValue = fromValue;
-                toInput.value = fromValue;
+                toInput.value = toValue;  // Write clamped TO value
             }
         }
 

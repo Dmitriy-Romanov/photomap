@@ -24,14 +24,11 @@ body {
 }
 
 
-
-/* --- Experimental Panel --- */
+/* Experimental Panel - positioned to avoid zoom controls */
 .exp-panel {
     position: fixed;
     top: 12px;
-    /* Adjusted to avoid zoom controls overlap */
     left: 52px;
-    /* Moved to top-left as requested */
     width: 560px;
     background: white;
     border: 1px solid black;
@@ -43,13 +40,9 @@ body {
     color: black;
     transition: max-height 0.3s ease-in-out;
     overflow: hidden;
-    /* Ensure content is clipped for minimize animation and rounded corners */
     border-radius: 12px;
-    /* Beautifully rounded corners */
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    /* Add subtle shadow for depth */
     max-height: 800px;
-    /* Arbitrary large height for transition */
     cursor: move;
 }
 
@@ -66,17 +59,15 @@ body {
     cursor: text;
 }
 
+/* Photo popup - fixed width for consistent layout */
 .photo-popup {
     text-align: center;
     min-width: 720px;
-    /* Ensure minimum width for 700px images */
     max-width: 720px;
-    /* Fixed width for consistent layout */
 }
 
 .leaflet-popup-content-wrapper {
     min-width: 740px !important;
-    /* Popup wrapper with padding */
 }
 
 .leaflet-popup-content {
