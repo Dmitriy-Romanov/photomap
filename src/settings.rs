@@ -11,6 +11,9 @@ pub struct Settings {
     pub start_browser: bool,
     pub top: i32,
     pub left: i32,
+    pub map_coords: bool,
+    pub routes: bool,
+    pub heatmap: bool,
 }
 
 impl Default for Settings {
@@ -20,6 +23,9 @@ impl Default for Settings {
             start_browser: true,
             top: 12,
             left: 52,
+            map_coords: true,   // Show coordinates by default
+            routes: false,      // Routes off by default
+            heatmap: false,     // Heatmap off by default
         }
     }
 }
@@ -71,8 +77,31 @@ impl Settings {
             }
         }
 
+        // Parse toggle states
+        if let Some(map_coords) = config_map.get("map_coords") {
+            if let Ok(val) = map_coords.trim().parse::<bool>() {
+                settings.map_coords = val;
+            }
+        }
+
+        if let Some(routes) = config_map.get("routes") {
+            if let Ok(val) = routes.trim().parse::<bool>() {
+                settings.routes = val;
+            }
+        }
+
+        if let Some(heatmap) = config_map.get("heatmap") {
+            if let Ok(val) = heatmap.trim().parse::<bool>() {
+                settings.heatmap = val;
+            }
+        }
+
         // If file exists but some fields are missing, save defaults back to file
-        let needs_save = !config_map.contains_key("top") || !config_map.contains_key("left");
+        let needs_save = !config_map.contains_key("top") 
+            || !config_map.contains_key("left")
+            || !config_map.contains_key("map_coords")
+            || !config_map.contains_key("routes")
+            || !config_map.contains_key("heatmap");
         if needs_save {
             if let Err(e) = settings.save() {
                 eprintln!("Failed to save default settings: {}", e);
@@ -105,6 +134,9 @@ impl Settings {
         content.push_str(&format!("start_browser = {}\n", self.start_browser));
         content.push_str(&format!("top = {}\n", self.top));
         content.push_str(&format!("left = {}\n", self.left));
+        content.push_str(&format!("map_coords = {}\n", self.map_coords));
+        content.push_str(&format!("routes = {}\n", self.routes));
+        content.push_str(&format!("heatmap = {}\n", self.heatmap));
 
         std::fs::write(&config_path, content).context("Failed to write to config file")?;
         Ok(())

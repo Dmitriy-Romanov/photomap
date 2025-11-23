@@ -3,10 +3,10 @@ const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
 const map = L.map('map', {
     scrollWheelZoom: true,
-    // macOS: faster zoom (0.5 steps), Windows: slower zoom (0.25 steps)
+    // macOS: faster zoom (full steps), Windows: slower zoom (quarter steps)
     wheelPxPerZoomLevel: isMac ? 120 : 240,
-    zoomSnap: isMac ? 0.5 : 0.25,
-    zoomDelta: isMac ? 0.5 : 0.25
+    zoomSnap: isMac ? 1.0 : 0.25,
+    zoomDelta: isMac ? 1.0 : 0.25
 }).setView([52.5, 13.4], 10);
 
 // Add tile layer
@@ -288,6 +288,16 @@ function createPhotoIcon(photo, useThumbnail = false) {
 }
 
 function addMarkers() {
+    // Check if heatmap mode is enabled
+    const heatmapToggle = document.getElementById('exp-heatmap-toggle');
+    if (heatmapToggle && heatmapToggle.checked) {
+        // Use heatmap instead of markers
+        updateHeatmap(photoData);
+        updateStatistics();
+        return;
+    }
+
+    // Normal marker mode
     photoData.forEach(photo => {
         // Use thumbnail for better visibility when zoomed in
         const icon = createPhotoIcon(photo, true);
@@ -321,6 +331,9 @@ function addMarkers() {
 
     // Update statistics
     updateStatistics();
+
+    // Draw routes on initial load if enabled
+    drawPolylines();
 
     // Add zoom and move controls info
     map.on('zoomend', function () {
@@ -547,7 +560,27 @@ async function loadSettings() {
         // Set browser autostart toggle
         const browserAutostartToggle = document.getElementById('exp-browser-autostart-toggle');
         if (browserAutostartToggle) {
-            browserAutostartToggle.checked = settings.start_browser;
+            browserAutostartToggle.checked = settings.start_browser !== undefined ? settings.start_browser : true;
+        }
+
+        // Set map coordinates toggle
+        const mapCoordsToggle = document.getElementById('exp-map-coords-toggle');
+        if (mapCoordsToggle) {
+            mapCoordsToggle.checked = settings.map_coords !== undefined ? settings.map_coords : true;
+            // Trigger change event to apply UI state (coordinates visibility, crosshair)
+            mapCoordsToggle.dispatchEvent(new Event('change'));
+        }
+
+        // Set routes toggle (don't trigger - will apply when data loads)
+        const routesToggle = document.getElementById('exp-routes-toggle');
+        if (routesToggle) {
+            routesToggle.checked = settings.routes !== undefined ? settings.routes : false;
+        }
+
+        // Set heatmap toggle (don't trigger - will apply when data loads)
+        const heatmapToggle = document.getElementById('exp-heatmap-toggle');
+        if (heatmapToggle) {
+            heatmapToggle.checked = settings.heatmap !== undefined ? settings.heatmap : false;
         }
 
         // Apply panel position
@@ -710,6 +743,9 @@ function filterMarkers() {
             markerClusterGroup.addLayer(marker);
         });
 
+        // Add cluster group to map
+        map.addLayer(markerClusterGroup);
+
         // Redraw routes (only if heatmap is OFF, usually looks better)
         drawPolylines();
     }
@@ -826,11 +862,22 @@ async function shutdownApp() {
         if (settingsResponse.ok) {
             const currentSettings = await settingsResponse.json();
 
-            // 3. Update settings
+            // 3. Update panel position
             currentSettings.top = top;
             currentSettings.left = left;
 
-            // 4. Save settings
+            // 4. Update toggle states
+            const mapCoordsToggle = document.getElementById('exp-map-coords-toggle');
+            const routesToggle = document.getElementById('exp-routes-toggle');
+            const heatmapToggle = document.getElementById('exp-heatmap-toggle');
+            const browserAutostartToggle = document.getElementById('exp-browser-autostart-toggle');
+
+            if (mapCoordsToggle) currentSettings.map_coords = mapCoordsToggle.checked;
+            if (routesToggle) currentSettings.routes = routesToggle.checked;
+            if (heatmapToggle) currentSettings.heatmap = heatmapToggle.checked;
+            if (browserAutostartToggle) currentSettings.start_browser = browserAutostartToggle.checked;
+
+            // 5. Save settings
             const updateResponse = await fetch('/api/update_settings', {
                 method: 'POST',
                 headers: {
