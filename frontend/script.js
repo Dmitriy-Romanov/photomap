@@ -130,17 +130,18 @@ document.addEventListener('DOMContentLoaded', () => {
         expCoordsToggle.addEventListener('change', (e) => {
             if (e.target.checked) {
                 if (expCoordsDisplay) expCoordsDisplay.style.visibility = 'visible';
-                document.querySelector('.map-crosshair').style.display = 'block';
+                map.getContainer().classList.remove('hide-crosshair');
             } else {
                 if (expCoordsDisplay) expCoordsDisplay.style.visibility = 'hidden';
-                document.querySelector('.map-crosshair').style.display = 'none';
+                map.getContainer().classList.add('hide-crosshair');
             }
         });
         // Initial state
         const isChecked = expCoordsToggle.checked;
         if (expCoordsDisplay) expCoordsDisplay.style.visibility = isChecked ? 'visible' : 'hidden';
-        const crosshair = document.querySelector('.map-crosshair');
-        if (crosshair) crosshair.style.display = isChecked ? 'block' : 'none';
+        if (!isChecked) {
+            map.getContainer().classList.add('hide-crosshair');
+        }
     }
 
     // Routes Toggle
