@@ -1,13 +1,15 @@
-# PhotoMap Processor v0.9.1
+# PhotoMap Processor v0.9.2
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.9.1)
+## ✨ Latest Improvements (v0.9.2)
 
-- **Smooth Zoom**: Configured scroll wheel zoom for smoother, more precise map navigation (50% zoom steps)
-- **UI Polish**: Unified font sizes (15px) across all panel labels for better consistency
-- **Year Filter Fix**: Corrected year input validation to prevent interference between From/To fields
-- **Alignment**: Fine-tuned label spacing and alignment across panel rows
+- **Thumbnail Optimization**: Reduced map marker thumbnails from 240px to 120px (75% less data, ~60-70% faster page loads)
+- **Gallery Quality**: Separate 240px thumbnails for gallery modal to maintain visual quality
+- **Settings Persistence**: All toggle states (Map coord, Routes, Heatmap, Browser autostart) now save on app close
+- **Year Filter Fix**: Corrected validation logic preventing fields from interfering with each other
+- **Smooth Zoom**: OS-specific scroll wheel zoom (macOS: 1.0 steps, Windows: 0.25 steps)
+- **Code Optimization**: Reduced binary size to 2.4MB (from 3.6MB), optimized tower-http compression
 
 ## 🚀 Quick Start
 
