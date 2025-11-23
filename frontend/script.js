@@ -294,6 +294,8 @@ function addMarkers() {
         // Use heatmap instead of markers
         updateHeatmap(photoData);
         updateStatistics();
+        // Draw routes if enabled (routes can show with heatmap)
+        drawPolylines();
         return;
     }
 
@@ -925,6 +927,8 @@ async function shutdownApp() {
 loadSettings().then(() => {
     loadPhotos().then(() => {
         initializeYearControls();
+        // Draw routes after settings are loaded and applied
+        drawPolylines();
     });
 });
 
