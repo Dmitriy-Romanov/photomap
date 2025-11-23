@@ -9,22 +9,51 @@ fn main() -> Result<()> {
 
     // 0. CHECK: exiftool must be installed!
     println!("🔍 Checking for exiftool...");
-    match std::process::Command::new("exiftool").arg("-ver").output() {
-        Ok(output) if output.status.success() => {
-            let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            println!("✅ Found exiftool version: {}\n", version);
+    
+    // Try local exiftool.exe first (portable mode)
+    let local_exiftool = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|p| p.join("exiftool.exe")));
+    
+    let exiftool_found = if let Some(local_path) = &local_exiftool {
+        if local_path.exists() {
+            match std::process::Command::new(local_path).arg("-ver").output() {
+                Ok(output) if output.status.success() => {
+                    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    println!("✅ Found exiftool version: {} (local)", version);
+                    true
+                }
+                _ => false
+            }
+        } else {
+            false
         }
-        _ => {
-            eprintln!("\n❌ ERROR: exiftool is NOT installed or not in PATH!");
-            eprintln!("\nThis tool requires exiftool to work.");
-            eprintln!("\n📥 Installation instructions:");
-            eprintln!("  Windows: Download from https://exiftool.org/");
-            eprintln!("           Rename 'exiftool(-k).exe' to 'exiftool.exe'");
-            eprintln!("           Put it in C:\\Windows\\ or add to PATH");
-            eprintln!("  macOS:   brew install exiftool");
-            eprintln!("  Linux:   sudo apt install libimage-exiftool-perl");
-            eprintln!("\n❓ Test installation: exiftool -ver\n");
-            std::process::exit(1);
+    } else {
+        false
+    };
+    
+    // Fallback to PATH
+    if !exiftool_found {
+        match std::process::Command::new("exiftool").arg("-ver").output() {
+            Ok(output) if output.status.success() => {
+                let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                println!("✅ Found exiftool version: {} (system PATH)\n", version);
+            }
+            _ => {
+                eprintln!("\n❌ ERROR: exiftool is NOT installed!");
+                eprintln!("\nThis tool requires exiftool to work.");
+                eprintln!("\n📥 Installation options:");
+                eprintln!("\n  Option 1 (Portable - Recommended for Windows):");
+                eprintln!("    1. Download from https://exiftool.org/ → 'Windows Executable'");
+                eprintln!("    2. Extract exiftool.exe and exiftool_files/ folder");
+                eprintln!("    3. Put BOTH next to exif_parser_test.exe");
+                eprintln!("\n  Option 2 (System-wide):");
+                eprintln!("    Windows: Put in C:\\Windows\\ (requires admin)");
+                eprintln!("    macOS:   brew install exiftool");
+                eprintln!("    Linux:   sudo apt install libimage-exiftool-perl");
+                eprintln!("\n❓ Test installation: exiftool -ver\n");
+                std::process::exit(1);
+            }
         }
     }
 
