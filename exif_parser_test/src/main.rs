@@ -8,64 +8,84 @@ fn main() -> Result<()> {
     println!("🚀 Starting Exif Parser Test...");
 
     // 1. Select folder
-    let args: Vec<String> = std::env::args().collect();
-    let folder = if args.len() > 1 {
-        PathBuf::from(&args[1])
-    } else {
-        rfd::FileDialog::new()
-            .set_title("Select folder to scan")
-            .pick_folder()
-            .context("No folder selected")?
-    };
+    let folder = rfd::FileDialog::new()
+        .set_title("Select folder with photos")
+        .pick_folder()
+        .context("No folder selected")?;
 
     println!("📂 Scanning folder: {}", folder.display());
+    println!("🔍 Processing files...\n");
 
-    // Prepare failures log file
-    let log_path = Path::new("failures.txt");
+    // 2. Open log files
     let mut log_file = OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
-        .open(log_path)
-        .context("Failed to create failures.txt")?;
+        .open("failures.txt")?;
+        
+    let mut accuracy_log = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open("accuracy_issues.txt")?;
 
-    let supported_extensions = ["jpg", "jpeg", "heic", "heif", "avif"];
     let mut count_processed = 0;
     let mut count_failures = 0;
+    let mut count_accuracy_issues = 0;
+    
+    const COORD_TOLERANCE: f64 = 0.0001; // ~11 метров
 
-    // 2. Recursive scan
+    // 3. Process files on-the-fly
     for entry in WalkDir::new(&folder).into_iter().filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if !path.is_file() {
+        if !entry.file_type().is_file() {
             continue;
         }
-
+        
+        let path = entry.path();
         if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
             let ext_lower = ext.to_lowercase();
-            if supported_extensions.contains(&ext_lower.as_str()) {
+            if ext_lower == "jpg" || ext_lower == "jpeg" || 
+               ext_lower == "heic" || ext_lower == "heif" || 
+               ext_lower == "avif" {
+                
                 count_processed += 1;
-                print!("\rProcessing file #{}: {} ... ", count_processed, path.file_name().unwrap().to_string_lossy());
-                std::io::stdout().flush()?;
+                
+                // Show progress
+                print!("\rProcessing file #{}: {} ... ", 
+                       count_processed,
+                       path.file_name().unwrap_or_default().to_str().unwrap_or("???"));
+                std::io::stdout().flush().ok();
 
-                // 3. Try "Our" code
+                // Try our parser
                 let our_result = extract_gps_our(path);
                 
-                println!("\nTesting: {}", path.display());
-                println!("  Our parser: {}", if our_result.is_some() { "✓ SUCCESS" } else { "✗ FAILED" });
-
                 if our_result.is_none() {
-                    // 4. If "Our" code failed, try exiftool (gold standard)
+                    // Our parser failed - check if exiftool finds GPS
                     if let Some(exiftool_gps) = extract_gps_exiftool(path) {
-                        // exiftool succeeded where we failed!
-                        println!("  exiftool: ✓ SUCCESS ({:.6}, {:.6})", exiftool_gps.0, exiftool_gps.1);
-                        println!("\n⚠️  FAILURE DETECTED: {}", path.display());
+                        // FAILURE: exiftool found GPS but we didn't
+                        println!("\n⚠️  MISSING GPS: {}", path.display());
+                        println!("  Our parser: ✗ FAILED");
+                        println!("  exiftool: ✓ ({:.6}, {:.6})", exiftool_gps.0, exiftool_gps.1);
                         writeln!(log_file, "{}", path.display())?;
                         count_failures += 1;
-                    } else {
-                        println!("  exiftool: ✗ FAILED");
                     }
-                } else {
-                    println!("  (skipped exiftool - our parser succeeded)");
+                } else if let Some(our_gps) = our_result {
+                    // Our parser succeeded - verify accuracy against exiftool
+                    if let Some(exiftool_gps) = extract_gps_exiftool(path) {
+                        let lat_diff = (our_gps.0 - exiftool_gps.0).abs();
+                        let lon_diff = (our_gps.1 - exiftool_gps.1).abs();
+                        
+                        if lat_diff > COORD_TOLERANCE || lon_diff > COORD_TOLERANCE {
+                            // ACCURACY ISSUE: coordinates don't match
+                            println!("\n⚠️  ACCURACY ISSUE: {}", path.display());
+                            println!("  Our parser: ({:.6}, {:.6})", our_gps.0, our_gps.1);
+                            println!("  exiftool:   ({:.6}, {:.6})", exiftool_gps.0, exiftool_gps.1);
+                            println!("  Difference: Δlat={:.6}°, Δlon={:.6}°", lat_diff, lon_diff);
+                            writeln!(accuracy_log, "{} | Our: ({:.6}, {:.6}) | exiftool: ({:.6}, {:.6}) | Diff: ({:.6}, {:.6})",
+                                     path.display(), our_gps.0, our_gps.1, exiftool_gps.0, exiftool_gps.1, lat_diff, lon_diff)?;
+                            count_accuracy_issues += 1;
+                        }
+                    }
                 }
             }
         }
@@ -73,8 +93,10 @@ fn main() -> Result<()> {
 
     println!("\n\n✅ Scan complete.");
     println!("Total processed: {}", count_processed);
-    println!("Failures found: {}", count_failures);
-    println!("See failures.txt for details.");
+    println!("Missing GPS (we failed, exiftool succeeded): {}", count_failures);
+    println!("Accuracy issues (coordinates mismatch): {}", count_accuracy_issues);
+    println!("\nSee failures.txt for missing GPS files.");
+    println!("See accuracy_issues.txt for coordinate mismatches.");
     
     // Copy failed files to 'JPG for checks' directory
     if count_failures > 0 {
@@ -119,15 +141,67 @@ fn extract_gps_our(path: &Path) -> Option<(f64, f64)> {
     let ext = path.extension()?.to_str()?.to_lowercase();
 
     if ext == "heic" || ext == "heif" || ext == "avif" {
-        // Skip HEIC/HEIF/AVIF files in test tool - focus on JPEG
-        // Main PhotoMap has full HEIC support via libheif-rs
+        // HEIC/HEIF/AVIF logic (identical to PhotoMap)
+        let heic_result = (|| -> Option<(f64, f64)> {
+            let ctx = libheif_rs::HeifContext::read_from_file(path.to_str()?).ok()?;
+            let handle = ctx.primary_image_handle().ok()?;
+            
+            let count = handle.number_of_metadata_blocks(0);
+            if count == 0 {
+                return None;
+            }
+            
+            let mut ids = vec![0; count as usize];
+            let count = handle.metadata_block_ids(&mut ids, 0);
+            
+            for &id in ids.iter().take(count) {
+                if let Some(type_str) = handle.metadata_type(id) {
+                    if type_str == "Exif" {
+                        if let Ok(data) = handle.metadata(id) {
+                            // Skip "Exif\0\0" header if present
+                            let tiff_start = if data.len() > 4 && data[4..].starts_with(b"Exif\0\0") {
+                                10
+                            } else if data.starts_with(b"Exif\0\0") {
+                                6
+                            } else {
+                                0
+                            };
+                            
+                            if data.len() > tiff_start {
+                                if let Ok(exif_reader) = exif::Reader::new().read_raw(data[tiff_start..].to_vec()) {
+                                    return parse_exif_gps(&exif_reader);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            None
+        })();
+        
+        if heic_result.is_some() {
+            return heic_result;
+        }
+        
+        // Fallback: Check if it's JPEG disguised as HEIC (Xiaomi bug)
+        let mut file = File::open(path).ok()?;
+        let mut buffer = [0u8; 2];
+        if file.read_exact(&mut buffer).is_ok() && buffer == [0xFF, 0xD8] {
+            // It's a JPEG! Rewind and parse as JPEG
+            file.seek(std::io::SeekFrom::Start(0)).ok()?;
+            let mut bufreader = BufReader::new(file);
+            let exif_reader = exif::Reader::new();
+            if let Ok(exif_data) = exif_reader.read_from_container(&mut bufreader) {
+                return parse_exif_gps(&exif_data);
+            }
+        }
+        
         return None;
     }
     
     // JPG/TIFF logic using kamadak-exif
     let file = File::open(path).ok()?;
     let mut bufreader = BufReader::new(file);
-    // Enable continue_on_error to handle Lightroom-processed files with non-standard EXIF
     let mut exif_reader = exif::Reader::new();
     exif_reader.continue_on_error(true);
     
@@ -146,7 +220,6 @@ fn extract_gps_our(path: &Path) -> Option<(f64, f64)> {
         _ => {}
     }
     
-    // DON'T use fallback parser in test - we want to find files where basic parser fails!
     None
 }
 
