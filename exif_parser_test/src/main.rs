@@ -1,11 +1,8 @@
 use anyhow::{Context, Result};
-use std::env;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Write, Read, Seek};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-
-mod gps_parser;
 
 fn main() -> Result<()> {
     println!("🚀 Starting Exif Parser Test...");
@@ -52,15 +49,23 @@ fn main() -> Result<()> {
 
                 // 3. Try "Our" code
                 let our_result = extract_gps_our(path);
+                
+                println!("\nTesting: {}", path.display());
+                println!("  Our parser: {}", if our_result.is_some() { "✓ SUCCESS" } else { "✗ FAILED" });
 
                 if our_result.is_none() {
-                    // 4. If "Our" code failed, try "Reference" code
-                    if let Some(_ref_gps) = extract_gps_ref(path) {
-                        // Reference succeeded where we failed!
+                    // 4. If "Our" code failed, try exiftool (gold standard)
+                    if let Some(exiftool_gps) = extract_gps_exiftool(path) {
+                        // exiftool succeeded where we failed!
+                        println!("  exiftool: ✓ SUCCESS ({:.6}, {:.6})", exiftool_gps.0, exiftool_gps.1);
                         println!("\n⚠️  FAILURE DETECTED: {}", path.display());
                         writeln!(log_file, "{}", path.display())?;
                         count_failures += 1;
+                    } else {
+                        println!("  exiftool: ✗ FAILED");
                     }
+                } else {
+                    println!("  (skipped exiftool - our parser succeeded)");
                 }
             }
         }
@@ -113,168 +118,155 @@ fn main() -> Result<()> {
 fn extract_gps_our(path: &Path) -> Option<(f64, f64)> {
     let ext = path.extension()?.to_str()?.to_lowercase();
 
-    if ext == "heic" || ext == "heif" {
-        // HEIC logic (simplified for this test, assuming libheif-rs usage)
-        // In real photomap we use libheif_rs::HeifContext etc.
-        // For this test, we'll try to implement basic HEIC reading if possible,
-        // or just return None if we can't easily port the full HEIC logic without more setup.
-        // NOTE: Photomap uses libheif-rs. Let's try to use it here too.
-        use libheif_rs::HeifContext;
-        // Try to open as HEIC first
-        if let Ok(ctx) = HeifContext::read_from_file(path.to_str()?) {
-            if let Ok(handle) = ctx.primary_image_handle() {
-                 // libheif-rs doesn't expose easy metadata reading in all versions, 
-                 // but let's assume we can get EXIF block.
-                 // Actually, for this test, let's focus on JPG first as it's most common for failures.
-                 // If HEIC is needed, we need to copy the exact logic.
-                 // Correct usage of libheif-rs metadata API
-                 // Pass 0 for type_filter to match all types (0 implements Into<FourCC>)
-                 let count = handle.number_of_metadata_blocks(0);
-                 if count > 0 {
-                     let mut ids = vec![0; count as usize];
-                     let count = handle.metadata_block_ids(&mut ids, 0);
-                     for &id in ids.iter().take(count) {
-                         if let Some(type_str) = handle.metadata_type(id) {
-                             if type_str == "Exif" {
-                                 if let Ok(data) = handle.metadata(id) {
-                                     if let Ok(exif_reader) = exif::Reader::new().read_raw(data) {
-                                         return parse_exif_gps(&exif_reader);
-                                     }
-                                 }
-                             }
-                         }
-                     }
-                 }
-            }
-        }
-        
-        // Fallback: Check if it's actually a JPEG disguised as HEIC
-        // This happens with some Xiaomi phones
-        let mut file = File::open(path).ok()?;
-        let mut buffer = [0u8; 2];
-        if file.read_exact(&mut buffer).is_ok() && buffer == [0xFF, 0xD8] {
-            // It's a JPEG! Rewind and parse as JPEG
-            file.seek(std::io::SeekFrom::Start(0)).ok()?;
-            let mut bufreader = BufReader::new(file);
-            let exif_reader = exif::Reader::new();
-            if let Ok(exif_data) = exif_reader.read_from_container(&mut bufreader) {
-                return parse_exif_gps(&exif_data);
-            }
-        }
-        
+    if ext == "heic" || ext == "heif" || ext == "avif" {
+        // Skip HEIC/HEIF/AVIF files in test tool - focus on JPEG
+        // Main PhotoMap has full HEIC support via libheif-rs
         return None;
-    } else {
-        // JPG/TIFF logic using kamadak-exif
-        let file = File::open(path).ok()?;
-        let mut bufreader = BufReader::new(file);
-        // Enable continue_on_error to handle Lightroom-processed files with non-standard EXIF
-        let mut exif_reader = exif::Reader::new();
-        exif_reader.continue_on_error(true);
-        
-        match exif_reader.read_from_container(&mut bufreader) {
-            Ok(exif_data) => {
-                if let Some(gps) = parse_exif_gps(&exif_data) {
-                    return Some(gps);
-                }
-            }
-            Err(exif::Error::PartialResult(partial)) => {
-                let (exif_data, _errors) = partial.into_inner();
-                if let Some(gps) = parse_exif_gps(&exif_data) {
-                    return Some(gps);
-                }
-            }
-            _ => {}
-        }
-        
-        // Fallback to custom GPS parser for malformed EXIF files (e.g., Lightroom-processed)
-        return gps_parser::extract_gps_from_malformed_exif(path);
     }
+    
+    // JPG/TIFF logic using kamadak-exif
+    let file = File::open(path).ok()?;
+    let mut bufreader = BufReader::new(file);
+    // Enable continue_on_error to handle Lightroom-processed files with non-standard EXIF
+    let mut exif_reader = exif::Reader::new();
+    exif_reader.continue_on_error(true);
+    
+    match exif_reader.read_from_container(&mut bufreader) {
+        Ok(exif_data) => {
+            if let Some(gps) = parse_exif_gps(&exif_data) {
+                return Some(gps);
+            }
+        }
+        Err(exif::Error::PartialResult(partial)) => {
+            let (exif_data, _errors) = partial.into_inner();
+            if let Some(gps) = parse_exif_gps(&exif_data) {
+                return Some(gps);
+            }
+        }
+        _ => {}
+    }
+    
+    // DON'T use fallback parser in test - we want to find files where basic parser fails!
     None
 }
 
 fn parse_exif_gps(exif_data: &exif::Exif) -> Option<(f64, f64)> {
-    let lat_field = exif_data.get_field(exif::Tag::GPSLatitude, exif::In::PRIMARY);
-    let lat_ref_field = exif_data.get_field(exif::Tag::GPSLatitudeRef, exif::In::PRIMARY);
-    let lon_field = exif_data.get_field(exif::Tag::GPSLongitude, exif::In::PRIMARY);
-    let lon_ref_field = exif_data.get_field(exif::Tag::GPSLongitudeRef, exif::In::PRIMARY);
+    // Extract both coordinates using the improved logic
+    let lat = extract_single_gps_coord(exif_data, exif::Tag::GPSLatitude, exif::Tag::GPSLatitudeRef)?;
+    let lon = extract_single_gps_coord(exif_data, exif::Tag::GPSLongitude, exif::Tag::GPSLongitudeRef)?;
+    Some((lat, lon))
+}
 
-    if let (Some(lat), Some(lat_ref), Some(lon), Some(lon_ref)) =
-        (lat_field, lat_ref_field, lon_field, lon_ref_field)
-    {
-        let lat_val = convert_dm_s_to_decimal(lat, lat_ref)?;
-        let lon_val = convert_dm_s_to_decimal(lon, lon_ref)?;
-        return Some((lat_val, lon_val));
+fn extract_single_gps_coord(exif_data: &exif::Exif, coord_tag: exif::Tag, ref_tag: exif::Tag) -> Option<f64> {
+    // Try PRIMARY IFD first (most common location)
+    if let Some(result) = try_extract_from_ifd(exif_data, coord_tag, ref_tag, exif::In::PRIMARY) {
+        return Some(result);
     }
+    
+    // Fallback: Search through ALL fields to find GPS data
+    // Some cameras (like Samsung) may store GPS in different IFDs
+    for field in exif_data.fields() {
+        if field.tag == coord_tag {
+            // Found coordinate field - now find its reference
+            for ref_field in exif_data.fields() {
+                if ref_field.tag == ref_tag && ref_field.ifd_num == field.ifd_num {
+                    // Found matching reference in same IFD
+                    if let exif::Value::Rational(vec) = &field.value {
+                        if vec.len() == 3 {
+                            let degrees = vec[0].num as f64 / vec[0].denom as f64;
+                            let minutes = vec[1].num as f64 / vec[1].denom as f64;
+                            let seconds = vec[2].num as f64 / vec[2].denom as f64;
+                            let mut decimal = degrees + minutes / 60.0 + seconds / 3600.0;
+
+                            // Apply reference (S/W are negative values)
+                            if let exif::Value::Ascii(refs) = &ref_field.value {
+                                if let Some(s) = refs.first() {
+                                    if let Ok(s_str) = std::str::from_utf8(s) {
+                                        if s_str.starts_with('S') || s_str.starts_with('W') {
+                                            decimal = -decimal;
+                                        }
+                                    }
+                                }
+                            }
+                            return Some(decimal);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     None
 }
 
-fn convert_dm_s_to_decimal(field: &exif::Field, ref_field: &exif::Field) -> Option<f64> {
-    match field.value {
-        exif::Value::Rational(ref rationals) if rationals.len() == 3 => {
+fn try_extract_from_ifd(exif_data: &exif::Exif, coord_tag: exif::Tag, ref_tag: exif::Tag, ifd: exif::In) -> Option<f64> {
+    let coord_field = exif_data.get_field(coord_tag, ifd)?;
+    let ref_field = exif_data.get_field(ref_tag, ifd)?;
+
+    if let exif::Value::Rational(rationals) = &coord_field.value {
+        if rationals.len() == 3 {
             let degrees = rationals[0].num as f64 / rationals[0].denom as f64;
             let minutes = rationals[1].num as f64 / rationals[1].denom as f64;
             let seconds = rationals[2].num as f64 / rationals[2].denom as f64;
             let mut decimal = degrees + minutes / 60.0 + seconds / 3600.0;
 
-            if let exif::Value::Ascii(ref refs) = ref_field.value {
+            if let exif::Value::Ascii(refs) = &ref_field.value {
                 if let Some(s) = refs.first() {
-                    let s = std::str::from_utf8(s).ok()?;
-                    if s.starts_with('S') || s.starts_with('W') {
-                        decimal = -decimal;
+                    if let Ok(s_str) = std::str::from_utf8(s) {
+                        if s_str.starts_with('S') || s_str.starts_with('W') {
+                            decimal = -decimal;
+                        }
                     }
                 }
             }
-            Some(decimal)
+            return Some(decimal);
         }
-        _ => None,
     }
+    None
 }
 
 
-// --- "Reference" Code (using rexif) ---
-fn extract_gps_ref(path: &Path) -> Option<(f64, f64)> {
-    // Rexif is a pure Rust library, good for double-checking
-    if let Ok(data) = rexif::parse_file(path.to_str()?) {
-        let mut lat: Option<f64> = None;
-        let mut lon: Option<f64> = None;
+// --- "Exiftool" Code (Gold Standard - 99.99% accuracy) ---
+fn extract_gps_exiftool(path: &Path) -> Option<(f64, f64)> {
+    use std::process::Command;
+    
+    // Run exiftool to extract GPS coordinates
+    let output = Command::new("exiftool")
+        .arg("-GPSLatitude")
+        .arg("-GPSLongitude")
+        .arg("-n")  // Numerical output for GPS coordinates
+        .arg(path)
+        .output()
+        .ok()?;
+    
+    if !output.status.success() {
+        return None;
+    }
+    
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lat: Option<f64> = None;
+    let mut lon: Option<f64> = None;
+    
+    for line in stdout.lines() {
+        let line_trimmed = line.trim();
         
-        for entry in data.entries {
-            match entry.tag {
-                rexif::ExifTag::GPSLatitude => {
-                    if let rexif::TagValue::URational(ref v) = entry.value {
-                         if v.len() == 3 {
-                             lat = Some(v[0].value() + v[1].value() / 60.0 + v[2].value() / 3600.0);
-                         }
-                    }
-                },
-                rexif::ExifTag::GPSLatitudeRef => {
-                     if let rexif::TagValue::Ascii(ref s) = entry.value {
-                         if s.starts_with("S") && lat.is_some() {
-                             lat = Some(-lat.unwrap());
-                         }
-                     }
-                },
-                rexif::ExifTag::GPSLongitude => {
-                    if let rexif::TagValue::URational(ref v) = entry.value {
-                         if v.len() == 3 {
-                             lon = Some(v[0].value() + v[1].value() / 60.0 + v[2].value() / 3600.0);
-                         }
-                    }
-                },
-                rexif::ExifTag::GPSLongitudeRef => {
-                     if let rexif::TagValue::Ascii(ref s) = entry.value {
-                         if s.starts_with("W") && lon.is_some() {
-                             lon = Some(-lon.unwrap());
-                         }
-                     }
-                },
-                _ => {}
+        // Format: "GPS Latitude                    : 48.8725955"
+        if line_trimmed.starts_with("GPS Latitude") && line_trimmed.contains(':') {
+            if let Some(value_part) = line_trimmed.split(':').nth(1) {
+                let parsed = value_part.trim().parse();
+                lat = parsed.ok();
+            }
+        } else if line_trimmed.starts_with("GPS Longitude") && line_trimmed.contains(':') {
+            if let Some(value_part) = line_trimmed.split(':').nth(1) {
+                let parsed = value_part.trim().parse();
+                lon = parsed.ok();
             }
         }
-        
-        if let (Some(l1), Some(l2)) = (lat, lon) {
-            return Some((l1, l2));
-        }
     }
+    
+    if let (Some(lat_val), Some(lon_val)) = (lat, lon) {
+        return Some((lat_val, lon_val));
+    }
+    
     None
 }

@@ -8,6 +8,5 @@ walkdir = "2.4"
 rfd = "0.14"
 anyhow = "1.0"
 kamadak-exif = "0.6"
-rexif = "0.7"
 libheif-rs = "1.0"
 

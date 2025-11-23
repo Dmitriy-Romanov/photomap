@@ -43,8 +43,47 @@ pub fn apply_exif_orientation(
 }
 
 pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<Option<f64>> {
-    let coord_field = exif.get_field(coord_tag, In::PRIMARY);
-    let ref_field = exif.get_field(ref_tag, In::PRIMARY);
+    // Try PRIMARY IFD first (most common location)
+    if let Some(result) = try_get_gps_from_ifd(exif, coord_tag, ref_tag, In::PRIMARY)? {
+        return Ok(Some(result));
+    }
+    
+    // Fallback: Search through ALL fields to find GPS data
+    // Some cameras (like Samsung) may store GPS in different IFDs
+    for field in exif.fields() {
+        if field.tag == coord_tag {
+            // Found coordinate field - now find its reference
+            for ref_field in exif.fields() {
+                if ref_field.tag == ref_tag && ref_field.ifd_num == field.ifd_num {
+                    // Found matching reference in same IFD
+                    if let Value::Rational(ref vec) = &field.value {
+                        if vec.len() == 3 {
+                            let d = vec[0].to_f64();
+                            let m = vec[1].to_f64();
+                            let s = vec[2].to_f64();
+                            let mut decimal = d + (m / 60.0) + (s / 3600.0);
+
+                            // Apply reference (S/W are negative values)
+                            if let Some(ref_val) = ref_field.display_value().to_string().chars().next() {
+                                if ref_val == 'S' || ref_val == 'W' {
+                                    decimal *= -1.0;
+                                }
+                            }
+                            return Ok(Some(decimal));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(None)
+}
+
+// Helper function to try GPS extraction from specific IFD
+fn try_get_gps_from_ifd(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag, ifd: In) -> Result<Option<f64>> {
+    let coord_field = exif.get_field(coord_tag, ifd);
+    let ref_field = exif.get_field(ref_tag, ifd);
 
     if let (Some(coord), Some(ref_val)) = (coord_field, ref_field) {
         if let Value::Rational(ref vec) = coord.value {
