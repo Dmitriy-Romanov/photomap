@@ -1,15 +1,13 @@
-# PhotoMap Processor v0.9.0
+# PhotoMap Processor v0.9.1
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.9.0)
+## ✨ Latest Improvements (v0.9.1)
 
-- **Redesigned UI Panel**: Completely rebuilt experimental panel with modern row-based layout
-- **Draggable Panel**: Move the control panel anywhere on the screen - position is saved automatically
-- **User Location**: New "Where I" button to quickly center the map on your current location with green marker
-- **Visual Polish**: Added subtle gray backgrounds to panel rows for better readability
-- **Boundary Protection**: Panel automatically stays within viewport and resets to default position if off-screen
-- **Compact Design**: Optimized input widths and spacing for a cleaner interface
+- **Smooth Zoom**: Configured scroll wheel zoom for smoother, more precise map navigation (50% zoom steps)
+- **UI Polish**: Unified font sizes (15px) across all panel labels for better consistency
+- **Year Filter Fix**: Corrected year input validation to prevent interference between From/To fields
+- **Alignment**: Fine-tuned label spacing and alignment across panel rows
 
 ## 🚀 Quick Start
 
@@ -64,6 +62,13 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.9.1 - UI Polish & Smooth Zoom
+- **Smooth Scroll Zoom**: Configured Leaflet with half-zoom steps (0.5) and reduced sensitivity for precise, comfortable navigation
+- **Font Consistency**: Unified all panel label fonts to 15px for better cross-platform readability
+- **Year Filter Fix**: Fixed year input validation - fields no longer interfere with each other, real-time validation
+- **UI Alignment**: Adjusted label spacing and padding for better visual alignment
+- **Double-Click Reset**: Added double-click on panel to reset to default position
 
 ### v0.9.0 - UI Redesign & Interaction
 - **Redesigned Control Panel**: Complete rebuild of UI panel with modern row-based layout
