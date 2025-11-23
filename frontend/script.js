@@ -1,9 +1,12 @@
-// Initialize map with smoother scroll wheel zoom
+// Initialize map with OS-specific scroll wheel zoom settings
+const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
 const map = L.map('map', {
     scrollWheelZoom: true,
-    wheelPxPerZoomLevel: 240,  // Require more scrolling per zoom level (increased for Windows compatibility)
-    zoomSnap: 0.25,             // Allow quarter-zoom levels for very smooth transitions
-    zoomDelta: 0.25             // Zoom by 0.25 levels per scroll
+    // macOS: faster zoom (0.5 steps), Windows: slower zoom (0.25 steps)
+    wheelPxPerZoomLevel: isMac ? 120 : 240,
+    zoomSnap: isMac ? 0.5 : 0.25,
+    zoomDelta: isMac ? 0.5 : 0.25
 }).setView([52.5, 13.4], 10);
 
 // Add tile layer
