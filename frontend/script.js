@@ -1,5 +1,10 @@
-// Initialize map
-const map = L.map('map').setView([52.5, 13.4], 10);
+// Initialize map with smoother scroll wheel zoom
+const map = L.map('map', {
+    scrollWheelZoom: true,
+    wheelPxPerZoomLevel: 120,  // Require more scrolling per zoom level (default: 60)
+    zoomSnap: 0.5,              // Allow half-zoom levels for smoother transitions
+    zoomDelta: 0.5              // Zoom by 0.5 levels per scroll
+}).setView([52.5, 13.4], 10);
 
 // Add tile layer
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
