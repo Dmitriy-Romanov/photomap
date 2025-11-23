@@ -1,115 +1,156 @@
 # Exif Parser Test Tool 🕵️‍♂️
 
-This utility is designed to debug and verify the EXIF parsing logic of the main `photomap` application. It compares our internal parsing logic against the industry-standard **`exiftool`** CLI to identify files where we fail to extract GPS data but should be able to.
+**Минимальная тестовая версия GPS парсера из PhotoMap** для валидации и отладки.
 
-## Purpose
+## Назначение
 
-If photos in a specific folder are not appearing on the map (i.e., GPS data is missing), use this tool to diagnose the issue.
+Этот инструмент проверяет **корректность работы GPS парсера** основного приложения PhotoMap. 
 
-1.  **Compare**: It scans a folder and tries to extract GPS using "Our" logic (identical to `photomap`) and "Exiftool" (gold standard).
-2.  **Log Failures**: If exiftool finds GPS but our logic doesn't, the file path is logged to `failures.txt`.
-3.  **Analyze**: These "failure" files are candidates for debugging. We can then inspect them to understand why our parser is failing.
-4.  **Auto-copy**: Failed files are automatically copied to `JPG for checks/` for easy inspection.
-5.  **Accuracy Check**: Compares coordinates from our parser with exiftool to detect parsing errors (not just missing GPS).
+**Что проверяется:**
+1. ✅ **Coverage (Покрытие)** - находим ли GPS там где он есть?
+2. ✅ **Accuracy (Точность)** - правильно ли читаем координаты?
 
-## Download Pre-built Binary (Windows)
+**Как работает:**
+- Использует **идентичный код парсера** из PhotoMap (та же библиотека `kamadak-exif`)
+- Сравнивает результаты с **exiftool** (золотой стандарт, 99.99% точность)
+- Выявляет файлы где наш парсер ошибается
+- После исправления багов → изменения переносятся в основной проект PhotoMap
 
-**No compilation needed!** Download from GitHub Actions:
+> **Важно:** Это НЕ самостоятельное приложение, а **тестовый стенд** для проверки парсера.
 
-1. Go to [Actions tab](../../actions/workflows/build-windows.yml)
-2. Click on the latest successful run
-3. Download `exif_parser_test_windows-x64` artifact
-4. Extract `exif_parser_test_windows-x64.exe`
-5. Double-click to run!
+## Требования
 
-> **Note:** You need `exiftool` installed. Download from [exiftool.org](https://exiftool.org/) and add to PATH.
+### ⚠️ ОБЯЗАТЕЛЬНО: exiftool
 
-## Build from Source
+Утилита **не будет работать без exiftool!**
 
-### Requirements
-- Rust toolchain
-- `exiftool` CLI (install via Homebrew on macOS/Linux, or from exiftool.org on Windows)
-- vcpkg (for libheif on Windows)
+**Установка на Windows:**
+1. Скачайте с [exiftool.org](https://exiftool.org/)
+2. Переименуйте `exiftool(-k).exe` → `exiftool.exe`
+3. Положите в `C:\Windows\` или добавьте в PATH
+4. Проверьте: откройте CMD и введите `exiftool -ver`
 
-### Build & Run
+**Установка на macOS:**
+```bash
+brew install exiftool
+```
+
+**Установка на Linux:**
+```bash
+sudo apt install libimage-exiftool-perl  # Debian/Ubuntu
+# или
+sudo pacman -S perl-image-exiftool       # Arch
+```
+
+## Скачать готовый .exe (Windows)
+
+**Не нужна компиляция!** Скачайте собранную версию:
+
+1. Перейдите в [Actions → Exif Parser Test](../../actions/workflows/build-exif-parser-test.yml)
+2. Нажмите "Run workflow" → выберите `main` → запустите
+3. Подождите 5-10 минут
+4. Скачайте artifact `exif_parser_test_windows-x64`
+5. Распакуйте и запустите `exif_parser_test_windows-x64.exe`
+
+> **Не забудьте установить exiftool!** (см. выше)
+
+## Сборка из исходников
+
 ```bash
 cd exif_parser_test
 cargo build --release
 cargo run --release
 ```
 
-## How to Use
+## Использование
 
-1.  **Run the tool**
-2.  **Select Folder**: A native dialog will appear. Select the folder containing the photos to test.
-3.  **Wait**: The tool will process all images and show progress.
-4.  **Check Results**:
-    *   The tool will print progress for each file.
-    *   After completion, check `failures.txt` and `accuracy_issues.txt`.
-    *   **If both files are empty**: Our parser works perfectly! ✅
-    *   **If `failures.txt` has entries**: GPS data exists but we didn't find it → parser coverage issue
-    *   **If `accuracy_issues.txt` has entries**: We found GPS but coordinates don't match exiftool → parser accuracy issue
+1. **Запустите программу** (двойной клик на .exe или `cargo run --release`)
+2. **Выберите папку** с фотографиями в диалоге
+3. **Дождитесь завершения** - будет показан прогресс
+4. **Проверьте результаты:**
 
-## Output Files
-
-- **`failures.txt`**: Files where exiftool found GPS but our parser didn't (missing data)
-- **`accuracy_issues.txt`**: Files where our parser returned different coordinates than exiftool (wrong data)
-- **`JPG for checks/`**: Copies of failed files for manual inspection
-
-## Dependencies
-
-**Minimal set - essential dependencies:**
-- `walkdir` - Directory traversal
-- `rfd` - Native file picker dialog
-- `anyhow` - Error handling
-- `kamadak-exif` - Our EXIF parser (same as PhotoMap)
-- `libheif-rs` - HEIC/HEIF support (same as PhotoMap)
-- **`exiftool`** (CLI) - Gold standard reference (must be installed separately)
-
-## Project Structure
-
-*   `src/main.rs`: Contains the logic.
-    *   `extract_gps_our`: **Identical to PhotoMap's GPS parsing logic**. 
-    *   `extract_gps_exiftool`: Uses `exiftool` CLI as ground truth (99.99% accuracy).
-*   `failures.txt`: Generated report of files with missing GPS.
-*   `accuracy_issues.txt`: Generated report of files with coordinate mismatches.
-*   `JPG for checks/`: Auto-populated with copies of failed files.
-
-## Parser Features
-
-Our parser (`extract_gps_our`) now includes:
-- ✅ Checks `In::PRIMARY` IFD first (fast path for most cameras)
-- ✅ Falls back to iterating ALL EXIF fields if not found
-- ✅ Finds GPS data in any IFD location (fixes Samsung SM-G780G and similar)
-- ✅ Handles partial EXIF with `continue_on_error(true)`
-- ✅ Supports non-standard EXIF structures (e.g., Lightroom-processed)
-- ✅ Full HEIC/HEIF/AVIF support via libheif-rs
-
-## Validation Modes
-
-**1. Coverage Check (Missing GPS):**
 ```
-Our parser: ✗ FAILED
-exiftool: ✓ (48.8566, 2.3522)
-→ failures.txt
+✅ Scan complete.
+Total processed: 100000
+Missing GPS (we failed, exiftool succeeded): 5  ← не нашли GPS
+Accuracy issues (coordinates mismatch): 2       ← нашли неправильно
 ```
 
-**2. Accuracy Check (Wrong Coordinates):**
+## Выходные файлы
+
+### 📄 failures.txt
+Файлы где **exiftool нашел GPS**, а наш парсер нет:
 ```
-Our parser: (48.8566, 2.3522)
-exiftool:   (48.8570, 2.3525)
-Difference: Δlat=0.0004°, Δlon=0.0003°
-→ accuracy_issues.txt (if > 0.0001° / ~11m)
+/path/to/photo1.jpg
+/path/to/photo2.heic
+```
+→ **Проблема:** парсер пропускает валидные GPS данные
+
+### 📄 accuracy_issues.txt  
+Файлы где координаты **не совпадают** с exiftool:
+```
+/path/to/photo.jpg | Our: (48.8566, 2.3522) | exiftool: (48.8570, 2.3525) | Diff: (0.0004, 0.0003)
+```
+→ **Проблема:** парсер читает координаты неправильно (tolerance: 0.0001° ≈ 11 метров)
+
+### 📁 JPG for checks/
+Автоматические копии проблемных файлов для ручного анализа.
+
+## Что проверяется
+
+**Парсер в этой утилите = 100% код из PhotoMap:**
+- ✅ JPEG/TIFF через `kamadak-exif`
+- ✅ HEIC/HEIF/AVIF через `libheif-rs` + `kamadak-exif`
+- ✅ Поиск GPS в любом IFD (PRIMARY, GPS, и др.)
+- ✅ Обработка "сломанного" EXIF (`continue_on_error`)
+- ✅ Xiaomi HEIC bug (JPEG с расширением .heic)
+
+**Валидация:**
+1. Наш парсер извлекает GPS
+2. exiftool извлекает GPS
+3. Сравниваем результаты:
+   - Оба не нашли → OK (GPS просто нет)
+   - Оба нашли одинаковое → OK
+   - exiftool нашел, мы нет → **FAILURE** (coverage)
+   - Нашли разные координаты → **ACCURACY ISSUE** (precision)
+
+## Workflow разработки
+
+```
+1. Находим проблемные файлы через test tool
+      ↓
+2. Анализируем причину (камера, формат, структура EXIF)
+      ↓
+3. Исправляем парсер в exif_parser_test/src/main.rs
+      ↓
+4. Тестируем → проблема устранена?
+      ↓
+5. Переносим исправления в PhotoMap/src/exif_parser/
+      ↓
+6. Собираем новую версию PhotoMap
 ```
 
-## Known Fixes
+## Известные исправления
 
-*   **Samsung SM-G780G GPS**: Fixed by searching all IFD fields, not just PRIMARY
-*   **Xiaomi HEIC Bug**: HEIC files that are actually JPEG - handled via FF D8 signature check
-*   **Lightroom EXIF**: Handled via `continue_on_error(true)`
+- ✅ **Samsung SM-G780G** - GPS в нестандартном IFD
+- ✅ **Xiaomi HEIC bug** - JPEG с расширением .heic  
+- ✅ **Lightroom EXIF** - "битый" EXIF с ошибками
+- ✅ **Apple HEIC** - стандартный формат от iPhone
 
-## Notes
+## Технические детали
 
--   Test tool parser is **100% identical** to PhotoMap: JPEG, HEIC, HEIF, AVIF all supported.
--   Tolerance for coordinate differences: **0.0001°** (~11 meters)
--   For large datasets (100k+ files), this test may take hours as it calls exiftool for every file.
+**Зависимости:**
+- `kamadak-exif` - парсинг EXIF (та же версия что в PhotoMap)
+- `libheif-rs` - HEIC поддержка (та же версия)
+- `walkdir` - рекурсивный обход папок
+- `rfd` - нативный диалог выбора папки
+- `anyhow` - обработка ошибок
+
+**Производительность:**
+- ~1-2 секунды на 10,000 файлов (без exiftool проверки)
+- ~5-10 минут на 100,000 файлов (с полной валидацией через exiftool)
+
+**Ограничения:**
+- Требует установленный exiftool
+- Работает только с форматами: JPEG, HEIC, HEIF, AVIF, TIFF
+- Не проверяет datetime и другие EXIF поля (только GPS)

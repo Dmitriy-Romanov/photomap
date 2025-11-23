@@ -7,6 +7,27 @@ use walkdir::WalkDir;
 fn main() -> Result<()> {
     println!("🚀 Starting Exif Parser Test...");
 
+    // 0. CHECK: exiftool must be installed!
+    println!("🔍 Checking for exiftool...");
+    match std::process::Command::new("exiftool").arg("-ver").output() {
+        Ok(output) if output.status.success() => {
+            let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            println!("✅ Found exiftool version: {}\n", version);
+        }
+        _ => {
+            eprintln!("\n❌ ERROR: exiftool is NOT installed or not in PATH!");
+            eprintln!("\nThis tool requires exiftool to work.");
+            eprintln!("\n📥 Installation instructions:");
+            eprintln!("  Windows: Download from https://exiftool.org/");
+            eprintln!("           Rename 'exiftool(-k).exe' to 'exiftool.exe'");
+            eprintln!("           Put it in C:\\Windows\\ or add to PATH");
+            eprintln!("  macOS:   brew install exiftool");
+            eprintln!("  Linux:   sudo apt install libimage-exiftool-perl");
+            eprintln!("\n❓ Test installation: exiftool -ver\n");
+            std::process::exit(1);
+        }
+    }
+
     // 1. Select folder
     let folder = rfd::FileDialog::new()
         .set_title("Select folder with photos")
