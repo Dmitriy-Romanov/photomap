@@ -447,6 +447,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const panel = document.getElementById('experimental-panel');
     if (panel) {
         makeDraggable(panel);
+
+        // Double-click to reset position
+        panel.addEventListener('dblclick', (e) => {
+            // Don't reset if double-clicking on inputs, buttons, etc.
+            if (['INPUT', 'BUTTON', 'LABEL', 'A', 'SELECT', 'TEXTAREA'].includes(e.target.tagName) ||
+                e.target.closest('button') || e.target.closest('label')) {
+                return;
+            }
+
+            // Reset to default position
+            panel.style.top = '12px';
+            panel.style.left = '52px';
+            showNotification('🔄 Panel reset to default position', 'info');
+        });
     }
 });
 
@@ -753,16 +767,19 @@ function initializeYearControls() {
             toInput.value = maxYear;
         }
 
-        // Smart range adjustment
-        if (fromValue > toValue) {
-            if (source === fromInput) {
-                // User increased From past To -> Push To up
-                toValue = fromValue;
-                toInput.value = fromValue;
-            } else {
-                // User decreased To past From -> Push From down
+        // Validate range: From should be <= To
+        // But don't auto-adjust the other field - just clamp current field
+        if (source === fromInput) {
+            // User changed From field
+            if (fromValue > toValue) {
                 fromValue = toValue;
                 fromInput.value = toValue;
+            }
+        } else {
+            // User changed To field
+            if (toValue < fromValue) {
+                toValue = fromValue;
+                toInput.value = fromValue;
             }
         }
 
@@ -770,8 +787,8 @@ function initializeYearControls() {
     }
 
     if (expYearFrom && expYearTo) {
-        expYearFrom.addEventListener('change', () => handleYearChange(expYearFrom, expYearFrom, expYearTo));
-        expYearTo.addEventListener('change', () => handleYearChange(expYearTo, expYearFrom, expYearTo));
+        expYearFrom.addEventListener('input', () => handleYearChange(expYearFrom, expYearFrom, expYearTo));
+        expYearTo.addEventListener('input', () => handleYearChange(expYearTo, expYearFrom, expYearTo));
     }
 
     console.log(`Year controls initialized: ${minYear} to ${maxYear}`);
