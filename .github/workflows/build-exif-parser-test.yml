@@ -1,8 +1,6 @@
-name: Build Windows Release
+name: Exif Parser Test - Windows Build
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
