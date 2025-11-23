@@ -147,6 +147,7 @@ pub fn create_scaled_image_in_memory(source_path: &Path, image_type: ImageType) 
 pub enum ImageType {
     Marker,
     Thumbnail,
+    Gallery,
     Popup,
 }
 
@@ -156,6 +157,7 @@ impl ImageType {
         match self {
             ImageType::Marker => MARKER_SIZE,
             ImageType::Thumbnail => THUMBNAIL_SIZE,
+            ImageType::Gallery => GALLERY_SIZE,
             ImageType::Popup => POPUP_SIZE,
         }
     }
@@ -165,6 +167,7 @@ impl ImageType {
         match self {
             ImageType::Marker => "marker",
             ImageType::Thumbnail => "thumbnail",
+            ImageType::Gallery => "gallery",
             ImageType::Popup => "popup",
         }
     }
@@ -172,7 +175,7 @@ impl ImageType {
     /// Returns whether the image should be padded to a square
     pub fn pad_to_square(&self) -> bool {
         match self {
-            ImageType::Marker | ImageType::Thumbnail => true,
+            ImageType::Marker | ImageType::Thumbnail | ImageType::Gallery => true,
             ImageType::Popup => false,
         }
     }
@@ -181,13 +184,14 @@ impl ImageType {
 /// Converts a HEIC file to JPEG with specified dimensions using native code
 fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Result<Vec<u8>> {
     let max_dimension = match size_param {
-        "thumbnail" => THUMBNAIL_SIZE,
         "marker" => MARKER_SIZE,
+        "thumbnail" => THUMBNAIL_SIZE,
+        "gallery" => GALLERY_SIZE,
         "popup" => POPUP_SIZE,
         _ => 4096, // A reasonable default for 'full size'
     };
 
-    let pad_to_square = matches!(size_param, "thumbnail" | "marker");
+    let pad_to_square = matches!(size_param, "marker" | "thumbnail" | "gallery");
 
     let original_path = Path::new(&photo.file_path);
     let mut path_to_decode = original_path.to_path_buf();

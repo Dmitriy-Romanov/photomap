@@ -133,7 +133,7 @@ pub async fn get_marker_image(
     serve_processed_image(state, filename, ImageType::Marker).await
 }
 
-/// Handler for image thumbnails (60x60px)
+/// Handler for image thumbnails (120x120px for map markers)
 pub async fn get_thumbnail_image(
     state: State<AppState>,
     filename: AxumPath<String>,
@@ -141,7 +141,15 @@ pub async fn get_thumbnail_image(
     serve_processed_image(state, filename, ImageType::Thumbnail).await
 }
 
-/// Handler for popup images (700px)
+/// Handler for gallery images (240x240px for gallery modal)
+pub async fn get_gallery_image(
+    state: State<AppState>,
+    filename: AxumPath<String>,
+) -> Result<Response, StatusCode> {
+    serve_processed_image(state, filename, ImageType::Gallery).await
+}
+
+/// Handler for popup images (1400px)
 pub async fn get_popup_image(
     state: State<AppState>,
     filename: AxumPath<String>,

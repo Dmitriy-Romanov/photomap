@@ -1245,7 +1245,7 @@ function renderGalleryPage(page) {
         thumb.onclick = () => showPhotoInGallery(photo);
 
         const img = document.createElement('img');
-        img.src = `/api/thumbnail/${photo.relative_path}`;
+        img.src = `/api/gallery/${photo.relative_path}`;  // Use gallery size (240x240)
         img.alt = photo.filename;
         img.loading = 'lazy';
 
