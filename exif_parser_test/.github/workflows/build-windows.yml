@@ -1,0 +1,59 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache target directory
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install vcpkg dependencies
+        run: |
+          vcpkg install libheif:x64-windows-static
+
+      - name: Build release
+        env:
+          VCPKG_ROOT: C:\vcpkg
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: |
+          cargo build --release --bin exif_parser_test
+
+      - name: Rename binary
+        run: |
+          Copy-Item target/release/exif_parser_test.exe exif_parser_test_windows-x64.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: exif_parser_test_windows-x64
+          path: exif_parser_test_windows-x64.exe
+          retention-days: 90
