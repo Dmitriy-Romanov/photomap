@@ -10,70 +10,6 @@
 
 ## 📅 Release Planning
 
-### v0.6.0 - Native HEIC Processing
-- Removed dependency on ImageMagick.
-- HEIC processing is now handled by a native Rust-based solution.
-### Current: v0.8.2 - Visualization & Polish ✅
-- [x] **Heatmap & Routes**: Added visual layers to see photo density and travel paths.
-- [x] **Performance**: Added JSON compression for large collections.
-- [x] **Browser Autostart**: Added toggle to control automatic browser launch.
-- [x] **UI Polish**: Improved typography (Sentence case) and added GitHub link.
-- [x] **CI Fixes**: Fixed Windows and macOS build failures.
-
-### Previous: v0.7.0 - Windows Compatibility & Cleanup Edition ✅
-- [x] Automatic `photomap.ini` creation
-- [x] Fixed Windows folder selection dialog (foreground focus)
-- [x] Code cleanup and optimization
-- [x] Windows testing and verification
-
-### Previous: v0.6.6 - UI & UX Enhancement Edition ✅
-- [x] Year range filter
-- [x] Graceful shutdown button
-- [x] UI fixes (minimized window)
-- [x] Dependency optimization
-
-### Previous: v0.6.5 - Stability & Performance Edition ✅
-- [x] **Thumbnail Optimization**: 64x faster decoding using TurboJPEG scaling + Triangle filter
-- [x] **Robust Error Handling**: Database auto-clearing on invalid config
-- [x] **UI Safety**: Prevents selecting non-existent folders
-
-### Previous: v0.6.4 - Windows Compatibility Edition (Phase 1) ✅
-- [x] Replaced `pgrep`/`kill` with `sysinfo` for cross-platform process management
-- [x] Added `sysinfo` dependency
-
-### Previous: v0.5.4 - Enhanced UI Edition ✅
-- [x] ImageMagick status display in info panel
-- [x] Year range controls with validation
-- [x] UI panel width improvements (440px)
-- [x] JavaScript scope fixes (let → var)
-- [x] Browser extension compatibility fixes
-
-### Previous: v0.5.3 - Single Instance Edition ✅
-- [x] Process management and single instance enforcement
-- [x] Cross-platform process termination
-- [x] Development guide and standards
-
-### Next: v0.7.0 - Performance Optimization Edition
-
-
-#### Phase 2: Windows File Path Handling
-**Research Tasks:**
-- [ ] "Windows file path handling Rust 2025"
-- [ ] "Cross-platform path separators Rust"
-- [ ] "Windows absolute vs relative paths"
-
-**Implementation Tasks:**
-- [ ] Update path handling for Windows compatibility
-- [ ] Test Windows file operations
-- [ ] Verify ImageMagick detection on Windows
-- [ ] Update installation instructions
-
-#### Phase 3: Windows Testing & Optimization
-**Tasks:**
-- [ ] Test complete Windows workflow
-- [ ] Optimize Windows binary size
-- [ ] Verify cross-platform database operations
-- [ ] Performance testing on Windows
 
 ### v0.7.0 - Performance Optimization Edition
 
@@ -131,29 +67,10 @@
 - [ ] Add photo grouping by location/date
 - [ ] Create photo timeline view
 
-#### Phase 2: Export & Sharing
-**Research Tasks:**
-- [ ] "Photo gallery generation Rust 2025"
-- [ ] "GPX file generation from photo coordinates"
-- [ ] "Web photo album creation tools"
 
-**Implementation Tasks:**
-- [ ] Implement photo gallery export
-- [ ] Add GPX track generation
-- [ ] Create sharing functionality
-- [ ] Add printable map generation
 
 ## 🔧 Technical Debt & Improvements
 
-### Immediate Priorities
-1. **Deduplicate Processing Functions**: Consolidate `process_photos_into_database` and `process_photos_from_directory`
-2. **Error Handling**: Improve user-facing error messages
-3. **Configuration Validation**: Add settings validation
-
-### Medium-Term Goals
-1. **Testing Infrastructure**: Add automated testing
-2. **Documentation**: Comprehensive API documentation
-3. **Monitoring**: Add performance metrics collection
 
 ### Long-Term Vision
 1. **Mobile Support**: Progressive Web App or mobile app
