@@ -34,7 +34,7 @@ map.on('locationfound', function (e) {
     // Create custom icon for user location (green)
     const userIcon = L.divIcon({
         className: 'user-location-marker',
-        html: '<div style="background:#34A853;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 8px rgba(52,168,83,0.6);"></div>',
+        html: '<div class="user-location-icon"></div>',
         iconSize: [22, 22],
         iconAnchor: [11, 11]
     });
@@ -220,18 +220,11 @@ const markerClusterGroup = L.markerClusterGroup({
         };
 
         return L.divIcon({
-            html: '<div style="' +
+            html: '<div class="cluster-icon-inner" style="' +
                 'width: ' + sizes[size] + 'px; ' +
                 'height: ' + sizes[size] + 'px; ' +
                 'line-height: ' + sizes[size] + 'px; ' +
-                'border-radius: 50%; ' +
-                'background: #4285f4; ' +
-                'color: white; ' +
-                'text-align: center; ' +
-                'font-weight: bold; ' +
-                'font-size: ' + (sizes[size] * 0.4) + 'px; ' +
-                'border: 2px solid white; ' +
-                'box-shadow: 0 1px 3px rgba(0,0,0,0.3);' +
+                'font-size: ' + (sizes[size] * 0.4) + 'px;' +
                 '">' + count + '</div>',
             className: className,
             iconSize: L.point(sizes[size], sizes[size])
@@ -247,10 +240,10 @@ const markerClusterGroup = L.markerClusterGroup({
 const routesLayerGroup = L.layerGroup().addTo(map);
 
 // Heatmap layer
-var heatLayer = null;
+let heatLayer = null;
 
 // Load photo data from API
-var photoData = [];
+let photoData = [];
 
 async function loadPhotos() {
     try {
@@ -287,6 +280,18 @@ function createPhotoIcon(photo, useThumbnail = false) {
     });
 }
 
+function createPopupContent(photo) {
+    return `
+        <div class="photo-popup">
+            <img src="${photo.url}"
+                 onerror="this.src='${photo.fallback_url}'"
+                 alt="${photo.filename}" />
+            <div class="filename">${photo.file_path}</div>
+            <div class="datetime">${photo.datetime}</div>
+        </div>
+    `;
+}
+
 function addMarkers() {
     // Check if heatmap mode is enabled
     const heatmapToggle = document.getElementById('exp-heatmap-toggle');
@@ -307,17 +312,7 @@ function addMarkers() {
             photoData: photo
         });
 
-        const popupContent = `
-            <div class="photo-popup">
-                <img src="${photo.url}"
-                     onerror="this.src='${photo.fallback_url}'"
-                     alt="${photo.filename}" />
-                <div class="filename">${photo.file_path}</div>
-                <div class="datetime">${photo.datetime}</div>
-            </div>
-        `;
-
-        marker.bindPopup(popupContent);
+        marker.bindPopup(createPopupContent(photo));
         markerClusterGroup.addLayer(marker);
     });
 
@@ -533,7 +528,7 @@ document.getElementById('close-btn')?.addEventListener('click', async () => {
             setTimeout(async () => {
                 try {
                     await fetch('/api/shutdown', { method: 'POST' });
-                    document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h1>PhotoMap is closed</h1></div>';
+                    document.body.innerHTML = '<div class="shutdown-screen"><h1>PhotoMap is closed</h1></div>';
                 } catch (e) {
                     console.error('Shutdown request failed', e);
                 }
@@ -729,17 +724,7 @@ function filterMarkers() {
             const icon = createPhotoIcon(photo, true);
             const marker = L.marker([photo.lat, photo.lng], { icon: icon });
 
-            const popupContent = `
-                <div class="photo-popup">
-                    <img src="${photo.url}"
-                         onerror="this.src='${photo.fallback_url}'"
-                         alt="${photo.filename}" />
-                    <div class="filename">${photo.file_path}</div>
-                    <div class="datetime">${photo.datetime}</div>
-                </div>
-            `;
-
-            marker.bindPopup(popupContent);
+            marker.bindPopup(createPopupContent(photo));
             markerClusterGroup.addLayer(marker);
         });
 
@@ -906,7 +891,7 @@ async function shutdownApp() {
                 });
 
                 if (response.ok) {
-                    document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif;"><h1>👋 PhotoMap is closed</h1><p>You can close this tab now.</p></div>';
+                    document.body.innerHTML = '<div class="shutdown-screen"><h1>👋 PhotoMap is closed</h1><p>You can close this tab now.</p></div>';
                 } else {
                     showNotification('❌ Failed to stop server', 'error');
                 }
@@ -1119,7 +1104,10 @@ function showNotification(message, type = 'info') {
 // === Heatmap Logic ===
 
 function updateHeatmap(photos) {
-    if (!L.heatLayer) return;
+    if (!L.heatLayer) {
+        console.warn('Heatmap plugin (leaflet-heat) is not loaded');
+        return;
+    }
 
     const points = photos.map(p => [p.lat, p.lng, 1]); // 1 is intensity
 
@@ -1127,11 +1115,15 @@ function updateHeatmap(photos) {
         map.removeLayer(heatLayer);
     }
 
-    heatLayer = L.heatLayer(points, {
-        radius: 25,
-        blur: 15,
-        maxZoom: 10,
-    }).addTo(map);
+    try {
+        heatLayer = L.heatLayer(points, {
+            radius: 25,
+            blur: 15,
+            maxZoom: 10,
+        }).addTo(map);
+    } catch (error) {
+        console.error('Failed to create heatmap layer:', error);
+    }
 }
 
 // Event listener for heatmap toggle
@@ -1242,7 +1234,7 @@ function renderGalleryPage(page) {
 
         const thumb = document.createElement('div');
         thumb.className = 'cluster-thumbnail';
-        thumb.onclick = () => showPhotoInGallery(photo);
+        thumb.addEventListener('click', () => showPhotoInGallery(photo));
 
         const img = document.createElement('img');
         img.src = `/api/gallery/${photo.relative_path}`;  // Use gallery size (240x240)
@@ -1435,3 +1427,9 @@ function drawPolylines() {
         }).addTo(routesLayerGroup);
     });
 }
+
+// Log loaded library versions for debugging
+console.log('📚 Loaded Libraries:');
+console.log('  - Leaflet:', L.version || 'unknown');
+console.log('  - Leaflet.markercluster:', L.MarkerClusterGroup ? '✅ loaded' : '❌ not loaded');
+console.log('  - Leaflet.heat:', L.heatLayer ? '✅ loaded' : '❌ not loaded');

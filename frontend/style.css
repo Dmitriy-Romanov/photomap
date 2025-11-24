@@ -864,9 +864,37 @@ body {
     text-align: center;
 }
 
-
-
 .w-15 {
     width: 15%;
     flex-shrink: 0;
+}
+
+/* --- Dynamic Inline Styles Replacements --- */
+
+.user-location-icon {
+    background: #34A853;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 0 8px rgba(52, 168, 83, 0.6);
+}
+
+.shutdown-screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+    font-family: sans-serif;
+}
+
+.cluster-icon-inner {
+    border-radius: 50%;
+    background: #4285f4;
+    color: white;
+    text-align: center;
+    font-weight: bold;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
