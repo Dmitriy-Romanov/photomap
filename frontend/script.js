@@ -301,7 +301,9 @@ function createPopupContent(photo) {
             <img src="${photo.url}"
                  onerror="this.src='${photo.fallback_url}'"
                  alt="${photo.filename}" />
-            <div class="filename popup-filename" data-tooltip="${photo.file_path}">${filename}</div>
+            <div class="filename popup-filename" data-tooltip="${photo.file_path}" onclick="revealFileInExplorer('${photo.file_path}')" style="cursor: pointer;">
+                📁 ${filename}
+            </div>
             <div class="datetime">${formattedDateTime}</div>
         </div>
     `;
@@ -1648,3 +1650,31 @@ console.log('📚 Loaded Libraries:');
 console.log('  - Leaflet:', L.version || 'unknown');
 console.log('  - Leaflet.markercluster:', L.MarkerClusterGroup ? '✅ loaded' : '❌ not loaded');
 console.log('  - Leaflet.heat:', L.heatLayer ? '✅ loaded' : '❌ not loaded');
+
+// Reveal file in system explorer
+async function revealFileInExplorer(filePath) {
+    try {
+        const response = await fetch('/api/reveal-file', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(filePath)
+        });
+
+        const result = await response.json();
+        if (result.status === 'success') {
+            console.log('✅ File revealed in explorer');
+        } else {
+            console.error('❌ Failed to reveal file');
+        }
+    } catch (error) {
+        console.error('Error revealing file:', error);
+    }
+}
+
+// Log loaded library versions for debugging
+console.log('📚 Loaded Libraries:');
+console.log('  - Leaflet:', L.version || 'unknown');
+console.log('  - Marker Cluster:', typeof L.markerClusterGroup !== 'undefined' ? 'loaded' : 'not loaded');
+console.log('  - Heatmap:', typeof L.heatLayer !== 'undefined' ? 'loaded' : 'not loaded');

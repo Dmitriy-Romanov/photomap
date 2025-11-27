@@ -683,3 +683,63 @@ pub async fn select_folder_dialog(
         Ok(Json(response))
     }
 }
+
+/// Reveal photo in system file manager
+pub async fn reveal_file(
+    Json(file_path): Json<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    use std::process::Command;
+    
+    println!("📁 Reveal in explorer: {}", file_path);
+    
+    let result = {
+        #[cfg(target_os = "windows")]
+        {
+            Command::new("explorer")
+                .arg("/select,")
+                .arg(&file_path)
+                .spawn()
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            Command::new("open")
+                .arg("-R")
+                .arg(&file_path)
+                .spawn()
+        }
+        
+        #[cfg(target_os = "linux")]
+        {
+            // Try nautilus first (GNOME), fallback to xdg-open
+            Command::new("nautilus")
+                .arg("--select")
+                .arg(&file_path)
+                .spawn()
+                .or_else(|_| {
+                    // Fallback: open containing directory
+                    use std::path::Path;
+                    let parent = Path::new(&file_path).parent()
+                        .and_then(|p| p.to_str())
+                        .unwrap_or(&file_path);
+                    Command::new("xdg-open")
+                        .arg(parent)
+                        .spawn()
+                })
+        }
+    };
+    
+    match result {
+        Ok(_) => {
+            println!("✅ Opened file manager");
+            Ok(Json(serde_json::json!({
+                "status": "success",
+                "message": "File revealed in explorer"
+            })))
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to open file manager: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}

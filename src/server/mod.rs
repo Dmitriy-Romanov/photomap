@@ -17,8 +17,8 @@ use self::state::AppState;
 use self::handlers::{
     convert_heic, get_all_photos, get_gallery_image, get_marker_image, get_popup_image,
     get_settings, get_thumbnail_image, index_html, initiate_processing,
-    processing_events_stream, reprocess_photos, script_js, select_folder_dialog, serve_photo,
-    set_folder, shutdown_app, style_css, update_settings,
+    processing_events_stream, reprocess_photos, reveal_file, script_js, select_folder_dialog,
+    serve_photo, set_folder, shutdown_app, style_css, update_settings,
 };
 
 // Create the main application router
@@ -40,6 +40,7 @@ async fn create_app(state: AppState) -> Router {
         .route("/api/events", get(processing_events_stream))
         .route("/api/initiate-processing", post(initiate_processing))
         .route("/api/reprocess", axum::routing::post(reprocess_photos))
+        .route("/api/reveal-file", post(reveal_file))
         .route("/api/shutdown", post(shutdown_app))
         .route("/photos/*filepath", get(serve_photo))
         .layer(
