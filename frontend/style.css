@@ -84,15 +84,17 @@ body {
 }
 
 .photo-popup .filename {
-    font-weight: bold;
+    font-weight: 600;
+    color: #374151;
     margin: 4px 0;
-    font-size: 0.9em;
+    font-size: 15px;
+    /* Match gallery base size */
 }
 
 .photo-popup .datetime {
-    color: #666;
+    color: #6b7280;
     margin: 4px 0;
-    font-size: 0.8em;
+    font-size: 14px;
 }
 
 /* Compact popup for user location marker */
@@ -902,13 +904,15 @@ body {
 /* Custom tooltip for folder paths */
 .folder-tooltip {
     position: absolute;
-    background: #fffacd;  /* Pale yellow */
+    background: #fffacd;
+    /* Pale yellow */
     color: #000;
     padding: 8px 12px;
     border-radius: 4px;
     font-size: 14px;
     font-weight: normal;
-    white-space: pre-line;  /* Respect \n line breaks */
+    white-space: pre-line;
+    /* Respect \n line breaks */
     max-width: 600px;
     border: 1px solid #ccc;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
