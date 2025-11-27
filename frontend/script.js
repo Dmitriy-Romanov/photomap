@@ -556,8 +556,11 @@ async function loadSettings() {
                 if (input) {
                     if (folders.length > 1) {
                         input.value = `Multiple folders (${folders.length})`;
+                        // Add tooltip with all folder paths
+                        input.title = folders.join('\n');
                     } else {
                         input.value = folders[0];
+                        input.title = folders[0];
                     }
                 }
 
@@ -971,9 +974,12 @@ async function openFolderDialog() {
             const folders = result.folder_paths || [];
             if (folders.length > 1) {
                 folderInput.value = `Multiple folders (${folders.length})`;
+                // Add tooltip with all folder paths
+                folderInput.title = folders.join('\n');
                 showNotification(`✅ ${folders.length} folders selected`, 'success');
             } else if (folders.length === 1) {
                 folderInput.value = folders[0];
+                folderInput.title = folders[0];
                 showNotification('✅ Folder selected', 'success');
             }
 
