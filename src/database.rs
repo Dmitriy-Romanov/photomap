@@ -128,11 +128,17 @@ impl Database {
     pub fn load_from_disk(&self, expected_paths: &[String]) -> Result<bool> {
         let app_dir = crate::utils::get_app_data_dir();
         
-        // Clean up old cache file (TODO: remove this in future versions)
+        // Clean up old files (TODO: remove this in future versions)
         let old_cache_path = app_dir.join("photos.bin");
         if old_cache_path.exists() {
             eprintln!("🗑️  Removing old cache format (photos.bin)");
             let _ = std::fs::remove_file(&old_cache_path);
+        }
+        
+        let old_db_path = app_dir.join("photos.db");
+        if old_db_path.exists() {
+            eprintln!("🗑️  Removing old SQLite database (photos.db)");
+            let _ = std::fs::remove_file(&old_db_path);
         }
         
         // Use new versioned cache filename
