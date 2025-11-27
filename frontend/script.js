@@ -280,7 +280,8 @@ function createPhotoIcon(photo, useThumbnail = false) {
     });
 }
 
-function createPopupContent(photo) {
+// Helper to format photo data for display
+function formatPhotoData(photo) {
     // Format datetime: "YYYY-MM-DD HH:MM:SS" -> "Photo shooted: DD-MM-YYYY HH:MM:SS"
     let formattedDateTime = photo.datetime;
     if (photo.datetime) {
@@ -296,14 +297,41 @@ function createPopupContent(photo) {
     // Extract filename from full path (support both / and \ for Windows)
     const filename = photo.file_path.split(/[\/\\]/).pop() || photo.file_path;
 
+    // Generate HTML for filename with tooltip and click handler
+    const filenameHtml = `
+        <div class="filename popup-filename" data-tooltip="${photo.file_path}" onclick="revealFileInExplorer('${photo.file_path}')" style="cursor: pointer;">
+            📁 ${filename}
+        </div>
+    `;
+
+    // For gallery detail view (uses span instead of div for innerHTML injection)
+    const filenameHtmlSpan = `
+        <span class="popup-filename" data-tooltip="${photo.file_path}" 
+              onclick="revealFileInExplorer('${photo.file_path}')" 
+              style="cursor: pointer;">
+            📁 ${filename}
+        </span>
+    `;
+
+    return {
+        formattedDateTime,
+        filename,
+        filenameHtml,
+        filenameHtmlSpan
+    };
+}
+
+
+
+function createPopupContent(photo) {
+    const { formattedDateTime, filenameHtml } = formatPhotoData(photo);
+
     return `
         <div class="photo-popup">
             <img src="${photo.url}"
                  onerror="this.src='${photo.fallback_url}'"
                  alt="${photo.filename}" />
-            <div class="filename popup-filename" data-tooltip="${photo.file_path}" onclick="revealFileInExplorer('${photo.file_path}')" style="cursor: pointer;">
-                📁 ${filename}
-            </div>
+            ${filenameHtml}
             <div class="datetime">${formattedDateTime}</div>
         </div>
     `;
@@ -366,43 +394,10 @@ function addMarkers() {
     });
 }
 
-function updateStatistics() {
-    const totalPhotos = photoData.length;
+// ... (rest of the file until showPhotoInGallery)
 
-    // Calculate visible photos by counting markers within current map bounds
-    const bounds = map.getBounds();
-    let visiblePhotos = 0;
+// Show specific photo in Detail View
 
-    markerClusterGroup.eachLayer(function (layer) {
-        const layerBounds = layer.getBounds ? layer.getBounds() : null;
-
-        if (layerBounds && bounds.intersects(layerBounds)) {
-            // Layer (cluster or marker) is within current view
-            if (layer.getChildCount) {
-                // It's a cluster - count all markers in it
-                visiblePhotos += layer.getChildCount();
-            } else {
-                // It's a single marker
-                visiblePhotos++;
-            }
-        } else if (!layerBounds && layer.getLatLng) {
-            // Single marker without bounds - check if its position is in view
-            const latlng = layer.getLatLng();
-            if (bounds.contains(latlng)) {
-                visiblePhotos++;
-            }
-        }
-    });
-
-    // Update experimental panel stats
-    const expTotal = document.getElementById('exp-total-photos');
-    const expVisible = document.getElementById('exp-visible-photos');
-
-    if (expTotal) expTotal.textContent = totalPhotos;
-    if (expVisible) expVisible.textContent = visiblePhotos;
-
-    console.log('Statistics updated - Total:', totalPhotos, 'Visible:', visiblePhotos);
-}
 
 
 
@@ -1389,33 +1384,14 @@ function showPhotoInGallery(photo) {
     const detailFilename = document.getElementById('cluster-detail-filename');
     const detailDate = document.getElementById('cluster-detail-date');
 
-    // Format datetime same as popup
-    let formattedDateTime = photo.datetime;
-    if (photo.datetime) {
-        const parts = photo.datetime.split(' ');
-        if (parts.length === 2) {
-            const dateParts = parts[0].split('-');
-            if (dateParts.length === 3) {
-                formattedDateTime = `Photo shooted: ${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}`;
-            }
-        }
-    }
-
-    // Extract filename (support both / and \\ for Windows)
-    const filename = photo.file_path.split(/[\/\\]/).pop() || photo.file_path;
+    const { formattedDateTime, filenameHtmlSpan } = formatPhotoData(photo);
 
     // Update content
     detailImg.src = photo.url;
     detailImg.onerror = () => { detailImg.src = photo.fallback_url; };
 
     // Use formatted filename with folder icon and tooltip
-    detailFilename.innerHTML = `
-        <span class="popup-filename" data-tooltip="${photo.file_path}" 
-              onclick="revealFileInExplorer('${photo.file_path}')" 
-              style="cursor: pointer;">
-            📁 ${filename}
-        </span>
-    `;
+    detailFilename.innerHTML = filenameHtmlSpan;
     detailDate.textContent = formattedDateTime;
 
     // Switch views
