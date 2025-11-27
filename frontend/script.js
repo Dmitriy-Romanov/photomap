@@ -1499,35 +1499,12 @@ function drawPolylines() {
 
         const latlngs = dayPhotos.map(p => [p.lat, p.lng]);
 
-        const line = L.polyline(latlngs, {
+        L.polyline(latlngs, {
             color: '#3388ff',
             weight: 3,
             opacity: 0.7,
             dashArray: '5, 10'
         }).addTo(routesLayerGroup);
-
-        // Add direction arrows at midpoints of segments
-        for (let i = 0; i < latlngs.length - 1; i++) {
-            const start = latlngs[i];
-            const end = latlngs[i + 1];
-
-            // Midpoint
-            const midLat = (start[0] + end[0]) / 2;
-            const midLng = (start[1] + end[1]) / 2;
-
-            // Calculate angle for rotation
-            const angle = Math.atan2(end[0] - start[0], end[1] - start[1]) * 180 / Math.PI;
-
-            // Create arrow marker
-            const arrowIcon = L.divIcon({
-                html: `<div style="transform: rotate(${angle}deg); width: 16px; height: 16px; color: #3388ff; font-size: 16px; text-shadow: 0 0 3px white;">▶</div>`,
-                className: 'route-arrow',
-                iconSize: [16, 16],
-                iconAnchor: [8, 8]
-            });
-
-            L.marker([midLat, midLng], { icon: arrowIcon }).addTo(routesLayerGroup);
-        }
     });
 }
 
