@@ -695,8 +695,15 @@ pub async fn reveal_file(
     let result = {
         #[cfg(target_os = "windows")]
         {
+            // Ensure backslashes for Windows path
+            let clean_path = file_path.replace("/", "\\");
+            
+            // Pass /select, and path as separate arguments.
+            // This results in: explorer /select, "C:\Path With Spaces\file.jpg"
+            // If we combine them, Rust quotes the whole thing: "/select,C:\..." which fails.
             Command::new("explorer")
-                .arg(format!("/select,{}", file_path))
+                .arg("/select,")
+                .arg(clean_path)
                 .spawn()
         }
         
