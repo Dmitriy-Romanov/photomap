@@ -155,13 +155,17 @@ return pathList
                     }
 
                     public class Dialog {
+                        [DllImport("user32.dll")]
+                        private static extern IntPtr GetForegroundWindow();
+
                         public static string[] Show() {
                             var dialog = (IFileOpenDialog)new FileOpenDialog();
                             dialog.SetOptions(0x260);
                             dialog.SetTitle("Select photo folders (Ctrl+Click for multiple)");
 
                             try {
-                                dialog.Show(IntPtr.Zero);
+                                IntPtr hwnd = GetForegroundWindow();
+                                dialog.Show(hwnd);
                                 
                                 IShellItemArray results;
                                 dialog.GetResults(out results);
