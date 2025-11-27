@@ -116,7 +116,7 @@ impl Database {
         
         let app_dir = crate::utils::get_app_data_dir();
         crate::utils::ensure_directory_exists(&app_dir)?;
-        let cache_path = app_dir.join("photos.bin");
+        let cache_path = app_dir.join("photos_v1.bin");  // New versioned filename
         
         let file = std::fs::File::create(cache_path)?;
         bincode::serialize_into(file, &cache)?;
@@ -127,7 +127,16 @@ impl Database {
     /// Load database state from disk if source paths match (100%)
     pub fn load_from_disk(&self, expected_paths: &[String]) -> Result<bool> {
         let app_dir = crate::utils::get_app_data_dir();
-        let cache_path = app_dir.join("photos.bin");
+        
+        // Clean up old cache file (TODO: remove this in future versions)
+        let old_cache_path = app_dir.join("photos.bin");
+        if old_cache_path.exists() {
+            eprintln!("🗑️  Removing old cache format (photos.bin)");
+            let _ = std::fs::remove_file(&old_cache_path);
+        }
+        
+        // Use new versioned cache filename
+        let cache_path = app_dir.join("photos_v1.bin");
         
         if !cache_path.exists() {
             return Ok(false);
