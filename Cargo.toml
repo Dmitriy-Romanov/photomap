@@ -30,6 +30,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bincode = "1.3"  # Used for database cache serialization
 
+[target.'cfg(windows)'.dependencies]
+rfd = "0.15"  # Native file dialogs with multi-select support (Windows only)
+
 
 [profile.release]
 opt-level = "z"     # Optimize for size instead of speed

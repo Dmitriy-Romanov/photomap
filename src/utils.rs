@@ -59,7 +59,7 @@ use std::process::Command;
 use std::env;
 
 /// Select multiple folders using native OS dialogs (max 5)
-/// Returns a vector of selected folder paths
+/// Returns a vector of selected folder paths (deduplicated)
 pub fn select_folders_native() -> Vec<String> {
     let os = env::consts::OS;
     let mut folders = Vec::new();
@@ -94,8 +94,24 @@ return pathList
             }
         },
         "windows" => {
-            // Windows: FolderBrowserDialog doesn't support multi-select
-            // Solution: Multiple dialog calls with option to add more
+            // Windows: Use rfd for native multi-select support
+            #[cfg(windows)]
+            {
+                use rfd::FileDialog;
+                
+                if let Some(paths) = FileDialog::new()
+                    .set_title("Select photo folders (max 5, Ctrl+Click for multiple)")
+                    .pick_folders()
+                {
+                    folders = paths
+                        .into_iter()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .take(5)
+                        .collect();
+                }
+            }
+            
+            /* OLD PowerShell implementation (sequential dialogs, kept for reference)
             let mut attempt = 0;
             while attempt < 5 {
                 let prompt = if folders.is_empty() {
@@ -149,6 +165,7 @@ return pathList
                     break;
                 }
             }
+            */
         },
         "linux" => {
             // Linux: Use zenity with --multiple flag
@@ -174,7 +191,15 @@ return pathList
         _ => {}
     }
     
-    folders
+    // Deduplicate folders (in case user selected same folder multiple times)
+    let mut unique_folders = Vec::new();
+    for folder in folders {
+        if !unique_folders.contains(&folder) {
+            unique_folders.push(folder);
+        }
+    }
+    
+    unique_folders
 }
 
 /// Opens the specified URL in the default browser using native commands
