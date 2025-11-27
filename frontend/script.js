@@ -1236,7 +1236,7 @@ function getItemsPerPage() {
     const THUMBNAIL_HEIGHT = THUMBNAIL_SIZE + THUMBNAIL_GAP;  // Total vertical space per thumbnail
 
     // Modal overhead (header + padding + pagination + margins)
-    const MODAL_OVERHEAD = 360;  // Total vertical space used by modal chrome (tested value)
+    const MODAL_OVERHEAD = 340;  // Total vertical space used by modal chrome (tested value)
 
     // Determine rows based on available height
     const availableHeight = height - MODAL_OVERHEAD;
