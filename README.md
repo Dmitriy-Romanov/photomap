@@ -2,13 +2,13 @@
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.9.3)
+## ✨ Latest Improvements (v0.9.4)
 
+- **Windows Integration**: Fixed "Reveal File" to correctly select files in Explorer (foreground window, correct path handling)
+- **Frontend Refactoring**: Major code cleanup in `script.js` - split into logical controllers (Data, Map, UI)
+- **Bug Fixes**: Fixed path escaping issues on Windows, unified popup styling
 - **Multi-Folder Support**: Select and process up to 5 photo folders simultaneously with native OS dialogs
 - **Smart Cache v1**: Automatic cleanup of incompatible cache files, prevents crashes from format changes
-- **Improved UX**: Better Windows folder selection prompts ("Add folder 2? (Cancel = Done)")
-- **Code Cleanup**: Removed all legacy single-folder code, eliminated warnings
-- **Bug Fixes**: Fixed database clearing, frontend settings loading, SSE events after reprocessing
 
 ## 🚀 Quick Start
 
@@ -63,6 +63,13 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.9.3 - Multi-Folder & Smart Cache
+- **Multi-Folder Support**: Select and process up to 5 photo folders simultaneously with native OS dialogs
+- **Smart Cache v1**: Automatic cleanup of incompatible cache files, prevents crashes from format changes
+- **Improved UX**: Better Windows folder selection prompts ("Add folder 2? (Cancel = Done)")
+- **Code Cleanup**: Removed all legacy single-folder code, eliminated warnings
+- **Bug Fixes**: Fixed database clearing, frontend settings loading, SSE events after reprocessing
 
 ### v0.9.1 - UI Polish & Smooth Zoom
 - **Smooth Scroll Zoom**: Configured Leaflet with half-zoom steps (0.5) and reduced sensitivity for precise, comfortable navigation

@@ -28,6 +28,7 @@ temp_*
 
 # Private documentation
 AI_WORKFLOW.md
+GEMINI.md
 
 # Exif Parser Test
 exif_parser_test/target/
