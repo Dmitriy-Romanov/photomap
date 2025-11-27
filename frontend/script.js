@@ -547,9 +547,29 @@ async function loadSettings() {
         const response = await fetch('/api/settings');
         const settings = await response.json();
 
-        if (settings.last_folder) {
+        // Load folders from settings (new multi-folder support)
+        if (settings.folders && Array.isArray(settings.folders)) {
+            const folders = settings.folders.filter(f => f !== null && f !== "");
+
+            if (folders.length > 0) {
+                const input = document.getElementById('exp-folder-input');
+                if (input) {
+                    if (folders.length > 1) {
+                        input.value = `Multiple folders (${folders.length})`;
+                    } else {
+                        input.value = folders[0];
+                    }
+                }
+
+                // Store folders for processing
+                window.selectedFolders = folders;
+                console.log(`Loaded ${folders.length} folder(s) from settings:`, folders);
+            }
+        } else if (settings.last_folder) {
+            // Backward compatibility with old single folder
             const input = document.getElementById('exp-folder-input');
             if (input) input.value = settings.last_folder;
+            window.selectedFolders = [settings.last_folder];
         }
 
         // Set browser autostart toggle
@@ -947,8 +967,18 @@ async function openFolderDialog() {
         const result = await response.json();
 
         if (result.status === 'success') {
-            folderInput.value = result.folder_path;
-            showNotification('✅ Folder selected', 'success');
+            // Backend returns folder_paths array
+            const folders = result.folder_paths || [];
+            if (folders.length > 1) {
+                folderInput.value = `Multiple folders (${folders.length})`;
+                showNotification(`✅ ${folders.length} folders selected`, 'success');
+            } else if (folders.length === 1) {
+                folderInput.value = folders[0];
+                showNotification('✅ Folder selected', 'success');
+            }
+
+            // Store folders array for processing
+            window.selectedFolders = folders;
 
             // Auto-start processing
             console.log('Auto-starting processing...');
@@ -984,13 +1014,16 @@ async function processFolder() {
     try {
         showNotification('⏳ Processing started...', 'info');
 
-        // Step 1: Send folder path to server
+        // Step 1: Send folder paths to server (supports both single and multiple)
+        // If we have selectedFolders from dialog, use that; otherwise use single path
+        const foldersToSend = window.selectedFolders || [folderPath];
+
         const response = await fetch('/api/set-folder', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ folder_path: folderPath })
+            body: JSON.stringify({ folder_paths: foldersToSend })  // Send full array
         });
 
         const result = await response.json();
@@ -1006,8 +1039,8 @@ async function processFolder() {
 
         eventSource.onopen = async function () {
             showNotification('✅ SSE connection established', 'success');
-            // Step 3: Initiate processing
-            const processResponse = await fetch('/api/initiate-processing', {
+            // Step 3: Reprocess (clears DB and processes folders)
+            const processResponse = await fetch('/api/reprocess', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1170,11 +1203,52 @@ markerClusterGroup.on('clusterclick', function (a) {
     }
 });
 
+// Calculate items per page based on screen size (both width and height)
+function getItemsPerPage() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // Determine columns based on width
+    let columns;
+    if (width >= 1400) {
+        columns = 7;
+    } else if (width >= 1100) {
+        columns = 6;
+    } else if (width >= 900) {
+        columns = 5;
+    } else if (width >= 650) {
+        columns = 4;
+    } else if (width >= 400) {
+        columns = 3;
+    } else {
+        columns = 2;
+    }
+
+    // Thumbnail dimensions (CSS: .cluster-thumbnail with aspect-ratio: 1)
+    const THUMBNAIL_SIZE = 120;  // Base size in pixels (square)
+    const THUMBNAIL_GAP = 12;    // Gap between thumbnails (CSS: gap: 12px)
+    const THUMBNAIL_HEIGHT = THUMBNAIL_SIZE + THUMBNAIL_GAP;  // Total vertical space per thumbnail
+
+    // Modal overhead (header + padding + pagination + margins)
+    const MODAL_OVERHEAD = 360;  // Total vertical space used by modal chrome (tested value)
+
+    // Determine rows based on available height
+    const availableHeight = height - MODAL_OVERHEAD;
+    const maxRows = Math.max(2, Math.floor(availableHeight / THUMBNAIL_HEIGHT));
+
+    // Limit rows to reasonable range (2-6)
+    const rows = Math.min(6, maxRows);
+
+    return columns * rows;
+}
+
 // Gallery State
 let galleryState = {
     photos: [],
     currentPage: 1,
-    itemsPerPage: 28
+    get itemsPerPage() {
+        return getItemsPerPage();
+    }
 };
 
 // Open the cluster gallery modal
@@ -1295,7 +1369,7 @@ function showPhotoInGallery(photo) {
     // Update content
     detailImg.src = photo.url;
     detailImg.onerror = () => { detailImg.src = photo.fallback_url; };
-    detailFilename.textContent = photo.filename;
+    detailFilename.textContent = photo.file_path;
     detailDate.textContent = photo.datetime;
 
     // Switch views
@@ -1427,6 +1501,26 @@ function drawPolylines() {
         }).addTo(routesLayerGroup);
     });
 }
+
+// Handle window resize for responsive gallery pagination
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        // Re-render gallery if it's open and has photos
+        if (galleryState.photos.length > 0) {
+            const modal = document.getElementById('cluster-modal');
+            if (modal && !modal.classList.contains('hidden')) {
+                // Recalculate current page to avoid out-of-bounds
+                const totalPages = Math.ceil(galleryState.photos.length / galleryState.itemsPerPage);
+                if (galleryState.currentPage > totalPages) {
+                    galleryState.currentPage = totalPages;
+                }
+                renderGalleryPage(galleryState.currentPage);
+            }
+        }
+    }, 250);  // Debounce: wait 250ms after resize stops
+});
 
 // Log loaded library versions for debugging
 console.log('📚 Loaded Libraries:');

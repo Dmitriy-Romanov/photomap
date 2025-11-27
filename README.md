@@ -1,15 +1,14 @@
-# PhotoMap Processor v0.9.2
+# PhotoMap Processor v0.9.3
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.9.2)
+## ✨ Latest Improvements (v0.9.3)
 
-- **Thumbnail Optimization**: Reduced map marker thumbnails from 240px to 120px (75% less data, ~60-70% faster page loads)
-- **Gallery Quality**: Separate 240px thumbnails for gallery modal to maintain visual quality
-- **Settings Persistence**: All toggle states (Map coord, Routes, Heatmap, Browser autostart) now save on app close
-- **Year Filter Fix**: Corrected validation logic preventing fields from interfering with each other
-- **Smooth Zoom**: OS-specific scroll wheel zoom (macOS: 1.0 steps, Windows: 0.25 steps)
-- **Code Optimization**: Reduced binary size to 2.4MB (from 3.6MB), optimized tower-http compression
+- **Multi-Folder Support**: Select and process up to 5 photo folders simultaneously with native OS dialogs
+- **Smart Cache v1**: Automatic cleanup of incompatible cache files, prevents crashes from format changes
+- **Improved UX**: Better Windows folder selection prompts ("Add folder 2? (Cancel = Done)")
+- **Code Cleanup**: Removed all legacy single-folder code, eliminated warnings
+- **Bug Fixes**: Fixed database clearing, frontend settings loading, SSE events after reprocessing
 
 ## 🚀 Quick Start
 
@@ -33,7 +32,7 @@ A modern, high-performance photo mapping application with SQLite database storag
     ./target/release/photomap_processor
     ```
 4.  **Open the map** in your browser at [http://127.0.0.1:3001](http://127.0.0.1:3001).
-5.  **Select a folder** with photos to start processing.
+5.  **Select folders** with photos to start processing (up to 5 folders).
 
 ## 📁 Project Structure
 

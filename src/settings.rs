@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
-    pub last_folder: Option<String>,
+    pub folders: [Option<String>; 5],  // Maximum 5 folder paths
     pub start_browser: bool,
     pub top: i32,
     pub left: i32,
@@ -19,7 +19,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            last_folder: None,
+            folders: [None, None, None, None, None],
             start_browser: true,
             top: 12,
             left: 52,
@@ -55,8 +55,23 @@ impl Settings {
             }
         }
 
+        // Load folders (path1-path5)
+        for i in 0..5 {
+            let key = format!("path{}", i + 1);
+            if let Some(path) = config_map.get(&key) {
+                let trimmed = path.trim_matches('"').trim();
+                if !trimmed.is_empty() {
+                    settings.folders[i] = Some(trimmed.to_string());
+                }
+            }
+        }
+        
+        // Backward compatibility: migrate last_folder to path1
         if let Some(last_folder) = config_map.get("last_folder") {
-            settings.last_folder = Some(last_folder.trim_matches('"').to_string());
+            let trimmed = last_folder.trim_matches('"').trim();
+            if !trimmed.is_empty() && settings.folders[0].is_none() {
+                settings.folders[0] = Some(trimmed.to_string());
+            }
         }
         
         if let Some(start_browser) = config_map.get("start_browser") {
@@ -127,8 +142,10 @@ impl Settings {
         let mut content = String::new();
         content.push_str("# PhotoMap Configuration File\n");
 
-        if let Some(ref last_folder) = self.last_folder {
-            content.push_str(&format!("last_folder = \"{}\"\n", last_folder));
+        // Save folders as path1-path5
+        for (i, folder) in self.folders.iter().enumerate() {
+            let value = folder.as_deref().unwrap_or("");
+            content.push_str(&format!("path{} = \"{}\"\n", i + 1, value));
         }
         
         content.push_str(&format!("start_browser = {}\n", self.start_browser));

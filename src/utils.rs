@@ -58,82 +58,123 @@ pub fn get_config_path() -> PathBuf {
 use std::process::Command;
 use std::env;
 
-pub fn select_folder_native() -> Option<String> {
+/// Select multiple folders using native OS dialogs (max 5)
+/// Returns a vector of selected folder paths
+pub fn select_folders_native() -> Vec<String> {
     let os = env::consts::OS;
+    let mut folders = Vec::new();
 
     match os {
         "macos" => {
-            // MacOS: Use AppleScript via osascript
-            // This creates a native Finder window without blocking the main server thread
-            let script = "return POSIX path of (choose folder with prompt \"Select photo folder\")";
-            let output = Command::new("osascript")
+            // MacOS: AppleScript can select multiple items at once!
+            let script = r#"
+set folderList to choose folder with prompt "Select photo folders (max 5, Cmd+Click for multiple)" with multiple selections allowed
+set pathList to {}
+repeat with aFolder in folderList
+    set end of pathList to POSIX path of aFolder
+end repeat
+return pathList
+"#;
+            
+            if let Ok(output) = Command::new("osascript")
                 .arg("-e")
                 .arg(script)
                 .output()
-                .ok()?;
-
-            if output.status.success() {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path.is_empty() {
-                    return Some(path);
+            {
+                if output.status.success() {
+                    let paths_str = String::from_utf8_lossy(&output.stdout);
+                    // AppleScript returns comma-separated paths
+                    folders = paths_str
+                        .split(", ")
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .take(5)  // Limit to 5
+                        .collect();
                 }
             }
         },
         "windows" => {
-            // Windows: Use PowerShell and .NET (System.Windows.Forms)
-            // Works on any Windows 7/10/11 without installing extra software
-            let script = r#"
-                [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-                Add-Type -AssemblyName System.Windows.Forms
+            // Windows: FolderBrowserDialog doesn't support multi-select
+            // Solution: Multiple dialog calls with option to add more
+            let mut attempt = 0;
+            while attempt < 5 {
+                let prompt = if folders.is_empty() {
+                    "Select folder 1 (max 5)".to_string()
+                } else {
+                    format!("Add folder {}? (Cancel = Done)", folders.len() + 1)
+                };
                 
-                $dummy = New-Object System.Windows.Forms.Form
-                $dummy.TopMost = $true
-                $dummy.StartPosition = "CenterScreen"
-                $dummy.Opacity = 0
-                $dummy.ShowInTaskbar = $false
-                $dummy.Show()
-                $dummy.Activate()
+                let script = format!(r#"
+                    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+                    Add-Type -AssemblyName System.Windows.Forms
+                    
+                    $dummy = New-Object System.Windows.Forms.Form
+                    $dummy.TopMost = $true
+                    $dummy.StartPosition = "CenterScreen"
+                    $dummy.Opacity = 0
+                    $dummy.ShowInTaskbar = $false
+                    $dummy.Show()
+                    $dummy.Activate()
+                    
+                    $f = New-Object System.Windows.Forms.FolderBrowserDialog
+                    $f.Description = "{}"
+                    $f.ShowNewFolderButton = $true
+                    
+                    if ($f.ShowDialog($dummy) -eq "OK") {{ Write-Host $f.SelectedPath }}
+                    
+                    $dummy.Close()
+                    $dummy.Dispose()
+                "#, prompt);
                 
-                $f = New-Object System.Windows.Forms.FolderBrowserDialog
-                $f.Description = "Select photo folder"
-                $f.ShowNewFolderButton = $true
-                
-                if ($f.ShowDialog($dummy) -eq "OK") { Write-Host $f.SelectedPath }
-                
-                $dummy.Close()
-                $dummy.Dispose()
-            "#;
-            
-            let output = Command::new("powershell")
-                .arg("-Sta") // Required for System.Windows.Forms
-                .arg("-NoProfile") // Speeds up startup
-                .arg("-Command")
-                .arg(script)
-                .output()
-                .ok()?;
-
-            if output.status.success() {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path.is_empty() {
-                    return Some(path);
+                if let Ok(output) = Command::new("powershell")
+                    .arg("-Sta")
+                    .arg("-NoProfile")
+                    .arg("-Command")
+                    .arg(&script)
+                    .output()
+                {
+                    if output.status.success() {
+                        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                        if !path.is_empty() {
+                            folders.push(path);
+                            attempt += 1;
+                        } else {
+                            // User cancelled
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
                 }
             }
         },
         "linux" => {
-            // Linux: Try zenity or kdialog (standard utilities)
-            // ...
-            // Can add fallback to kdialog if needed
-            if let Ok(output) = Command::new("zenity").arg("--file-selection").arg("--directory").output() {
+            // Linux: Use zenity with --multiple flag
+            if let Ok(output) = Command::new("zenity")
+                .arg("--file-selection")
+                .arg("--directory")
+                .arg("--multiple")
+                .arg("--separator=|")
+                .arg("--title=Select photo folders (max 5)")
+                .output()
+            {
                 if output.status.success() {
-                    return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                    let paths_str = String::from_utf8_lossy(&output.stdout);
+                    folders = paths_str
+                        .split('|')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .take(5)
+                        .collect();
                 }
             }
-            // Можно добавить fallback на kdialog, если нужно
         },
         _ => {}
     }
     
-    None
+    folders
 }
 
 /// Opens the specified URL in the default browser using native commands

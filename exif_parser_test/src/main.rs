@@ -151,7 +151,7 @@ fn main() -> Result<()> {
     // Copy failed files to 'JPG for checks' directory
     if count_failures > 0 {
         println!("\n📋 Copying failed files to 'JPG for checks' directory...");
-        let target_dir = PathBuf::from("/Users/dmitriiromanov/claude/photomap/exif_parser_test/JPG for checks");
+        let target_dir = PathBuf::from("JPG for checks");
         
         // Create target directory if it doesn't exist
         std::fs::create_dir_all(&target_dir)
@@ -287,14 +287,38 @@ fn extract_single_gps_coord(exif_data: &exif::Exif, coord_tag: exif::Tag, ref_ta
     }
     
     // Fallback: Search through ALL fields to find GPS data
-    // Some cameras (like Samsung) may store GPS in different IFDs
+    // Some cameras (like Samsung) may store GPS in different IFDs or use SRational instead of Rational
     for field in exif_data.fields() {
         if field.tag == coord_tag {
             // Found coordinate field - now find its reference
             for ref_field in exif_data.fields() {
                 if ref_field.tag == ref_tag && ref_field.ifd_num == field.ifd_num {
                     // Found matching reference in same IFD
+                    
+                    // Try Rational (unsigned) first - most common
                     if let exif::Value::Rational(vec) = &field.value {
+                        if vec.len() == 3 {
+                            let degrees = vec[0].num as f64 / vec[0].denom as f64;
+                            let minutes = vec[1].num as f64 / vec[1].denom as f64;
+                            let seconds = vec[2].num as f64 / vec[2].denom as f64;
+                            let mut decimal = degrees + minutes / 60.0 + seconds / 3600.0;
+
+                            // Apply reference (S/W are negative values)
+                            if let exif::Value::Ascii(refs) = &ref_field.value {
+                                if let Some(s) = refs.first() {
+                                    if let Ok(s_str) = std::str::from_utf8(s) {
+                                        if s_str.starts_with('S') || s_str.starts_with('W') {
+                                            decimal = -decimal;
+                                        }
+                                    }
+                                }
+                            }
+                            return Some(decimal);
+                        }
+                    }
+                    
+                    // Try SRational (signed) - some Samsung devices use this
+                    if let exif::Value::SRational(vec) = &field.value {
                         if vec.len() == 3 {
                             let degrees = vec[0].num as f64 / vec[0].denom as f64;
                             let minutes = vec[1].num as f64 / vec[1].denom as f64;
@@ -326,6 +350,7 @@ fn try_extract_from_ifd(exif_data: &exif::Exif, coord_tag: exif::Tag, ref_tag: e
     let coord_field = exif_data.get_field(coord_tag, ifd)?;
     let ref_field = exif_data.get_field(ref_tag, ifd)?;
 
+    // Try Rational (unsigned) first - most common
     if let exif::Value::Rational(rationals) = &coord_field.value {
         if rationals.len() == 3 {
             let degrees = rationals[0].num as f64 / rationals[0].denom as f64;
@@ -345,6 +370,28 @@ fn try_extract_from_ifd(exif_data: &exif::Exif, coord_tag: exif::Tag, ref_tag: e
             return Some(decimal);
         }
     }
+    
+    // Try SRational (signed) - some Samsung devices use this
+    if let exif::Value::SRational(rationals) = &coord_field.value {
+        if rationals.len() == 3 {
+            let degrees = rationals[0].num as f64 / rationals[0].denom as f64;
+            let minutes = rationals[1].num as f64 / rationals[1].denom as f64;
+            let seconds = rationals[2].num as f64 / rationals[2].denom as f64;
+            let mut decimal = degrees + minutes / 60.0 + seconds / 3600.0;
+
+            if let exif::Value::Ascii(refs) = &ref_field.value {
+                if let Some(s) = refs.first() {
+                    if let Ok(s_str) = std::str::from_utf8(s) {
+                        if s_str.starts_with('S') || s_str.starts_with('W') {
+                            decimal = -decimal;
+                        }
+                    }
+                }
+            }
+            return Some(decimal);
+        }
+    }
+    
     None
 }
 

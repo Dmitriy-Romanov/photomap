@@ -80,36 +80,66 @@ async fn main() -> Result<()> {
     let settings = Arc::new(Mutex::new(Settings::load()?));
     info!("   ⚙️  Config file loaded from: {}", Settings::config_path().display());
 
-    // Process photos from last_folder if available
+    // Process photos from saved folders if available
     {
         let settings_guard = settings.lock().unwrap();
-        if let Some(ref folder_path) = settings_guard.last_folder {
-            let photos_path = Path::new(folder_path);
-            if photos_path.exists() {
-                info!("📂 Checking saved folder: {}", folder_path);
-                
-                // Try to load from cache first
-                let cache_loaded = match db.load_from_disk(folder_path) {
-                    Ok(loaded) => loaded,
-                    Err(e) => {
-                        warn!("⚠️  Failed to load cache: {}", e);
-                        false
-                    }
-                };
-
-                if cache_loaded {
-                    let count = db.get_photos_count().unwrap_or(0);
-                    info!("✅ Loaded {} photos from cache. Skipping processing.", count);
-                } else {
-                    info!("🚀 Cache miss or mismatch. Starting processing...");
-                    processing::process_photos_into_database(&db, photos_path)?;
+        
+        // Collect non-empty folder paths
+        let folder_paths: Vec<String> = settings_guard.folders
+            .iter()
+            .filter_map(|f| f.as_ref().cloned())
+            .collect();
+        
+        
+        if !folder_paths.is_empty() {
+            // Try to load from cache first
+            let cache_loaded = match db.load_from_disk(&folder_paths) {
+                Ok(loaded) => loaded,
+                Err(e) => {
+                    warn!("⚠️  Failed to load cache: {}", e);
+                    false
                 }
+            };
+            
+            if cache_loaded {
+                let count = db.get_photos_count().unwrap_or(0);
+                info!("✅ Loaded {} photos from cache (paths match)", count);
             } else {
-                warn!("⚠️  Saved folder not found: {}", folder_path);
-                warn!("   Please select a folder using the web interface");
+                info!("🚀 Cache miss or mismatch. Processing {} folder(s)...", folder_paths.len());
+                
+                // Clear database once before processing all folders
+                if let Err(e) = db.clear_all_photos() {
+                    warn!("⚠️  Failed to clear database: {}", e);
+                }
+                
+                for folder_path in &folder_paths {
+                    let photos_path = Path::new(folder_path);
+                    if !photos_path.exists() {
+                        warn!("⚠️  Saved folder not found: {}", folder_path);
+                        continue;
+                    }
+                    
+                    info!("📂 Processing saved folder: {}", folder_path);
+                    
+                    // Process without clearing (DB already cleared once above)
+                    match processing::process_photos_with_stats(&db, photos_path, false, false) {
+                        Ok(_) => {},
+                        Err(e) => warn!("⚠️  Error processing {}: {}", folder_path, e),
+                    }
+                }
+                
+                let count = db.get_photos_count().unwrap_or(0);
+                info!("✅ Total photos in database: {}", count);
+                
+                // Save to cache
+                if let Err(e) = db.save_to_disk(&folder_paths) {
+                    warn!("⚠️  Failed to save cache: {}", e);
+                } else {
+                    info!("💾 Cache saved successfully");
+                }
             }
         } else {
-            info!("ℹ️  No saved folder found. Please select a folder using the web interface");
+            info!("ℹ️  No saved folders found. Please select folders using the web interface");
         }
     } // Release the lock
 

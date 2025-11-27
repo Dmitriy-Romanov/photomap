@@ -32,7 +32,8 @@ pub struct ImageMetadata {
 // Structure for disk persistence
 #[derive(Serialize, Deserialize)]
 pub struct CachedDatabase {
-    pub source_path: String,
+    pub version: u32,  // Cache format version
+    pub source_paths: Vec<String>,  // Multiple folder paths
     pub photos: Vec<PhotoMetadata>,
 }
 
@@ -105,10 +106,11 @@ impl Database {
     }
 
     /// Save the current database state to disk using bincode
-    pub fn save_to_disk(&self, source_path: &str) -> Result<()> {
+    pub fn save_to_disk(&self, source_paths: &[String]) -> Result<()> {
         let photos = self.photos.read().unwrap();
         let cache = CachedDatabase {
-            source_path: source_path.to_string(),
+            version: 1,  // Cache format version
+            source_paths: source_paths.to_vec(),
             photos: photos.clone(),
         };
         
@@ -122,8 +124,8 @@ impl Database {
         Ok(())
     }
 
-    /// Load database state from disk if source path matches
-    pub fn load_from_disk(&self, expected_source_path: &str) -> Result<bool> {
+    /// Load database state from disk if source paths match (100%)
+    pub fn load_from_disk(&self, expected_paths: &[String]) -> Result<bool> {
         let app_dir = crate::utils::get_app_data_dir();
         let cache_path = app_dir.join("photos.bin");
         
@@ -131,13 +133,28 @@ impl Database {
             return Ok(false);
         }
         
-        let file = std::fs::File::open(cache_path)?;
+        let file = std::fs::File::open(&cache_path)?;
         let cache: CachedDatabase = match bincode::deserialize_from(file) {
             Ok(c) => c,
-            Err(_) => return Ok(false), // Corrupted or incompatible cache
+            Err(_) => {
+                // Corrupted or incompatible cache (e.g., old format without version)
+                eprintln!("⚠️  Cache format incompatible or corrupted");
+                eprintln!("🗑️  Deleting invalid cache file");
+                let _ = std::fs::remove_file(&cache_path);
+                return Ok(false);
+            }
         };
         
-        if cache.source_path != expected_source_path {
+        // Check version - delete file if mismatch
+        if cache.version != 1 {
+            eprintln!("⚠️  Cache version mismatch (found {}, expected 1)", cache.version);
+            eprintln!("🗑️  Deleting outdated cache file");
+            let _ = std::fs::remove_file(&cache_path);
+            return Ok(false);
+        }
+        
+        // Check if paths match exactly (100% match)
+        if cache.source_paths != expected_paths {
             return Ok(false);
         }
 

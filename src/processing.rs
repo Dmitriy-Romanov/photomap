@@ -181,27 +181,6 @@ pub fn process_photos_with_stats(
             avg_time_per_file_ms
         );
 
-        // Performance prediction for large collections
-        if total_files >= 100 {
-            let predicted_10k_time = (avg_time_per_file_ms * 10000.0) / 1000.0;
-            let predicted_100k_time = (avg_time_per_file_ms * 100000.0) / 1000.0;
-
-            info!("\n🔮 Performance Forecast:");
-            info!(
-                "   📊 For 10,000 photos: ~{:.1} minutes",
-                predicted_10k_time / 60.0
-            );
-            info!(
-                "   📊 For 100,000 photos: ~{:.1} minutes",
-                predicted_100k_time / 60.0
-            );
-            info!("   💡 On-demand marker generation: ~0% time at startup!");
-            info!(
-                "   💡 Disk savings: {} files not created",
-                total_files * 2
-            ); // ~2KB per saved thumbnail
-        }
-
         info!("\n🎉 Processing complete! Data stored in memory.");
         info!(
             "   🗄️  Database contains {} photos with GPS data",
@@ -210,15 +189,7 @@ pub fn process_photos_with_stats(
 
     }
 
-    // Save to disk cache (always, regardless of silent_mode)
-    if let Some(path_str) = photos_dir.to_str() {
-        // We want to log this even in silent mode if it fails, or maybe just info
-        if let Err(e) = db.save_to_disk(path_str) {
-            warn!("⚠️  Failed to save cache to disk: {}", e);
-        } else if !silent_mode {
-            info!("💾 Cache saved to disk successfully");
-        }
-    }
+    // Note: Cache is saved manually by caller (main.rs) with all folder paths
 
     Ok((
         total_files,
@@ -227,12 +198,6 @@ pub fn process_photos_with_stats(
         no_gps_count,
         heic_count,
     ))
-}
-
-/// Simplified version of the function for backward compatibility
-pub fn process_photos_into_database(db: &Database, photos_dir: &Path) -> Result<()> {
-    process_photos_with_stats(db, photos_dir, true, true)?;
-    Ok(())
 }
 
 /// Processes photos from the specified folder and sends progress events

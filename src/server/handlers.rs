@@ -17,7 +17,7 @@ use rust_embed::RustEmbed;
 #[derive(RustEmbed)]
 #[folder = "frontend/"]
 struct Asset;
-use crate::processing::{process_photos_from_directory, process_photos_into_database};
+use crate::processing::{process_photos_from_directory, process_photos_with_stats};
 
 /// Simple MIME type detection based on file extension
 fn get_mime_type(path: &std::path::Path) -> &'static str {
@@ -33,7 +33,6 @@ fn get_mime_type(path: &std::path::Path) -> &'static str {
     }
 }
 use crate::settings::Settings;
-use crate::utils::select_folder_native;
 use tokio::sync::mpsc;
 
 use super::events::{ProcessingData, ProcessingEvent};
@@ -196,7 +195,7 @@ pub async fn serve_photo(
 ) -> Result<Response, StatusCode> {
     let base_dir = {
         let settings = state.settings.lock().unwrap();
-        settings.last_folder.clone().unwrap_or_default()
+        settings.folders[0].clone().unwrap_or_default()
     };
 
     let path = std::path::Path::new(&base_dir).join(&filepath);
@@ -223,55 +222,86 @@ pub async fn get_settings(State(state): State<AppState>) -> Result<Json<Settings
     Ok(Json((*settings).clone()))
 }
 
-// API endpoint to set a folder path (receives path from browser's native dialog)
+// API endpoint to set folder path(s) - supports both single and multiple folders
 pub async fn set_folder(
     State(state): State<AppState>,
     Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    println!("🔍 Setting folder from browser dialog");
+    println!("🔍 Setting folder(s) from browser dialog");
 
-    // Extract folder_path from payload
-    let raw_folder_path = match payload.get("folder_path").and_then(|v| v.as_str()) {
-        Some(path) => path,
-        None => {
-            println!("❌ No folder_path provided");
-            let response = serde_json::json!({
-                "status": "error",
-                "message": "No folder_path provided"
-            });
-            return Ok(Json(response));
-        }
-    };
-
-    // Use the path as provided by the user
-    let folder_path = raw_folder_path.to_string();
-    let full_path = folder_path.clone();
-
-    // Validate that the folder exists
-    if !std::path::Path::new(&full_path).exists() {
-        println!("❌ Folder does not exist: {}", full_path);
+    // Try to extract folder_paths array first, then fallback to single folder_path
+    let folder_paths = if let Some(paths_array) = payload.get("folder_paths").and_then(|v| v.as_array()) {
+        // Multiple folders
+        paths_array
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect::<Vec<String>>()
+    } else if let Some(single_path) = payload.get("folder_path").and_then(|v| v.as_str()) {
+        // Single folder (backward compatibility)
+        vec![single_path.to_string()]
+    } else {
+        println!("❌ No folder_path or folder_paths provided");
         let response = serde_json::json!({
             "status": "error",
-            "message": format!("Folder does not exist: {}", full_path)
+            "message": "No folder_path or folder_paths provided"
+        });
+        return Ok(Json(response));
+    };
+
+    if folder_paths.is_empty() {
+        println!("❌ Empty folder list provided");
+        let response = serde_json::json!({
+            "status": "error",
+            "message": "Empty folder list"
         });
         return Ok(Json(response));
     }
 
+    // Limit to 5 folders
+    let folders_to_store: Vec<String> = folder_paths.into_iter().take(5).collect();
+
+    // Validate that all folders exist
+    for folder_path in &folders_to_store {
+        if !std::path::Path::new(folder_path).exists() {
+            println!("❌ Folder does not exist: {}", folder_path);
+            let response = serde_json::json!({
+                "status": "error",
+                "message": format!("Folder does not exist: {}", folder_path)
+            });
+            return Ok(Json(response));
+        }
+    }
+
+    // Store all folders in settings
     let mut settings = state.settings.lock().unwrap();
-    settings.last_folder = Some(full_path.clone());
+    
+    // Clear all slots first
+    for i in 0..5 {
+        settings.folders[i] = None;
+    }
+    
+    // Store provided folders
+    for (i, folder_path) in folders_to_store.iter().enumerate() {
+        settings.folders[i] = Some(folder_path.clone());
+        println!("  {}. {}", i + 1, folder_path);
+    }
 
     // Save to INI file
     if let Err(e) = settings.save() {
         eprintln!("Failed to save settings: {}", e);
-        // Continue without saving for now
     }
 
-    println!("✅ Folder set: {} -> {}", folder_path, full_path);
+    println!("✅ Stored {} folder(s)", folders_to_store.len());
 
     let response = serde_json::json!({
         "status": "success",
-        "folder_path": full_path,
-        "message": "Folder set successfully"
+        "folder_paths": folders_to_store,
+        "count": folders_to_store.len(),
+        "message": if folders_to_store.len() > 1 {
+            format!("{} folders set", folders_to_store.len())
+        } else {
+            "Folder set successfully".to_string()
+        }
     });
 
     Ok(Json(response))
@@ -305,33 +335,24 @@ pub async fn update_settings(
 pub async fn reprocess_photos(
     State(state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    // Get photos directory from settings
-    let photos_dir = {
+    // Get folders from settings
+    let folders_to_process = {
         let settings = state.settings.lock().unwrap();
-        if let Some(ref folder) = settings.last_folder {
-            std::path::Path::new(folder).to_path_buf()
-        } else {
-            // No folder configured
-            let response = serde_json::json!({
-                "status": "error",
-                "message": "No folder configured"
-            });
-            return Ok(Json(response));
-        }
+        settings.folders
+            .iter()
+            .filter_map(|f| f.as_ref().map(|s| std::path::Path::new(s).to_path_buf()))
+            .collect::<Vec<_>>()
     };
-
-    // Check if directory exists
-    if !photos_dir.exists() {
+    
+    if folders_to_process.is_empty() {
         let response = serde_json::json!({
             "status": "error",
-            "message": format!("Photos directory not found: {}", photos_dir.display())
+            "message": "No folders configured"
         });
         return Ok(Json(response));
     }
-
-    let photos_dir_str = photos_dir.to_string_lossy().to_string();
-
-    // Clear the database
+    
+    // Clear the database once before processing all folders
     if let Err(e) = state.db.clear_all_photos() {
         eprintln!("Failed to clear database: {}", e);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
@@ -340,30 +361,70 @@ pub async fn reprocess_photos(
     // Clone the sender for the async task
     let event_sender = state.event_sender.clone();
     let db = state.db.clone();
+    let folders_clone = folders_to_process.clone();
 
     // Start processing in background task
     tokio::spawn(async move {
-        // Use the synchronous processing function
-        if let Err(e) = process_photos_into_database(&db, &photos_dir) {
-            eprintln!("Processing error: {}", e);
-
-            // Send error event
-            let error_event = ProcessingEvent {
-                event_type: "processing_error".to_string(),
-                data: ProcessingData {
-                    message: Some(format!("Processing failed: {}", e)),
-                    phase: Some("error".to_string()),
-                    ..Default::default()
-                },
-            };
-            let _ = event_sender.send(error_event);
+        let mut total_stats = (0usize, 0usize, 0usize, 0usize, 0usize);
+        
+        for photos_dir in &folders_clone {
+            if !photos_dir.exists() {
+                eprintln!("⚠️  Folder not found: {}", photos_dir.display());
+                continue;
+            }
+            
+            // Use process_photos_with_stats with clear_database=false (DB already cleared once)
+            match process_photos_with_stats(&db, photos_dir, false, false) {
+                Ok((total_files, processed_count, gps_count, no_gps_count, heic_count)) => {
+                    // Aggregate statistics
+                    total_stats.0 += total_files;
+                    total_stats.1 += processed_count;
+                    total_stats.2 += gps_count;
+                    total_stats.3 += no_gps_count;
+                    total_stats.4 += heic_count;
+                }
+                Err(e) => {
+                    eprintln!("Processing error for {}: {}", photos_dir.display(), e);
+                    
+                    // Send error event
+                    let error_event = ProcessingEvent {
+                        event_type: "processing_error".to_string(),
+                        data: ProcessingData {
+                            message: Some(format!("Processing failed for {}: {}", photos_dir.display(), e)),
+                            phase: Some("error".to_string()),
+                            ..Default::default()
+                        },
+                    };
+                    let _ = event_sender.send(error_event);
+                }
+            }
         }
+        
+        // Send completion event with aggregated stats
+        let completion_event = ProcessingEvent {
+            event_type: "processing_complete".to_string(),
+            data: ProcessingData {
+                total_files: Some(total_stats.0),
+                processed: Some(total_stats.1),
+                gps_found: Some(total_stats.2),
+                no_gps: Some(total_stats.3),
+                heic_files: Some(total_stats.4),
+                skipped: Some(total_stats.0 - total_stats.1),
+                message: Some(format!(
+                    "Processing finished! Processed {} photos from {} folder(s)",
+                    total_stats.1, folders_clone.len()
+                )),
+                phase: Some("completed".to_string()),
+                ..Default::default()
+            },
+        };
+        let _ = event_sender.send(completion_event);
     });
 
     let response = serde_json::json!({
         "status": "started",
-        "message": "Database cleared and photo processing started",
-        "photos_directory": photos_dir_str
+        "message": format!("Database cleared and processing {} folder(s)", folders_to_process.len()),
+        "count": folders_to_process.len()
     });
 
     Ok(Json(response))
@@ -377,101 +438,108 @@ pub async fn initiate_processing(
     let event_sender = state.event_sender.clone();
     let db = state.db.clone();
 
-    // Get photos directory from settings
-    let photos_dir = {
+    // Get folders from settings
+    let folders_to_process = {
         let settings = state.settings.lock().unwrap();
-        if let Some(ref folder) = settings.last_folder {
-            std::path::Path::new(folder).to_path_buf()
-        } else {
-            // No folder configured - send error event
-            tokio::spawn(async move {
-                let error_event = ProcessingEvent {
-                    event_type: "processing_error".to_string(),
-                    data: ProcessingData {
-                        message: Some("No folder configured".to_string()),
-                        phase: Some("error".to_string()),
-                        ..Default::default()
-                    },
-                };
-                let _ = event_sender.send(error_event);
-            });
-            
-            let response = serde_json::json!({
-                "status": "error",
-                "message": "No folder configured"
-            });
-            return Ok(Json(response));
-        }
+        settings.folders
+            .iter()
+            .filter_map(|f| f.as_ref().map(|s| std::path::Path::new(s).to_path_buf()))
+            .collect::<Vec<_>>()
     };
 
-    // Check if directory exists
-    if !photos_dir.exists() {
-        // Clear the database so we don't show old photos
-        if let Err(e) = state.db.clear_all_photos() {
-            eprintln!("Failed to clear database: {}", e);
-        }
-
+    if folders_to_process.is_empty() {
         tokio::spawn(async move {
             let error_event = ProcessingEvent {
                 event_type: "processing_error".to_string(),
                 data: ProcessingData {
-                    message: Some(format!("Photos directory not found: {}", photos_dir.display())),
+                    message: Some("No folders configured".to_string()),
                     phase: Some("error".to_string()),
                     ..Default::default()
                 },
             };
             let _ = event_sender.send(error_event);
         });
-
+        
         let response = serde_json::json!({
             "status": "error",
-            "message": "Photos directory not found"
+            "message": "No folders configured"
         });
         return Ok(Json(response));
     }
 
-    // Start processing in background task
+    let folders_clone = folders_to_process.clone();
+    
+    // Start processing in background task for all folders
     tokio::spawn(async move {
-        let result = process_photos_from_directory(&db, &photos_dir);
-
-        let completion_event = match result {
-            Ok((total_files, processed_count, gps_count, no_gps_count, heic_count)) => {
-                ProcessingEvent {
-                    event_type: "processing_complete".to_string(),
-                    data: ProcessingData {
-                        total_files: Some(total_files),
-                        processed: Some(processed_count),
-                        gps_found: Some(gps_count),
-                        no_gps: Some(no_gps_count),
-                        heic_files: Some(heic_count),
-                        skipped: Some(total_files - processed_count),
-                        message: Some(format!(
-                            "Processing finished! Processed {} photos out of {}",
-                            processed_count, total_files
-                        )),
-                        phase: Some("completed".to_string()),
-                        ..Default::default()
-                    },
-                }
-            }
-            Err(e) => {
-                eprintln!("Processing error: {}", e);
-                ProcessingEvent {
+        let mut total_stats = (0usize, 0usize, 0usize, 0usize, 0usize);
+        
+        for photos_dir in &folders_clone {
+            if !photos_dir.exists() {
+                eprintln!("⚠️  Folder not found: {}", photos_dir.display());
+                
+                let error_event = ProcessingEvent {
                     event_type: "processing_error".to_string(),
                     data: ProcessingData {
-                        message: Some(format!("Processing failed: {}", e)),
+                        message: Some(format!("Folder not found: {}", photos_dir.display())),
                         phase: Some("error".to_string()),
                         ..Default::default()
                     },
+                };
+                let _ = event_sender.send(error_event);
+                continue;
+            }
+            
+            let result = process_photos_from_directory(&db, photos_dir);
+
+            match result {
+                Ok((total_files, processed_count, gps_count, no_gps_count, heic_count)) => {
+                    // Aggregate statistics
+                    total_stats.0 += total_files;
+                    total_stats.1 += processed_count;
+                    total_stats.2 += gps_count;
+                    total_stats.3 += no_gps_count;
+                    total_stats.4 += heic_count;
+                }
+                Err(e) => {
+                    eprintln!("Processing error for {}: {}", photos_dir.display(), e);
+                    let error_event = ProcessingEvent {
+                        event_type: "processing_error".to_string(),
+                        data: ProcessingData {
+                            message: Some(format!("Processing failed for {}: {}", photos_dir.display(), e)),
+                            phase: Some("error".to_string()),
+                            ..Default::default()
+                        },
+                    };
+                    let _ = event_sender.send(error_event);
                 }
             }
+        }
+        
+        // Send completion event with aggregated stats
+        let completion_event = ProcessingEvent {
+            event_type: "processing_complete".to_string(),
+            data: ProcessingData {
+                total_files: Some(total_stats.0),
+                processed: Some(total_stats.1),
+                gps_found: Some(total_stats.2),
+                no_gps: Some(total_stats.3),
+                heic_files: Some(total_stats.4),
+                skipped: Some(total_stats.0 - total_stats.1),
+                message: Some(format!(
+                    "Processing finished! Processed {} photos from {} folder(s)",
+                    total_stats.1, folders_clone.len()
+                )),
+                phase: Some("completed".to_string()),
+                ..Default::default()
+            },
         };
         let _ = event_sender.send(completion_event);
     });
 
     let response = serde_json::json!({
         "status": "started",
-        "message": "Photo processing initiated"
+        "message": format!("Processing {} folder(s)", folders_to_process.len()),
+        "count": folders_to_process.len()
     });
 
     Ok(Json(response))
@@ -575,29 +643,35 @@ pub async fn shutdown_app(
     Ok(Json(response))
 }
 
-// API endpoint to open native folder selection dialog
+// API endpoint to open native folder selection dialog (supports multiple folders)
 pub async fn select_folder_dialog(
     State(_state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     println!("🔍 Opening native folder selection dialog...");
 
-    // Call the native folder picker (blocking operation, but it's a separate process)
-    // In a real async app we might want to wrap this in spawn_blocking, 
-    // but since it spawns a separate process (osascript/powershell), it shouldn't block the runtime too much.
-    // However, for safety, let's use spawn_blocking
-    let folder_path = tokio::task::spawn_blocking(|| {
-        select_folder_native()
+    // Call the native folder picker (supports multiple on macOS/Linux, sequential on Windows)
+    let folder_paths = tokio::task::spawn_blocking(|| {
+        crate::utils::select_folders_native()
     }).await.map_err(|e| {
         eprintln!("Task join error: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    if let Some(path) = folder_path {
-        println!("✅ Folder selected: {}", path);
+    if !folder_paths.is_empty() {
+        println!("✅ Selected {} folder(s)", folder_paths.len());
+        for (i, path) in folder_paths.iter().enumerate() {
+            println!("   {}. {}", i + 1, path);
+        }
+        
         let response = serde_json::json!({
             "status": "success",
-            "folder_path": path,
-            "message": "Folder selected"
+            "folder_paths": folder_paths,  // Array instead of single path
+            "count": folder_paths.len(),
+            "message": if folder_paths.len() > 1 {
+                format!("{} folders selected", folder_paths.len())
+            } else {
+                "Folder selected".to_string()
+            }
         });
         Ok(Json(response))
     } else {

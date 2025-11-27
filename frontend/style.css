@@ -615,7 +615,7 @@ body {
     display: none;
 }
 
-/* Grid View */
+/* Grid View - Responsive (columns controlled by viewport, pagination by JS) */
 .cluster-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
