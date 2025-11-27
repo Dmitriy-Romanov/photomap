@@ -1524,7 +1524,9 @@ window.addEventListener('resize', () => {
                 }
                 renderGalleryPage(galleryState.currentPage);
             }
-        }, 250);  // Debounce: wait 250ms after resize stops
+        }
+    }
+        , 250);  // Debounce: wait 250ms after resize stops
 });
 
 // Custom tooltip for folder paths
