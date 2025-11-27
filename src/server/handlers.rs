@@ -696,8 +696,7 @@ pub async fn reveal_file(
         #[cfg(target_os = "windows")]
         {
             Command::new("explorer")
-                .arg("/select,")
-                .arg(&file_path)
+                .arg(format!("/select,{}", file_path))
                 .spawn()
         }
         

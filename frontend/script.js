@@ -293,8 +293,8 @@ function createPopupContent(photo) {
         }
     }
 
-    // Extract filename from full path
-    const filename = photo.file_path.split('/').pop() || photo.file_path;
+    // Extract filename from full path (support both / and \ for Windows)
+    const filename = photo.file_path.split(/[\/\\]/).pop() || photo.file_path;
 
     return `
         <div class="photo-popup">
@@ -1389,11 +1389,34 @@ function showPhotoInGallery(photo) {
     const detailFilename = document.getElementById('cluster-detail-filename');
     const detailDate = document.getElementById('cluster-detail-date');
 
+    // Format datetime same as popup
+    let formattedDateTime = photo.datetime;
+    if (photo.datetime) {
+        const parts = photo.datetime.split(' ');
+        if (parts.length === 2) {
+            const dateParts = parts[0].split('-');
+            if (dateParts.length === 3) {
+                formattedDateTime = `Photo shooted: ${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}`;
+            }
+        }
+    }
+
+    // Extract filename (support both / and \\ for Windows)
+    const filename = photo.file_path.split(/[\/\\]/).pop() || photo.file_path;
+
     // Update content
     detailImg.src = photo.url;
     detailImg.onerror = () => { detailImg.src = photo.fallback_url; };
-    detailFilename.textContent = photo.file_path;
-    detailDate.textContent = photo.datetime;
+
+    // Use formatted filename with folder icon and tooltip
+    detailFilename.innerHTML = `
+        <span class="popup-filename" data-tooltip="${photo.file_path}" 
+              onclick="revealFileInExplorer('${photo.file_path}')" 
+              style="cursor: pointer;">
+            📁 ${filename}
+        </span>
+    `;
+    detailDate.textContent = formattedDateTime;
 
     // Switch views
     gridView.classList.add('hidden');
