@@ -96,6 +96,7 @@ return pathList
         "windows" => {
             // Windows: Use PowerShell to compile C# on-the-fly for native IFileOpenDialog
             let script = r#"
+                [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
                 $code = @'
                 using System;
                 using System.Runtime.InteropServices;
