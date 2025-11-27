@@ -556,11 +556,11 @@ async function loadSettings() {
                 if (input) {
                     if (folders.length > 1) {
                         input.value = `Multiple folders (${folders.length})`;
-                        // Add tooltip with all folder paths
-                        input.title = folders.join('\n');
+                        // Add custom tooltip with all folder paths
+                        input.setAttribute('data-tooltip', folders.join('\n'));
                     } else {
                         input.value = folders[0];
-                        input.title = folders[0];
+                        input.removeAttribute('data-tooltip');
                     }
                 }
 
@@ -974,12 +974,12 @@ async function openFolderDialog() {
             const folders = result.folder_paths || [];
             if (folders.length > 1) {
                 folderInput.value = `Multiple folders (${folders.length})`;
-                // Add tooltip with all folder paths
-                folderInput.title = folders.join('\n');
+                // Add custom tooltip with all folder paths
+                folderInput.setAttribute('data-tooltip', folders.join('\n'));
                 showNotification(`✅ ${folders.length} folders selected`, 'success');
             } else if (folders.length === 1) {
                 folderInput.value = folders[0];
-                folderInput.title = folders[0];
+                folderInput.removeAttribute('data-tooltip');
                 showNotification('✅ Folder selected', 'success');
             }
 
@@ -1524,9 +1524,63 @@ window.addEventListener('resize', () => {
                 }
                 renderGalleryPage(galleryState.currentPage);
             }
-        }
-    }, 250);  // Debounce: wait 250ms after resize stops
+        }, 250);  // Debounce: wait 250ms after resize stops
 });
+
+// Custom tooltip for folder paths
+let folderTooltip = null;
+
+function initFolderTooltip() {
+    const folderInput = document.getElementById('exp-folder-input');
+    if (!folderInput) return;
+
+    // Create tooltip element
+    folderTooltip = document.createElement('div');
+    folderTooltip.className = 'folder-tooltip';
+    document.body.appendChild(folderTooltip);
+
+    // Show tooltip on mouseenter
+    folderInput.addEventListener('mouseenter', (e) => {
+        const tooltipText = folderInput.getAttribute('data-tooltip');
+        if (tooltipText && tooltipText.includes('\n')) {  // Only show for multiple folders
+            folderTooltip.textContent = tooltipText;
+            folderTooltip.classList.add('visible');
+            updateTooltipPosition(e);
+        }
+    });
+
+    // Update position on mousemove
+    folderInput.addEventListener('mousemove', updateTooltipPosition);
+
+    // Hide tooltip on mouseleave
+    folderInput.addEventListener('mouseleave', () => {
+        folderTooltip.classList.remove('visible');
+    });
+}
+
+function updateTooltipPosition(e) {
+    if (!folderTooltip) return;
+
+    const offset = 10;
+    let x = e.clientX + offset;
+    let y = e.clientY + offset;
+
+    // Prevent tooltip from going off-screen
+    const rect = folderTooltip.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) {
+        x = e.clientX - rect.width - offset;
+    }
+    if (y + rect.height > window.innerHeight) {
+        y = e.clientY - rect.height - offset;
+    }
+
+    folderTooltip.style.left = x + 'px';
+    folderTooltip.style.top = y + 'px';
+}
+
+// Initialize tooltip when page loads
+document.addEventListener('DOMContentLoaded', initFolderTooltip);
+
 
 // Log loaded library versions for debugging
 console.log('📚 Loaded Libraries:');
