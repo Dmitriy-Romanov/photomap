@@ -1499,11 +1499,31 @@ function drawPolylines() {
 
         const latlngs = dayPhotos.map(p => [p.lat, p.lng]);
 
-        L.polyline(latlngs, {
+        const line = L.polyline(latlngs, {
             color: '#3388ff',
             weight: 3,
             opacity: 0.7,
             dashArray: '5, 10'
+        }).addTo(routesLayerGroup);
+
+        // Add direction arrows using Polyline Decorator
+        L.polylineDecorator(line, {
+            patterns: [
+                {
+                    offset: '10%',
+                    repeat: 100,  // Arrow every 100 pixels
+                    symbol: L.Symbol.arrowHead({
+                        pixelSize: 12,
+                        polygon: false,
+                        pathOptions: {
+                            stroke: true,
+                            weight: 2,
+                            color: '#3388ff',
+                            fillOpacity: 1
+                        }
+                    })
+                }
+            ]
         }).addTo(routesLayerGroup);
     });
 }
