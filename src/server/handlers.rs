@@ -698,12 +698,12 @@ pub async fn reveal_file(
             // Ensure backslashes for Windows path
             let clean_path = file_path.replace("/", "\\");
             
-            // Pass /select, and path as separate arguments.
-            // This results in: explorer /select, "C:\Path With Spaces\file.jpg"
-            // If we combine them, Rust quotes the whole thing: "/select,C:\..." which fails.
-            Command::new("explorer")
-                .arg("/select,")
-                .arg(clean_path)
+            // Use "cmd /C start" to launch explorer. This often helps with bringing the window 
+            // to the foreground compared to spawning explorer directly.
+            // Syntax: start ["title"] [program] [args...]
+            // We pass an empty string for title to avoid "explorer" being interpreted as the title.
+            Command::new("cmd")
+                .args(["/C", "start", "", "explorer", "/select,", &clean_path])
                 .spawn()
         }
         
