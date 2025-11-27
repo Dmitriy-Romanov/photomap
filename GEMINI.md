@@ -80,3 +80,30 @@ This tool is central to the development workflow for the EXIF parsing module:
 4.  Once verified, port the corrected code back into the main PhotoMap application's `src/exif_parser/` module.
 
 This approach ensures the core data extraction logic is robust and reliable before being integrated into the main application. This utility has its own dependencies and must be built and run from its subdirectory. It has a critical runtime dependency on `exiftool`, which must be installed and available in the system's PATH or placed next to the executable.
+
+## Working Modes (Antigravity IDE)
+
+### PLANNING Mode
+**Purpose:** Research, discussion, and planning phase.
+
+**Rules:**
+- **NEVER change production code** (src/, frontend/, etc.)
+- **Only modify:** `.md` files (implementation_plan.md, task.md, etc.)
+- This is the **"time to talk about how we implement"** phase
+- Discuss approaches, create plans, ask clarifying questions
+- Wait for explicit command to proceed (e.g., "делаем", "go ahead", "implement it")
+
+**Transition to EXECUTION:**
+- User explicitly says to proceed with implementation
+- Create/update `implementation_plan.md` and get approval first
+
+### EXECUTION Mode  
+**Purpose:** Active implementation phase.
+
+**Rules:**
+- **Work with minimal questions** - implementation is approved
+- Make code changes, run builds, test changes
+- Update `task.md` as work progresses
+- Complete the approved plan
+
+**Important:** If UI always shows "PLANNING" mode, ignore it - follow user's explicit instructions about which mode to be in.
