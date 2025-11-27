@@ -281,13 +281,25 @@ function createPhotoIcon(photo, useThumbnail = false) {
 }
 
 function createPopupContent(photo) {
+    // Format datetime: "YYYY-MM-DD HH:MM:SS" -> "Photo shooted: DD-MM-YYYY HH:MM:SS"
+    let formattedDateTime = photo.datetime;
+    if (photo.datetime) {
+        const parts = photo.datetime.split(' ');
+        if (parts.length === 2) {
+            const dateParts = parts[0].split('-');  // [YYYY, MM, DD]
+            if (dateParts.length === 3) {
+                formattedDateTime = `Photo shooted: ${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}`;
+            }
+        }
+    }
+
     return `
         <div class="photo-popup">
             <img src="${photo.url}"
                  onerror="this.src='${photo.fallback_url}'"
                  alt="${photo.filename}" />
             <div class="filename">${photo.file_path}</div>
-            <div class="datetime">${photo.datetime}</div>
+            <div class="datetime">${formattedDateTime}</div>
         </div>
     `;
 }
