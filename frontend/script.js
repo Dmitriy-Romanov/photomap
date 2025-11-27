@@ -144,6 +144,7 @@ async function loadSettings() {
 }
 
 // Helper to format photo data for display
+// Helper to format photo data for display
 function formatPhotoData(photo) {
     // Format datetime: "YYYY-MM-DD HH:MM:SS" -> "Photo shooted: DD-MM-YYYY HH:MM:SS"
     let formattedDateTime = photo.datetime;
@@ -160,9 +161,17 @@ function formatPhotoData(photo) {
     // Extract filename from full path (support both / and \ for Windows)
     const filename = photo.file_path.split(/[\/\\]/).pop() || photo.file_path;
 
+    // Escape backslashes for use in JavaScript string literal inside HTML attribute
+    // 1. We need double backslashes for JS string: "C:\\Path"
+    // 2. But inside onclick="..." it's parsed again, so we need "C:\\\\Path"
+    // Actually, let's try just replacing \ with \\ first.
+    // If photo.file_path is "C:\Path", we want onclick="revealFileInExplorer('C:\\Path')"
+    // So we need safePath to be "C:\\Path".
+    const safePath = photo.file_path.replace(/\\/g, '\\\\');
+
     // Generate HTML for filename with tooltip and click handler
     const filenameHtml = `
-        <div class="filename popup-filename" data-tooltip="${photo.file_path}" onclick="revealFileInExplorer('${photo.file_path}')" style="cursor: pointer;">
+        <div class="filename popup-filename" data-tooltip="${photo.file_path}" onclick="revealFileInExplorer('${safePath}')" style="cursor: pointer;">
             📁 ${filename}
         </div>
     `;
@@ -170,7 +179,7 @@ function formatPhotoData(photo) {
     // For gallery detail view (uses span instead of div for innerHTML injection)
     const filenameHtmlSpan = `
         <span class="popup-filename" data-tooltip="${photo.file_path}" 
-              onclick="revealFileInExplorer('${photo.file_path}')" 
+              onclick="revealFileInExplorer('${safePath}')" 
               style="cursor: pointer;">
             📁 ${filename}
         </span>
