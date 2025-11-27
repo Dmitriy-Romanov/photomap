@@ -293,12 +293,15 @@ function createPopupContent(photo) {
         }
     }
 
+    // Extract filename from full path
+    const filename = photo.file_path.split('/').pop() || photo.file_path;
+
     return `
         <div class="photo-popup">
             <img src="${photo.url}"
                  onerror="this.src='${photo.fallback_url}'"
                  alt="${photo.filename}" />
-            <div class="filename">${photo.file_path}</div>
+            <div class="filename popup-filename" data-tooltip="${photo.file_path}">${filename}</div>
             <div class="datetime">${formattedDateTime}</div>
         </div>
     `;
@@ -1573,7 +1576,7 @@ function initFolderTooltip() {
     folderTooltip.className = 'folder-tooltip';
     document.body.appendChild(folderTooltip);
 
-    // Show tooltip on mouseenter
+    // Show tooltip on mouseenter for folder input
     folderInput.addEventListener('mouseenter', (e) => {
         const tooltipText = folderInput.getAttribute('data-tooltip');
         if (tooltipText && tooltipText.includes('\n')) {  // Only show for multiple folders
@@ -1590,6 +1593,30 @@ function initFolderTooltip() {
     folderInput.addEventListener('mouseleave', () => {
         folderTooltip.classList.remove('visible');
     });
+
+    // Event delegation for popup filenames (dynamically created)
+    document.body.addEventListener('mouseenter', (e) => {
+        if (e.target.classList.contains('popup-filename')) {
+            const tooltipText = e.target.getAttribute('data-tooltip');
+            if (tooltipText) {
+                folderTooltip.textContent = tooltipText;
+                folderTooltip.classList.add('visible');
+                updateTooltipPosition(e);
+            }
+        }
+    }, true);
+
+    document.body.addEventListener('mousemove', (e) => {
+        if (e.target.classList.contains('popup-filename')) {
+            updateTooltipPosition(e);
+        }
+    }, true);
+
+    document.body.addEventListener('mouseleave', (e) => {
+        if (e.target.classList.contains('popup-filename')) {
+            folderTooltip.classList.remove('visible');
+        }
+    }, true);
 }
 
 function updateTooltipPosition(e) {
