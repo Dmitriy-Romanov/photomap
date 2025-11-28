@@ -23,15 +23,39 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 // ==========================================
 // Handles API communication, data formatting, and settings
 
+/**
+ * API Endpoints
+ */
+const API = {
+    PHOTOS: '/api/photos',
+    SETTINGS: '/api/settings',
+    UPDATE_SETTINGS: '/api/update_settings',
+    REVEAL_FILE: '/api/reveal-file',
+    SHUTDOWN: '/api/shutdown',
+    THUMBNAIL: '/api/thumbnail',
+    MARKER: '/api/marker',
+    GALLERY: '/api/gallery',
+    SELECT_FOLDER: '/api/select-folder',
+    SET_FOLDER: '/api/set-folder',
+    EVENTS: '/api/events',
+    REPROCESS: '/api/reprocess'
+};
+
 let photoData = [];
 
+/**
+ * Loads photos from the API and initializes the map markers.
+ * Fetches photo data, pre-calculates years, and triggers marker addition.
+ * @async
+ * @returns {Promise<Array<Object>>} The loaded photo data.
+ */
 async function loadPhotos() {
     try {
         // Clear existing markers before loading new ones
         markerClusterGroup.clearLayers();
         photoData = [];
 
-        const response = await fetch('/api/photos');
+        const response = await fetch(API.PHOTOS);
         photoData = await response.json();
 
         // Pre-calculate years for performance
@@ -47,9 +71,15 @@ async function loadPhotos() {
     }
 }
 
+/**
+ * Loads user settings from the API and applies them to the UI.
+ * Handles folder selection, toggles, and panel positioning.
+ * @async
+ * @returns {Promise<void>}
+ */
 async function loadSettings() {
     try {
-        const response = await fetch('/api/settings');
+        const response = await fetch(API.SETTINGS);
         const settings = await response.json();
 
         // Load folders from settings (new multi-folder support)
@@ -143,8 +173,12 @@ async function loadSettings() {
     }
 }
 
-// Helper to format photo data for display
-// Helper to format photo data for display
+/**
+ * Formats photo data for display in popups and galleries.
+ * Processes datetime, filename, and generates HTML snippets.
+ * @param {Object} photo - The photo object containing metadata.
+ * @returns {Object} An object containing formatted strings and HTML.
+ */
 function formatPhotoData(photo) {
     // Format datetime: "YYYY-MM-DD HH:MM:SS" -> "Photo shooted: DD-MM-YYYY HH:MM:SS"
     let formattedDateTime = photo.datetime;
@@ -153,7 +187,7 @@ function formatPhotoData(photo) {
         if (parts.length === 2) {
             const dateParts = parts[0].split('-');  // [YYYY, MM, DD]
             if (dateParts.length === 3) {
-                formattedDateTime = `Photo shooted: ${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}`;
+                formattedDateTime = `Photo taken: ${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}`;
             }
         }
     }
@@ -161,25 +195,18 @@ function formatPhotoData(photo) {
     // Extract filename from full path (support both / and \ for Windows)
     const filename = photo.file_path.split(/[\/\\]/).pop() || photo.file_path;
 
-    // Escape backslashes for use in JavaScript string literal inside HTML attribute
-    // 1. We need double backslashes for JS string: "C:\\Path"
-    // 2. But inside onclick="..." it's parsed again, so we need "C:\\\\Path"
-    // Actually, let's try just replacing \ with \\ first.
-    // If photo.file_path is "C:\Path", we want onclick="revealFileInExplorer('C:\\Path')"
-    // So we need safePath to be "C:\\Path".
-    const safePath = photo.file_path.replace(/\\/g, '\\\\');
-
-    // Generate HTML for filename with tooltip and click handler
+    // Generate HTML for filename with tooltip and class for event delegation
+    // We use data-full-path to store the raw path safely without needing complex escaping for JS strings
     const filenameHtml = `
-        <div class="filename popup-filename" data-tooltip="${photo.file_path}" onclick="revealFileInExplorer('${safePath}')" style="cursor: pointer;">
+        <div class="filename popup-filename reveal-file-btn" data-tooltip="${photo.file_path}" data-full-path="${photo.file_path}" style="cursor: pointer;">
             📁 ${filename}
         </div>
     `;
 
     // For gallery detail view (uses span instead of div for innerHTML injection)
     const filenameHtmlSpan = `
-        <span class="popup-filename" data-tooltip="${photo.file_path}" 
-              onclick="revealFileInExplorer('${safePath}')" 
+        <span class="popup-filename reveal-file-btn" data-tooltip="${photo.file_path}" 
+              data-full-path="${photo.file_path}" 
               style="cursor: pointer;">
             📁 ${filename}
         </span>
@@ -193,7 +220,12 @@ function formatPhotoData(photo) {
     };
 }
 
-// Helper to extract year from datetime string
+/**
+ * Extracts the year from a datetime string.
+ * Supports multiple date formats (EXIF, ISO, Russian, etc.).
+ * @param {string} datetime - The datetime string to parse.
+ * @returns {number|null} The extracted year or null if not found.
+ */
 function getYearFromDatetime(datetime) {
     if (!datetime) return null;
 
@@ -216,10 +248,15 @@ function getYearFromDatetime(datetime) {
     return null;
 }
 
-// Reveal file in system explorer
+/**
+ * Requests the backend to reveal a file in the system file explorer.
+ * @async
+ * @param {string} filePath - The absolute path of the file to reveal.
+ * @returns {Promise<void>}
+ */
 async function revealFileInExplorer(filePath) {
     try {
-        const response = await fetch('/api/reveal-file', {
+        const response = await fetch(API.REVEAL_FILE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -238,7 +275,12 @@ async function revealFileInExplorer(filePath) {
     }
 }
 
-// Shutdown application
+/**
+ * Initiates the application shutdown process.
+ * Saves current settings (panel position, toggles) before stopping the server.
+ * @async
+ * @returns {Promise<void>}
+ */
 async function shutdownApp() {
     if (!confirm('Are you sure you want to close PhotoMap?')) {
         return;
@@ -257,7 +299,7 @@ async function shutdownApp() {
         }
 
         // 2. Fetch current settings to avoid overwriting other fields
-        const settingsResponse = await fetch('/api/settings');
+        const settingsResponse = await fetch(API.SETTINGS);
         if (settingsResponse.ok) {
             const currentSettings = await settingsResponse.json();
 
@@ -277,7 +319,7 @@ async function shutdownApp() {
             if (browserAutostartToggle) currentSettings.start_browser = browserAutostartToggle.checked;
 
             // 5. Save settings
-            const updateResponse = await fetch('/api/update_settings', {
+            const updateResponse = await fetch(API.UPDATE_SETTINGS, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -300,7 +342,7 @@ async function shutdownApp() {
 
         setTimeout(async () => {
             try {
-                const response = await fetch('/api/shutdown', {
+                const response = await fetch(API.SHUTDOWN, {
                     method: 'POST'
                 });
 
@@ -369,7 +411,10 @@ map.on('locationerror', function (e) {
     console.log('Geolocation access denied or unavailable:', e.message);
 });
 
-// Hide SVG path elements that look like flags
+/**
+ * Hides SVG elements that look like flags (Leaflet attribution artifacts).
+ * Runs periodically to ensure clean UI.
+ */
 function hideSvgFlags() {
     // Hide SVG elements with flag class (most reliable method)
     const flagSvgs = document.querySelectorAll('svg.leaflet-attribution-flag');
@@ -398,7 +443,10 @@ setInterval(() => {
     hideSvgFlags();
 }, 2000);
 
-// Update map center coordinates display
+/**
+ * Updates the map center coordinates display in the UI.
+ * Syncs coordinates to both the main display and the experimental panel.
+ */
 function updateMapCoordinates() {
     const center = map.getCenter();
     const coordsElement = document.getElementById('map-coordinates');
@@ -456,9 +504,15 @@ const routesLayerGroup = L.layerGroup().addTo(map);
 // Heatmap layer
 let heatLayer = null;
 
+/**
+ * Creates a Leaflet icon for a photo marker.
+ * @param {Object} photo - The photo object.
+ * @param {boolean} [useThumbnail=false] - Whether to use a larger thumbnail size.
+ * @returns {L.Icon} The Leaflet icon instance.
+ */
 function createPhotoIcon(photo, useThumbnail = false) {
     const iconSize = useThumbnail ? 60 : 40;
-    const apiUrl = useThumbnail ? '/api/thumbnail' : '/api/marker';
+    const apiUrl = useThumbnail ? API.THUMBNAIL : API.MARKER;
 
     return L.icon({
         iconUrl: apiUrl + '/' + photo.relative_path,
@@ -469,6 +523,10 @@ function createPhotoIcon(photo, useThumbnail = false) {
     });
 }
 
+/**
+ * Adds markers or heatmap to the map based on current settings.
+ * Handles clustering, popups, and initial map fitting.
+ */
 function addMarkers() {
     // Check if heatmap mode is enabled
     const heatmapToggle = document.getElementById('exp-heatmap-toggle');
@@ -526,6 +584,10 @@ function addMarkers() {
     });
 }
 
+/**
+ * Updates the heatmap layer with the provided photos.
+ * @param {Array<Object>} photos - The list of photos to visualize.
+ */
 function updateHeatmap(photos) {
     if (!L.heatLayer) {
         console.warn('Heatmap plugin (leaflet-heat) is not loaded');
@@ -549,7 +611,10 @@ function updateHeatmap(photos) {
     }
 }
 
-// Draw travel routes (polylines)
+/**
+ * Draws travel routes (polylines) connecting photos taken on the same day.
+ * Groups photos by date and draws lines with direction arrows.
+ */
 function drawPolylines() {
     routesLayerGroup.clearLayers();
 
@@ -629,7 +694,10 @@ function drawPolylines() {
     });
 }
 
-// Filter markers based on year range
+/**
+ * Filters map markers based on the selected year range.
+ * Updates the map, clusters, and statistics.
+ */
 function filterMarkers() {
     const yearFromInput = document.getElementById('exp-year-from');
     const yearToInput = document.getElementById('exp-year-to');
@@ -686,7 +754,10 @@ function filterMarkers() {
     }
 }
 
-// Go to user's current location
+/**
+ * Pans the map to the user's current location.
+ * specific location if available, otherwise requests location access.
+ */
 function goToUserLocation() {
     if (userLocation) {
         map.setView(userLocation, 15);
@@ -701,7 +772,9 @@ function goToUserLocation() {
     }
 }
 
-// Toggle travel routes
+/**
+ * Toggles the visibility of travel routes on the map.
+ */
 function toggleRoutes() {
     const toggle = document.getElementById('exp-routes-toggle');
     if (toggle && toggle.checked) {
@@ -753,6 +826,11 @@ markerClusterGroup.on('clusterclick', function (a) {
 // ==========================================
 // Handles DOM manipulation, panels, gallery, and user interaction
 
+/**
+ * Generates HTML content for a photo popup.
+ * @param {Object} photo - The photo object.
+ * @returns {string} The HTML string for the popup.
+ */
 function createPopupContent(photo) {
     const { formattedDateTime, filenameHtml } = formatPhotoData(photo);
 
@@ -767,6 +845,10 @@ function createPopupContent(photo) {
     `;
 }
 
+/**
+ * Updates the photo statistics (total and visible count) in the UI.
+ * Calculates visible photos based on current map bounds.
+ */
 function updateStatistics() {
     const totalPhotos = photoData.length;
 
@@ -805,7 +887,11 @@ function updateStatistics() {
     console.log('Statistics updated - Total:', totalPhotos, 'Visible:', visiblePhotos);
 }
 
-// Make element draggable
+/**
+ * Makes a DOM element draggable.
+ * Handles mouse events for dragging and constrains movement to the viewport.
+ * @param {HTMLElement} element - The element to make draggable.
+ */
 function makeDraggable(element) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
 
@@ -875,12 +961,18 @@ function makeDraggable(element) {
     }
 }
 
+/**
+ * Toggles the collapsed state of the experimental panel.
+ */
 function toggleExpPanel() {
     const panel = document.getElementById('experimental-panel');
     panel.classList.toggle('collapsed');
 }
 
-// Initialize year range controls
+/**
+ * Initializes the year range slider and inputs.
+ * Sets min/max values based on loaded photos and binds event listeners.
+ */
 function initializeYearControls() {
     const expYearFrom = document.getElementById('exp-year-from');
     const expYearTo = document.getElementById('exp-year-to');
@@ -968,7 +1060,12 @@ function initializeYearControls() {
     console.log(`Year controls initialized: ${minYear} to ${maxYear}`);
 }
 
-// Open native folder selection dialog
+/**
+ * Opens the native folder selection dialog via the backend.
+ * Updates the UI with the selected folder path.
+ * @async
+ * @returns {Promise<void>}
+ */
 async function openFolderDialog() {
     const openButton = document.getElementById('exp-open-button');
     const folderInput = document.getElementById('exp-folder-input');
@@ -990,7 +1087,7 @@ async function openFolderDialog() {
             </svg>
             Wait...`;
 
-        const response = await fetch('/api/select-folder', {
+        const response = await fetch(API.SELECT_FOLDER, {
             method: 'POST'
         });
 
@@ -1033,7 +1130,12 @@ async function openFolderDialog() {
     }
 }
 
-// Browse for folder and immediately start processing
+/**
+ * Initiates the photo processing workflow for the selected folder.
+ * Connects to SSE for progress updates and reloads data upon completion.
+ * @async
+ * @returns {Promise<void>}
+ */
 async function processFolder() {
     const folderInput = document.getElementById('exp-folder-input');
     const folderPath = folderInput ? folderInput.value.trim() : '';
@@ -1051,7 +1153,7 @@ async function processFolder() {
         // If we have selectedFolders from dialog, use that; otherwise use single path
         const foldersToSend = window.selectedFolders || [folderPath];
 
-        const response = await fetch('/api/set-folder', {
+        const response = await fetch(API.SET_FOLDER, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1068,12 +1170,12 @@ async function processFolder() {
         showNotification(`✅ Folder set: ${folderPath}`, 'success');
 
         // Step 2: Start listening for SSE events
-        const eventSource = new EventSource('/api/events');
+        const eventSource = new EventSource(API.EVENTS);
 
         eventSource.onopen = async function () {
             showNotification('✅ SSE connection established', 'success');
             // Step 3: Reprocess (clears DB and processes folders)
-            const processResponse = await fetch('/api/reprocess', {
+            const processResponse = await fetch(API.REPROCESS, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1119,7 +1221,11 @@ async function processFolder() {
     }
 }
 
-// Show notification
+/**
+ * Displays a temporary notification toast to the user.
+ * @param {string} message - The message to display.
+ * @param {string} [type='info'] - The type of notification ('info', 'success', 'error').
+ */
 function showNotification(message, type = 'info') {
     // Remove any existing notifications to prevent stacking
     const existingNotifications = document.querySelectorAll('.notification-toast');
@@ -1159,6 +1265,10 @@ function showNotification(message, type = 'info') {
 // Custom tooltip for folder paths
 let folderTooltip = null;
 
+/**
+ * Initializes the custom tooltip for displaying full folder paths.
+ * Handles mouse events to show/hide and position the tooltip.
+ */
 function initFolderTooltip() {
     const folderInput = document.getElementById('exp-folder-input');
     if (!folderInput) return;
@@ -1211,6 +1321,11 @@ function initFolderTooltip() {
     }, true);
 }
 
+/**
+ * Updates the position of the folder tooltip based on mouse coordinates.
+ * Ensures the tooltip stays within the viewport.
+ * @param {MouseEvent} e - The mouse event.
+ */
 function updateTooltipPosition(e) {
     if (!folderTooltip) return;
 
@@ -1231,7 +1346,12 @@ function updateTooltipPosition(e) {
     folderTooltip.style.top = y + 'px';
 }
 
-// Sync toggle helper
+/**
+ * Synchronizes the state of two checkbox inputs (e.g., main settings and panel toggle).
+ * @param {string} mainId - The ID of the main checkbox.
+ * @param {string} expId - The ID of the experimental panel checkbox.
+ * @param {Function} [callback] - Optional callback to run on change.
+ */
 function syncToggles(mainId, expId, callback) {
     const main = document.getElementById(mainId);
     const exp = document.getElementById(expId);
@@ -1254,7 +1374,10 @@ function syncToggles(mainId, expId, callback) {
 
 // --- Gallery Logic ---
 
-// Calculate items per page based on screen size (both width and height)
+/**
+ * Calculates the number of gallery items to display per page based on viewport size.
+ * @returns {number} The number of items per page.
+ */
 function getItemsPerPage() {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -1302,7 +1425,11 @@ let galleryState = {
     }
 };
 
-// Open the cluster gallery modal
+/**
+ * Opens the gallery modal for a specific cluster of photos.
+ * Initializes pagination and renders the first page.
+ * @param {L.MarkerCluster} cluster - The cluster object containing markers.
+ */
 function openClusterGallery(cluster) {
     const markers = cluster.getAllChildMarkers();
     const photos = markers.map(marker => {
@@ -1333,7 +1460,11 @@ function openClusterGallery(cluster) {
     document.body.style.overflow = 'hidden';
 }
 
-// Render specific page of gallery
+/**
+ * Renders a specific page of photos in the gallery grid.
+ * Updates pagination controls.
+ * @param {number} page - The page number to render (1-based).
+ */
 function renderGalleryPage(page) {
     const grid = document.getElementById('cluster-grid');
     const pagination = document.getElementById('cluster-pagination');
@@ -1362,7 +1493,7 @@ function renderGalleryPage(page) {
         thumb.addEventListener('click', () => showPhotoInGallery(photo));
 
         const img = document.createElement('img');
-        img.src = `/api/gallery/${photo.relative_path}`;  // Use gallery size (240x240)
+        img.src = `${API.GALLERY}/${photo.relative_path}`;  // Use gallery size (240x240)
         img.alt = photo.filename;
         img.loading = 'lazy';
 
@@ -1384,7 +1515,10 @@ function renderGalleryPage(page) {
     grid.scrollTop = 0;
 }
 
-// Change gallery page
+/**
+ * Navigates to a different page in the gallery.
+ * @param {number} delta - The direction to move (-1 for previous, 1 for next).
+ */
 function changeGalleryPage(delta) {
     const newPage = galleryState.currentPage + delta;
     const totalPages = Math.ceil(galleryState.photos.length / galleryState.itemsPerPage);
@@ -1394,7 +1528,9 @@ function changeGalleryPage(delta) {
     }
 }
 
-// Close the cluster gallery modal
+/**
+ * Closes the cluster gallery modal and restores body scrolling.
+ */
 function closeClusterModal() {
     const modal = document.getElementById('cluster-modal');
     modal.classList.add('hidden');
@@ -1407,7 +1543,10 @@ function closeClusterModal() {
     }, 300);
 }
 
-// Show specific photo in Detail View
+/**
+ * Switches the gallery to detail view to show a single photo.
+ * @param {Object} photo - The photo object to display.
+ */
 function showPhotoInGallery(photo) {
     const gridView = document.getElementById('cluster-grid-view');
     const detailView = document.getElementById('cluster-detail-view');
@@ -1433,7 +1572,9 @@ function showPhotoInGallery(photo) {
     backBtn.classList.remove('hidden');
 }
 
-// Switch back to Grid View
+/**
+ * Switches the gallery back to the grid view from detail view.
+ */
 function showClusterGrid() {
     const gridView = document.getElementById('cluster-grid-view');
     const detailView = document.getElementById('cluster-detail-view');
@@ -1537,11 +1678,11 @@ document.addEventListener('DOMContentLoaded', () => {
         expAutostartToggle.addEventListener('change', async (e) => {
             const startBrowser = e.target.checked;
             try {
-                const getResponse = await fetch('/api/settings');
+                const getResponse = await fetch(API.SETTINGS);
                 const currentSettings = await getResponse.json();
                 const newSettings = { ...currentSettings, start_browser: startBrowser };
 
-                const response = await fetch('/api/settings', {
+                const response = await fetch(API.SETTINGS, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(newSettings)
@@ -1564,7 +1705,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('minimize-btn')?.addEventListener('click', toggleExpPanel);
     document.getElementById('close-btn')?.addEventListener('click', shutdownApp);
 
-    // 5. Load Data
+    // 5. Initialize File Reveal Event Delegation
+    // Handles clicks on elements with 'reveal-file-btn' class
+    document.body.addEventListener('click', (e) => {
+        const target = e.target.closest('.reveal-file-btn');
+        if (target) {
+            const fullPath = target.getAttribute('data-full-path');
+            if (fullPath) {
+                revealFileInExplorer(fullPath);
+            }
+        }
+    });
+
+    // 6. Load Data
     loadSettings().then(() => {
         loadPhotos().then(() => {
             initializeYearControls();
