@@ -12,6 +12,54 @@
 </head>
 
 <body>
+    <!-- SVG Icon Library -->
+    <svg style="display: none;">
+        <defs>
+            <symbol id="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </symbol>
+
+            <symbol id="icon-minimize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </symbol>
+
+            <symbol id="icon-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </symbol>
+
+            <symbol id="icon-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </symbol>
+
+            <symbol id="icon-location" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="3"></circle>
+            </symbol>
+
+            <symbol id="icon-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </symbol>
+
+            <symbol id="icon-prev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </symbol>
+
+            <symbol id="icon-next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </symbol>
+        </defs>
+    </svg>
+
     <!-- Full-screen Map -->
     <div id="map"></div>
 
@@ -25,22 +73,19 @@
                     PhotoMap</a>
             </div>
             <div class="exp-cell w-60">
-                <span id="exp-coordinates" class="map-coordinates" style="margin: 0; color: inherit;">Lat: 0.00000, Lon:
+                <span id="exp-coordinates" class="map-coordinates text-reset">Lat: 0.00000, Lon:
                     0.00000</span>
             </div>
             <div class="exp-cell w-15" style="justify-content: center;">
                 <div class="window-controls">
                     <button class="control-btn" onclick="toggleExpPanel()" title="Minimize">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"></polyline>
+                        <svg width="14" height="14">
+                            <use href="#icon-minimize"></use>
                         </svg>
                     </button>
                     <button class="control-btn close" onclick="shutdownApp()" title="Close App">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        <svg width="14" height="14">
+                            <use href="#icon-close"></use>
                         </svg>
                     </button>
                 </div>
@@ -76,15 +121,13 @@
         <!-- Row 3: Source Folder - row3-1:Label, row3-2:Where I, row3-3:Open, row3-4:Process -->
         <div class="exp-row">
             <div class="exp-cell w-40 cell-left">
-                <span class="group-label" style="margin: 0; color: inherit; padding-left: 4px;">Source folder</span>
+                <span class="group-label text-reset" style="padding-left: 4px;">Source folder</span>
             </div>
             <div class="exp-cell w-20">
                 <button id="exp-wheremi-button" class="icon-btn" onclick="goToUserLocation()"
                     style="background: #34A853; color: white;" title="Go to My Location">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <circle cx="12" cy="12" r="3"></circle>
+                    <svg width="14" height="14">
+                        <use href="#icon-location"></use>
                     </svg>
                     Where I
                 </button>
@@ -92,10 +135,8 @@
             <div class="exp-cell w-20">
                 <button id="exp-open-button" class="icon-btn primary" onclick="openFolderDialog('exp')"
                     title="Open Folder">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
-                        </path>
+                    <svg width="14" height="14">
+                        <use href="#icon-folder"></use>
                     </svg>
                     Open
                 </button>
@@ -103,9 +144,8 @@
             <div class="exp-cell w-20">
                 <button id="exp-process-button" class="icon-btn secondary" onclick="processFolder('exp')"
                     title="Process Current Path">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    <svg width="14" height="14">
+                        <use href="#icon-play"></use>
                     </svg>
                     Process
                 </button>
@@ -123,14 +163,13 @@
         <!-- Row 5: Labels - row5-1:Year range, row5-2:Total photos, row5-3:Displayed -->
         <div class="exp-row row-small">
             <div class="exp-cell w-60">
-                <span class="group-label" style="margin: 0; color: inherit;">Year range <span
-                        id="exp-year-range-label"></span></span>
+                <span class="group-label text-reset">Year range <span id="exp-year-range-label"></span></span>
             </div>
             <div class="exp-cell w-20">
-                <span class="stat-label" style="margin: 0; color: inherit;">Total photos</span>
+                <span class="stat-label text-reset">Total photos</span>
             </div>
             <div class="exp-cell w-20">
-                <span class="stat-label" style="margin: 0; color: inherit;">Displayed</span>
+                <span class="stat-label text-reset">Displayed</span>
             </div>
         </div>
         <!-- Row 6: Year Filter + Stats - row6-1:From/To inputs, row6-2:Total value, row6-3:Displayed value -->
@@ -147,10 +186,10 @@
                     style="margin-left: 4px; font-weight: normal;"></span>
             </div>
             <div class="exp-cell w-20">
-                <span id="exp-total-photos" class="stat-value" style="color: inherit;">0</span>
+                <span id="exp-total-photos" class="stat-value text-reset">0</span>
             </div>
             <div class="exp-cell w-20">
-                <span id="exp-visible-photos" class="stat-value" style="color: inherit;">0</span>
+                <span id="exp-visible-photos" class="stat-value text-reset">0</span>
             </div>
         </div>
     </div>
@@ -160,18 +199,14 @@
         <div class="cluster-modal-content">
             <div class="cluster-modal-header">
                 <button id="cluster-back-btn" class="icon-btn hidden" onclick="showClusterGrid()" title="Back to Grid">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                        <polyline points="12 19 5 12 12 5"></polyline>
+                    <svg width="20" height="20">
+                        <use href="#icon-back"></use>
                     </svg>
                 </button>
                 <h3 id="cluster-title">Photos in this location</h3>
                 <button class="icon-btn close-modal" onclick="closeClusterModal()" title="Close">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    <svg width="20" height="20">
+                        <use href="#icon-close"></use>
                     </svg>
                 </button>
             </div>
@@ -187,18 +222,16 @@
                 <!-- Pagination Controls -->
                 <div id="cluster-pagination" class="cluster-pagination hidden">
                     <button id="pagination-prev" class="pagination-btn" onclick="changeGalleryPage(-1)">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="15 18 9 12 15 6"></polyline>
+                        <svg width="16" height="16">
+                            <use href="#icon-prev"></use>
                         </svg>
                         Prev
                     </button>
                     <span id="pagination-info" class="pagination-info">Page 1 of 1</span>
                     <button id="pagination-next" class="pagination-btn" onclick="changeGalleryPage(1)">
                         Next
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="9 18 15 12 9 6"></polyline>
+                        <svg width="16" height="16">
+                            <use href="#icon-next"></use>
                         </svg>
                     </button>
                 </div>
