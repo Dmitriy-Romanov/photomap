@@ -2,6 +2,32 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
+## [0.9.5] - 2025-11-28
+
+### Added
+- **SVG Sprite System**: Implemented SVG sprites in `index.html` for cleaner code and better icon management.
+- **JSDoc Documentation**: Comprehensive documentation added to `script.js` for better maintainability.
+- **Centralized API**: Refactored `script.js` to use a centralized `API` constant for all endpoints.
+
+### Changed
+- **Path Handling**: Refactored `formatPhotoData` to use event delegation and `data-full-path` attributes, removing inline `onclick` handlers and improving security/reliability for Windows paths.
+- **UI Styling**: Refactored inline styles to CSS utility classes (`.text-reset`, `.w-19`, `.w-35`).
+- **Panel Layout**: Adjusted experimental panel width to 540px and optimized column widths in Row 2.
+- **Font Consistency**: Fixed font weight issues in panel labels.
+
+### Fixed
+- Typo in photo popup ("Photo shooted" -> "Photo taken").
+
+## [0.9.4] - 2025-11-27
+
+### Changed
+- **Frontend Architecture**: Major refactoring of `script.js` into logical controllers (Data Service, Map Controller, UI Controller).
+- **Windows Integration**: Improved "Reveal File" functionality to correctly focus Explorer and select the file.
+
+### Fixed
+- **Path Escaping**: Fixed issues with backslash escaping in file paths on Windows.
+- **Popup Styling**: Unified styling for map popups.
+
 ## [0.9.3] - 2025-11-27
 
 ### Added
