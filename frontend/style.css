@@ -29,7 +29,7 @@ body {
     position: fixed;
     top: 12px;
     left: 52px;
-    width: 560px;
+    width: 540px;
     background: white;
     border: 1px solid black;
     z-index: 2000;
@@ -158,8 +158,8 @@ body {
 /* --- New Info Panel Design --- */
 
 .exp-panel.collapsed {
-    width: 560px;
-    min-width: 560px;
+    width: 540px;
+    min-width: 540px;
     max-height: 40px;
     /* 40px row + 0px border */
 }
@@ -502,7 +502,6 @@ body {
 .text-reset {
     margin: 0;
     color: inherit;
-    font-weight: normal;
 }
 
 .align-end {
@@ -817,6 +816,10 @@ body {
     width: 40%;
 }
 
+.w-35 {
+    width: 35%;
+}
+
 .w-31 {
     width: 31%;
 }
@@ -835,6 +838,10 @@ body {
 
 .w-20 {
     width: 20%;
+}
+
+.w-19 {
+    width: 19%;
 }
 
 .cell-left {

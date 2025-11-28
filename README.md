@@ -1,14 +1,14 @@
-# PhotoMap Processor v0.9.4
+# PhotoMap Processor v0.9.5
 
 A modern, high-performance photo mapping application with SQLite database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.9.4)
+## ✨ Latest Improvements (v0.9.5)
 
-- **Windows Integration**: Fixed "Reveal File" to correctly select files in Explorer (foreground window, correct path handling)
-- **Frontend Refactoring**: Major code cleanup in `script.js` - split into logical controllers (Data, Map, UI)
-- **Bug Fixes**: Fixed path escaping issues on Windows, unified popup styling
-- **Multi-Folder Support**: Select and process up to 5 photo folders simultaneously with native OS dialogs
-- **Smart Cache v1**: Automatic cleanup of incompatible cache files, prevents crashes from format changes
+- **Frontend Architecture**: Refactored `script.js` with centralized API endpoints and improved code organization (JSDoc).
+- **Security & Reliability**: Safer path handling for Windows (removed inline `onclick` handlers), fixed path escaping issues.
+- **UI Optimization**: Implemented SVG sprite system for cleaner HTML, refactored inline styles to CSS utility classes.
+- **Visual Polish**: Adjusted panel width and column layout, fixed font weight consistency, fixed typos.
+- **Code Quality**: Comprehensive JSDoc documentation for better maintainability.
 
 ## 🚀 Quick Start
 
@@ -63,6 +63,13 @@ photomap/
 ```
 
 ## 📈 Version History
+
+### v0.9.5 - Frontend Architecture & Polish
+- **Frontend Architecture**: Refactored `script.js` with centralized API endpoints and improved code organization (JSDoc).
+- **Security & Reliability**: Safer path handling for Windows (removed inline `onclick` handlers), fixed path escaping issues.
+- **UI Optimization**: Implemented SVG sprite system for cleaner HTML, refactored inline styles to CSS utility classes.
+- **Visual Polish**: Adjusted panel width (540px) and column layout, fixed font weight consistency, fixed typos.
+- **Code Quality**: Comprehensive JSDoc documentation for better maintainability.
 
 ### v0.9.3 - Multi-Folder & Smart Cache
 - **Multi-Folder Support**: Select and process up to 5 photo folders simultaneously with native OS dialogs
