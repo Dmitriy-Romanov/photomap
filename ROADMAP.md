@@ -13,22 +13,14 @@
 
 ### v0.7.0 - Performance Optimization Edition
 
-#### Phase 1: Large Collection Performance (Research Required)
-**User Questions:**
-- What are the bottlenecks when processing 10k+ photos?
-- How can we optimize database queries for large datasets?
-- What memory management strategies work best for large photo collections?
+#### Phase 1: Optimization (Completed/Sufficient)
+**Status**:
+- Current performance on ~30k photos is excellent (tested on i5-8250U).
+- Further optimization for huge collections (100k+) is low priority.
 
-**Research Tasks:**
-- [ ] Search: "Rust In-Memory DB optimization large datasets 2025"
-- [ ] Research: "Memory efficient image processing Rust"
-- [ ] Search: "Parallel processing optimization Rust 2025"
-
-**Implementation Tasks:**
-- [ ] Profile current performance with large collections
-- [ ] Implement database query optimization
-- [ ] Add memory usage monitoring
-- [ ] Implement lazy loading for UI components
+**Future Optimization Tasks (Low Priority):**
+- [ ] Profile memory usage if collection grows significantly
+- [ ] Implement database query optimization only if UI lags
 
 #### Phase 2: Advanced UI Features
 **Future Plans:**
@@ -73,9 +65,9 @@
 
 
 ### Long-Term Vision
-1. **Mobile Support**: Progressive Web App or mobile app
-2. **Cloud Integration**: Cloud storage backends
-3. **AI Features**: Automatic photo categorization
+1. **Cloud Integration**: Cloud storage backends
+2. **AI Features**: Automatic photo categorization
+3. **Desktop Polish**: Themes, Map Styles, Advanced Filtering
 
 ## 📋 Feature Implementation Templates
 
@@ -145,10 +137,10 @@
 | Priority | Features | Impact | Effort |
 |----------|----------|--------|--------|
 | High | Windows Compatibility | Critical | Medium |
-| High | Performance Optimization | High | High |
-| Medium | Advanced UI Features | Medium | Medium |
+| High | Reverse Geocoding | High | High |
+| Medium | Advanced UI Features (Themes, Map Styles) | Medium | Medium |
 | Medium | Advanced Metadata | Medium | High |
-| Low | Mobile Support | Low | Very High |
+| Low | Performance Optimization (100k+) | Low | High |
 | Low | Cloud Integration | Low | Very High |
 
 ## 🎯 Decision Making Framework
