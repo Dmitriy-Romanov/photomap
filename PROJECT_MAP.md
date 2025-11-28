@@ -77,7 +77,7 @@ photomap/
 
 ### `database.rs`
 
-*   **Purpose:** Manages the SQLite database connection and all database operations.
+*   **Purpose:** Manages the In-Memory database and persistence operations.
 *   **Responsibilities:**
     *   Initializes the database and creates the necessary tables.
     *   Provides functions to insert, query, and delete photo metadata.

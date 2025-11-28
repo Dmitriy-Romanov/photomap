@@ -20,7 +20,7 @@
 - What memory management strategies work best for large photo collections?
 
 **Research Tasks:**
-- [ ] Search: "Rust SQLite optimization large datasets 2025"
+- [ ] Search: "Rust In-Memory DB optimization large datasets 2025"
 - [ ] Research: "Memory efficient image processing Rust"
 - [ ] Search: "Parallel processing optimization Rust 2025"
 
