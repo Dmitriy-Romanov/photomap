@@ -1,6 +1,6 @@
 [package]
 name = "photomap_processor"
-version = "0.9.5"
+version = "0.9.6"
 edition = "2021"
 description = "Parallel photo processing: extract GPS from EXIF, create thumbnails, and generate an interactive map"
 authors = ["PhotoMap Contributors"]
@@ -29,6 +29,8 @@ chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bincode = "1.3"  # Used for database cache serialization
+kdtree = "0.7"
+flate2 = "1.0"
 
 
 [profile.release]

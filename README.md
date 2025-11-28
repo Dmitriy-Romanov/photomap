@@ -1,14 +1,12 @@
-# PhotoMap Processor v0.9.5
+# PhotoMap Processor v0.9.6
 
 A modern, high-performance photo mapping application with In-Memory database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.9.5)
+## ✨ Latest Improvements (v0.9.6)
 
-- **Frontend Architecture**: Refactored `script.js` with centralized API endpoints and improved code organization (JSDoc).
-- **Security & Reliability**: Safer path handling for Windows (removed inline `onclick` handlers), fixed path escaping issues.
-- **UI Optimization**: Implemented SVG sprite system for cleaner HTML, refactored inline styles to CSS utility classes.
-- **Visual Polish**: Adjusted panel width and column layout, fixed font weight consistency, fixed typos.
-- **Code Quality**: Comprehensive JSDoc documentation for better maintainability.
+- **Offline Reverse Geocoding**: Photos now display city and country names ("📍 Paris, FR") using an embedded GeoNames database with 140k+ cities. Fully offline with KD-Tree spatial indexing for instant lookups.
+- **Unified Popup UI**: Consistent popup layout between map markers and gallery view with clean CSS architecture.
+- **Performance**: Lazy initialization of geocoding module to avoid blocking startup.
 
 ## 🚀 Quick Start
 

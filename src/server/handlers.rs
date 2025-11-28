@@ -18,6 +18,7 @@ use rust_embed::RustEmbed;
 #[folder = "frontend/"]
 struct Asset;
 use crate::processing::{process_photos_from_directory, process_photos_with_stats};
+use crate::geocoding;
 
 /// Simple MIME type detection based on file extension
 fn get_mime_type(path: &std::path::Path) -> &'static str {
@@ -70,6 +71,7 @@ pub async fn get_all_photos(
                 datetime: photo.datetime,
                 file_path: photo.file_path.clone(),
                 is_heic: photo.is_heic,
+                location: geocoding::get_location_name(photo.lat, photo.lng),
             }
         })
         .collect();

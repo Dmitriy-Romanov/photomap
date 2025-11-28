@@ -9,6 +9,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 mod constants;
 mod database;
 mod exif_parser;
+mod geocoding;
 
 mod image_processing;
 mod process_manager;
@@ -68,6 +69,12 @@ async fn main() -> Result<()> {
     info!("🗄️  Initializing database (In-Memory)...");
     let db = Database::new().with_context(|| "Failed to initialize database")?;
     info!("✅ Database initialized successfully");
+
+    // Initialize Reverse Geocoder (Lazy load in background)
+    info!("🌍 Initializing Reverse Geocoder...");
+    std::thread::spawn(|| {
+        geocoding::ReverseGeocoder::init();
+    });
 
     // Don't process photos here anymore - handled later with settings
 

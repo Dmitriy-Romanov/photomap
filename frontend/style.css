@@ -83,7 +83,7 @@ body {
     margin-bottom: 8px;
 }
 
-.photo-popup .filename {
+.popup-filename {
     font-weight: 600;
     color: #374151;
     margin: 4px 0;
@@ -91,10 +91,11 @@ body {
     /* Match gallery base size */
 }
 
-.photo-popup .datetime {
-    color: #6b7280;
-    margin: 4px 0;
-    font-size: 14px;
+.popup-metadata {
+    color: #555;
+    margin-top: 2px;
+    font-weight: normal;
+    font-size: 15px;
 }
 
 /* Compact popup for user location marker */
@@ -684,17 +685,6 @@ body {
     align-items: center;
     justify-content: center;
     padding-top: 16px;
-}
-
-.detail-filename {
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 4px;
-}
-
-.detail-date {
-    font-size: 14px;
-    color: #6b7280;
 }
 
 .icon-btn.hidden {

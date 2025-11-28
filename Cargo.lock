@@ -645,6 +645,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kdtree"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f0a0e9f770b65bac9aad00f97a67ab5c5319effed07f6da385da3c2115e47ba"
+dependencies = [
+ "num-traits",
+ "thiserror",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -795,15 +805,17 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "photomap_processor"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "anyhow",
  "axum",
  "bincode",
  "chrono",
+ "flate2",
  "ignore",
  "image",
  "kamadak-exif",
+ "kdtree",
  "libheif-rs",
  "rayon",
  "rust-embed",

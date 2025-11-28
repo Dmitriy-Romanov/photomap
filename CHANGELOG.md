@@ -2,6 +2,31 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
+## [0.9.6] - 2025-11-28
+
+### Added
+- **Offline Reverse Geocoding**: Implemented city/country display for photo locations
+  - Embedded GeoNames database (140k+ cities) compressed into the executable
+  - KD-Tree spatial index for fast nearest-neighbor lookups
+  - Location displayed as "📍 City, Country" alongside photo date in popups
+  - Fully offline - no external API calls required
+  - New backend module `src/geocoding.rs` with lazy initialization
+  - Extended `ImageMetadata` struct with optional `location` field
+
+### Changed
+- **Popup UI Unification**: Standardized popup layout between map markers and gallery
+  - Unified CSS classes (`.popup-filename`, `.popup-metadata`)
+  - Removed duplicate styles and wrapper divs
+  - Consistent font sizing and alignment
+  - Metadata line format: "📍 Location  📅 DD-MM-YYYY HH:MM"
+
+### Fixed
+- **Gallery Popup Layout**: Fixed incorrect inline display of metadata in gallery detail view
+- **Coordinate Tooltips**: Removed unwanted tooltips from map coordinate display
+
+### Removed
+- **Build Tools**: Removed `tools/geodata_builder` directory (one-time use for database generation)
+
 ## [0.9.5] - 2025-11-28
 
 ### Added

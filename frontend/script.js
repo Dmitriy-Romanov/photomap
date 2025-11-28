@@ -180,14 +180,17 @@ async function loadSettings() {
  * @returns {Object} An object containing formatted strings and HTML.
  */
 function formatPhotoData(photo) {
-    // Format datetime: "YYYY-MM-DD HH:MM:SS" -> "Photo shooted: DD-MM-YYYY HH:MM:SS"
+    // Format datetime: "YYYY-MM-DD HH:MM:SS" -> "DD-MM-YYYY HH:MM"
     let formattedDateTime = photo.datetime;
     if (photo.datetime) {
         const parts = photo.datetime.split(' ');
         if (parts.length === 2) {
             const dateParts = parts[0].split('-');  // [YYYY, MM, DD]
             if (dateParts.length === 3) {
-                formattedDateTime = `Photo taken: ${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}`;
+                // Keep only HH:MM from time
+                const timeParts = parts[1].split(':');
+                const time = timeParts.length >= 2 ? `${timeParts[0]}:${timeParts[1]}` : parts[1];
+                formattedDateTime = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${time}`;
             }
         }
     }
@@ -195,22 +198,26 @@ function formatPhotoData(photo) {
     // Extract filename from full path (support both / and \ for Windows)
     const filename = photo.file_path.split(/[\/\\]/).pop() || photo.file_path;
 
-    // Generate HTML for filename with tooltip and class for event delegation
-    // We use data-full-path to store the raw path safely without needing complex escaping for JS strings
+    // Location + Date line
+    const metaLine = photo.location
+        ? `📍 ${photo.location} &nbsp; 📅 ${formattedDateTime}`
+        : `📅 ${formattedDateTime}`;
+
+    // Generate HTML for popup (div)
+    // We separate the clickable filename part from the metadata part
     const filenameHtml = `
-        <div class="filename popup-filename reveal-file-btn" data-tooltip="${photo.file_path}" data-full-path="${photo.file_path}" style="cursor: pointer;">
+        <div class="filename popup-filename reveal-file-btn" data-tooltip="${photo.file_path}" 
+             data-full-path="${photo.file_path}" 
+             style="cursor: pointer;">
             📁 ${filename}
+        </div>
+        <div class="popup-metadata">
+            ${metaLine}
         </div>
     `;
 
-    // For gallery detail view (uses span instead of div for innerHTML injection)
-    const filenameHtmlSpan = `
-        <span class="popup-filename reveal-file-btn" data-tooltip="${photo.file_path}" 
-              data-full-path="${photo.file_path}" 
-              style="cursor: pointer;">
-            📁 ${filename}
-        </span>
-    `;
+    // For gallery detail view - use EXACTLY the same structure as map popup
+    const filenameHtmlSpan = filenameHtml;
 
     return {
         formattedDateTime,
@@ -452,12 +459,16 @@ function updateMapCoordinates() {
     const coordsElement = document.getElementById('map-coordinates');
     if (coordsElement) {
         coordsElement.textContent = `Lat: ${center.lat.toFixed(5)}, Lon: ${center.lng.toFixed(5)}`;
+        coordsElement.removeAttribute('title');
+        coordsElement.removeAttribute('data-tooltip');
     }
 
     // Sync coordinates to experimental panel
     const expCoords = document.getElementById('exp-coordinates');
     if (expCoords) {
         expCoords.textContent = `Lat: ${center.lat.toFixed(5)}, Lon: ${center.lng.toFixed(5)}`;
+        expCoords.removeAttribute('title');
+        expCoords.removeAttribute('data-tooltip');
     }
 }
 
@@ -840,7 +851,6 @@ function createPopupContent(photo) {
                  onerror="this.src='${photo.fallback_url}'"
                  alt="${photo.filename}" />
             ${filenameHtml}
-            <div class="datetime">${formattedDateTime}</div>
         </div>
     `;
 }
@@ -1553,8 +1563,7 @@ function showPhotoInGallery(photo) {
     const backBtn = document.getElementById('cluster-back-btn');
 
     const detailImg = document.getElementById('cluster-detail-img');
-    const detailFilename = document.getElementById('cluster-detail-filename');
-    const detailDate = document.getElementById('cluster-detail-date');
+    const detailInfo = document.getElementById('cluster-detail-info');
 
     const { formattedDateTime, filenameHtmlSpan } = formatPhotoData(photo);
 
@@ -1562,9 +1571,8 @@ function showPhotoInGallery(photo) {
     detailImg.src = photo.url;
     detailImg.onerror = () => { detailImg.src = photo.fallback_url; };
 
-    // Use formatted filename with folder icon and tooltip
-    detailFilename.innerHTML = filenameHtmlSpan;
-    detailDate.textContent = formattedDateTime;
+    // Insert HTML directly into detail-info container
+    detailInfo.innerHTML = filenameHtmlSpan;
 
     // Switch views
     gridView.classList.add('hidden');

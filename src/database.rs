@@ -27,6 +27,7 @@ pub struct ImageMetadata {
     pub datetime: String,
     pub file_path: String,
     pub is_heic: bool,
+    pub location: Option<String>,
 }
 
 // Structure for disk persistence
