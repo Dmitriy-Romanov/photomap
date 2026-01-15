@@ -53,7 +53,7 @@ These are ideas that have been discussed but are not currently scheduled:
 1. **Development**: Implement changes on `main` branch.
 2. **Testing**:
    - Verify on macOS (Primary dev environment)
-   - Verify on Windows (Crucial for cross-platform promise)
+   - Verify on Windows (Excellent support, crucial for cross-platform promise)
    - Verify on Linux (Ubuntu) (Confirmed working)
 3. **Release**:
    - Update `Cargo.toml` version.
