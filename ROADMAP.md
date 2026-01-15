@@ -4,186 +4,62 @@
 
 - **Simplicity First**: Solve problems directly with minimal dependencies
 - **Standard Library Priority**: Use std:: before external crates
-- **Cross-Platform First**: Windows/macOS/Linux from day one
-- **Research-Driven**: 2025 best practices research for each feature
-- **User-Focused Planning**: Ask questions, then implement
+- **Cross-Platform First**: Windows/macOS/Linux support is mandatory
+- **Research-Driven**: Best practices research for each feature
+- **User-Focused**: Features are implemented based on user needs, not trends
 
-## 📅 Release Planning
+## 📍 Current Status: v0.9.6 (Stable)
 
+The project has reached a high level of stability and feature completeness. The core functionality—processing photos, extracting metadata (including offline reverse geocoding), and displaying them on a high-performance map—is working robustly on macOS, Windows, and Linux.
 
-### v0.7.0 - Performance Optimization Edition
+### ✅ Recently Completed Milestones
 
-#### Phase 1: Optimization (Completed/Sufficient)
-**Status**:
-- Current performance on ~30k photos is excellent (tested on i5-8250U).
-- Further optimization for huge collections (100k+) is low priority.
+- **Offline Reverse Geocoding**: Embedded 140k+ cities database (GeoNames) with KD-Tree for instant, offline location naming.
+- **Multi-Folder Support**: Capability to process up to 5 distinct folders simultaneously.
+- **Unified UI**: Consistent styling across map markers, popups, and the gallery view.
+- **Performance**: Lazy initialization of heavy modules, optimized startup time.
+- **Cross-Platform**: Full Windows support including proper path handling and Explorer integration.
 
-**Future Optimization Tasks (Low Priority):**
-- [ ] Profile memory usage if collection grows significantly
-- [ ] Implement database query optimization only if UI lags
+## 📅 Future Plans & Maintenance
 
-#### Phase 2: Advanced UI Features
-**Future Plans:**
-- Improve Info Window UI (collaborate with nanobanana).
+We are currently in a **Maintenance & Polish** phase. No major feature overhauls are planned unless driven by specific user needs.
 
-**Research Tasks:**
-- [ ] "WebAssembly image processing 2025"
-- [ ] "JavaScript image clustering algorithms"
-- [ ] "Leaflet.js performance optimization"
+### v1.0.0 - The "Gold" Release (Candidate)
 
-**Implementation Tasks:**
-- [ ] Implement photo clustering on client side
-- [ ] Add advanced filtering capabilities
-- [ ] Optimize map rendering performance
-- [ ] Add progressive loading for photos
+Target: Final polish and stability verification for a major version number.
 
-### v0.8.0 - Advanced Features Edition
+**Potential Tasks:**
+- [ ] **Dependency Audit**: Review and update crates to their latest stable versions.
+- [ ] **Code Cleanup**: Remove any lingering debug code or unused modules.
+- [ ] **Final UI Polish**: Ensure perfect alignment and consistenty across all operating systems.
+- [ ] **Documentation**: Ensure all docs are perfectly synced with behavior.
 
-#### Phase 1: Advanced Metadata (Research Required)
-**User Questions:**
-- What additional EXIF data would be useful?
-- How can we extract location names from GPS coordinates?
-- What photo organization features would users want?
+### 🔮 Backlog / Ideas (Low Priority)
 
-**Future Plans:**
-- Develop improved parser in separate project: `/Users/dmitriiromanov/claude/exif_parser_test` (after Windows stability).
+These are ideas that have been discussed but are not currently scheduled:
 
-**Research Tasks:**
-- [ ] Search: "Reverse geocoding Rust 2025"
-- [ ] Research: "EXIF metadata extraction best practices"
-- [ ] Search: "Photo organization algorithms 2025"
-
-**Implementation Tasks:**
-- [ ] Add reverse geocoding for location names
-- [ ] Implement advanced EXIF data extraction
-- [ ] Add photo grouping by location/date
-- [ ] Create photo timeline view
-
-
+- **Advanced Search**: Searching photos by city name (now that we have geocoding).
+- **Date/Time Timeline**: A visual timeline slider for navigating years/months.
+- **Cloud Integration**: (Unlikely, as local-first is a core value).
+- **AI Categorization**: Using local models to categorize photos (e.g., "Nature", "Urban").
 
 ## 🔧 Technical Debt & Improvements
 
+- **Monitoring**: Keep an eye on `chrono`, `tokio`, and `image` crate updates for performance wins.
+- **Refactoring**: Continue distinguishing between "scripting" logic and "application" logic if the codebase grows.
 
-### Long-Term Vision
-1. **Cloud Integration**: Cloud storage backends
-2. **AI Features**: Automatic photo categorization
-3. **Desktop Polish**: Themes, Map Styles, Advanced Filtering
+## 🔄 Release Process
 
-## 📋 Feature Implementation Templates
-
-### Research Template
-```markdown
-**Feature**: [Feature Name]
-**User Questions**:
-- Question 1?
-- Question 2?
-- Question 3?
-
-**Research Queries**:
-- "[topic] best practices 2025"
-- "[topic] Rust standard library alternative"
-- "[topic] cross-platform implementation"
-
-**Key Findings**:
-- Finding 1 (source)
-- Finding 2 (source)
-- Finding 3 (source)
-```
-
-### Implementation Template
-```markdown
-**Phase**: [Phase Name]
-**Tasks**:
-- [ ] Research: [specific research task]
-- [ ] Implement: [specific implementation]
-- [ ] Test: [testing approach]
-- [ ] Document: [documentation updates]
-
-**Dependencies**:
-- External crates needed (if absolutely necessary)
-- Platform-specific requirements
-
-**Success Criteria**:
-- [ ] Feature works on all target platforms
-- [ ] Performance meets requirements
-- [ ] Documentation is complete
-```
-
-## 🔄 Version Management Strategy
-
-### Semantic Versioning
-- **MAJOR**: Breaking changes (API changes, major architectural shifts)
-- **MINOR**: New features (backward compatible)
-- **PATCH**: Bug fixes and small improvements
-
-### Release Process
-1. **Feature Complete**: All planned features implemented
-2. **Testing**: Manual testing on all platforms
-3. **Documentation**: Updated for new features
-4. **Version Update**: Update ALL version numbers
-5. **Git Tag**: Create version tag
-6. **Release Notes**: Comprehensive changelog
-
-### Version History Format
-```markdown
-### v0.X.X - [Edition Name]
-- ✅ **Feature Category** - Brief description with user benefit
-- ✅ **Another Category** - Another improvement with benefit
-- ✅ **Technical Improvement** - Technical detail if user-relevant
-```
-
-## 📊 Priority Matrix
-
-| Priority | Features | Impact | Effort |
-|----------|----------|--------|--------|
-| High | Windows Compatibility | Critical | Medium |
-| High | Reverse Geocoding | High | High |
-| Medium | Advanced UI Features (Themes, Map Styles) | Medium | Medium |
-| Medium | Advanced Metadata | Medium | High |
-| Low | Performance Optimization (100k+) | Low | High |
-| Low | Cloud Integration | Low | Very High |
-
-## 🎯 Decision Making Framework
-
-### Before Adding Dependencies
-1. **Standard Library Check**: Is there an std:: equivalent?
-2. **Necessity Question**: Is this absolutely required?
-3. **Alternative Research**: Are there simpler approaches?
-4. **Maintenance Consideration**: Is the crate well-maintained?
-
-### Cross-Platform Considerations
-1. **Windows**: File paths, process management, permissions
-2. **macOS**: File permissions, sandboxing, process management
-3. **Linux**: Package dependencies, file system differences
-
-### Performance Criteria
-1. **Startup Time**: Application should start in <2 seconds
-2. **Processing**: <1ms per photo for metadata extraction
-3. **Memory Usage**: Should scale linearly with photo count
-4. **UI Responsiveness**: Interface should never freeze
+1. **Development**: Implement changes on `main` branch.
+2. **Testing**:
+   - Verify on macOS (Primary dev environment)
+   - Verify on Windows (Crucial for cross-platform promise)
+3. **Release**:
+   - Update `Cargo.toml` version.
+   - Update `CHANGELOG.md`.
+   - Update `README.md` if user-facing features changed.
+   - Tag commit.
 
 ---
 
-## 📝 Notes for Future Development
-
-### Key Learnings So Far
-- Process management is critical for single-instance applications
-- Cross-platform considerations should be addressed from the start
-- Standard library usage reduces complexity and maintenance burden
-- User feedback should drive feature prioritization
-
-### Code Patterns to Follow
-- Use Result<T> for error handling
-- Implement graceful degradation for missing features
-- Keep modules focused and single-purpose
-- Document platform-specific code thoroughly
-
-### Anti-Patterns to Avoid
-- Adding dependencies for convenience
-- Platform-specific code without alternatives
-- Complex error messages for end users
-- Premature optimization without profiling
-
----
-
-*This roadmap evolves based on user feedback and technical discoveries. Update it regularly to reflect current priorities and learnings.*
+*This roadmap is a living document. Last updated: January 2026.*
