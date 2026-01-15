@@ -54,6 +54,7 @@ These are ideas that have been discussed but are not currently scheduled:
 2. **Testing**:
    - Verify on macOS (Primary dev environment)
    - Verify on Windows (Crucial for cross-platform promise)
+   - Verify on Linux (Ubuntu) (Confirmed working)
 3. **Release**:
    - Update `Cargo.toml` version.
    - Update `CHANGELOG.md`.
