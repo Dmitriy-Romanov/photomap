@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-windows:
@@ -23,7 +24,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Vcpkg Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: C:\vcpkg\installed
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('.github/workflows/release.yml') }}
@@ -107,7 +108,7 @@ jobs:
       # Build libheif from source as in CI
       - name: Cache Custom Libheif
         id: cache-libheif
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/libheif-install
           key: ${{ runner.os }}-libheif-master-v2
