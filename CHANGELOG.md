@@ -2,6 +2,20 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
+## [0.9.7] - 2026-03-22
+
+### Security
+- **Backend Dependencies Update**: Performed full `cargo update` to address vulnerabilities
+  - Patched `image` crate (WebP security fix)
+  - Updated `libheif-rs` and `chrono` to address memory safety and data handling issues
+- **Frontend Dependencies Pinning**: Replaced `@latest` tags with fixed versions for Leaflet and MarkerCluster to prevent supply chain attacks
+
+### Changed
+- **CI/CD Infrastructure**: 
+  - Upgraded GitHub Actions to `@v4`
+  - Opted-in to Node.js 24 environment for all workflows
+  - Improved caching strategy for faster builds
+
 ## [0.9.6] - 2025-11-28
 
 ### Added
