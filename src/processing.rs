@@ -1,13 +1,41 @@
 use crate::database::{Database, PhotoMetadata};
 use crate::exif_parser::{
-    extract_metadata_from_heic, extract_metadata_from_jpeg, get_datetime_from_exif, get_gps_coord,
+    extract_metadata_from_heic, extract_metadata_from_jpeg, get_datetime_string, get_gps_coord,
 };
 use anyhow::Result;
-use ignore::Walk;
 use rayon::prelude::*;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::{error, info, warn};
+
+/// Recursively walks a directory collecting image files
+fn walk_dir(dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    let mut dirs_to_visit = vec![dir.to_path_buf()];
+
+    while let Some(current_dir) = dirs_to_visit.pop() {
+        if let Ok(entries) = fs::read_dir(&current_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    // Skip hidden directories and common ignore patterns
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                        if !name.starts_with('.')
+                            && name != "node_modules"
+                            && name != "target"
+                            && name != ".git"
+                        {
+                            dirs_to_visit.push(path);
+                        }
+                    }
+                } else if path.is_file() {
+                    files.push(path);
+                }
+            }
+        }
+    }
+    files
+}
 
 /// Processes photos and saves metadata to the database
 /// Returns processing statistics: (total_files, processed_count, gps_count, no_gps_count, heic_count)
@@ -42,8 +70,8 @@ pub fn process_photos_with_stats(
         }
     }
 
-    // Create walker for photos directory only
-    let walker = Walk::new(photos_dir);
+    // Collect all image files using custom walk function
+    let all_files = walk_dir(photos_dir);
 
     // Process files in parallel using Rayon with timing
     let start_time = std::time::Instant::now();
@@ -52,35 +80,12 @@ pub fn process_photos_with_stats(
         info!("📊 Starting parallel processing of files...");
     }
 
-    let reduction_result = walker
-        .into_iter()
-        .filter_map(|entry| entry.ok())
-        .filter(|e| {
-            // Check that file is in photos directory
-            e.path().starts_with(photos_dir)
-        })
-        .filter(|e| {
-            // Exclude system directories and hidden files
-            let path = e.path();
-            if let Some(components) = path.components().collect::<Vec<_>>().get(1..) {
-                for component in components {
-                    if let Some(name) = component.as_os_str().to_str() {
-                        if name.starts_with('.')
-                            || name == "node_modules"
-                            || name == "target"
-                            || name == ".git"
-                        {
-                            return false;
-                        }
-                    }
-                }
-            }
-            true
-        })
-        .filter(|e| {
+    let reduction_result = all_files
+        .into_par_iter()  // Rayon parallel iterator
+        .filter(|path| {
             // Filter by extension - only process supported image formats
             // This prevents trying to process video files or other non-images
-            if let Some(ext) = e.path().extension().and_then(|s| s.to_str()) {
+            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
                 let ext_lower = ext.to_lowercase();
                 matches!(
                     ext_lower.as_str(),
@@ -90,12 +95,9 @@ pub fn process_photos_with_stats(
                 false
             }
         })
-        .filter(|e| e.file_type().is_some_and(|ft| ft.is_file()))
-        .par_bridge() // Use par_bridge to enable parallel processing on the iterator
         .fold(
             || (vec![], 0usize, 0usize), // Initial state for each thread: (photo_metadata_vec, total_files, heic_count)
-            |mut acc, entry| {
-                let path = entry.into_path();
+            |mut acc, path: PathBuf| {
                 acc.1 += 1; // Increment total_files
 
                 if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
@@ -253,7 +255,7 @@ fn process_file_to_metadata(path: &Path, photos_dir: &Path) -> Result<PhotoMetad
 
             let lat = get_gps_coord(&exif, exif::Tag::GPSLatitude, exif::Tag::GPSLatitudeRef)?;
             let lng = get_gps_coord(&exif, exif::Tag::GPSLongitude, exif::Tag::GPSLongitudeRef)?;
-            let datetime = get_datetime_from_exif(&exif);
+            let datetime = get_datetime_string(&exif);
 
             if lat.is_none() || lng.is_none() {
                 anyhow::bail!("GPS data not found");
@@ -263,9 +265,7 @@ fn process_file_to_metadata(path: &Path, photos_dir: &Path) -> Result<PhotoMetad
         }
     };
 
-    let datetime_str = datetime_opt
-        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-        .unwrap_or_else(|| "Unknown Date".to_string());
+    let datetime_str = datetime_opt.unwrap_or_else(|| "Unknown Date".to_string());
 
     // --- Create a database record ---
     let filename = path

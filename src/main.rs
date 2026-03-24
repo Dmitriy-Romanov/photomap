@@ -23,6 +23,27 @@ use libheif_rs::integration::image::register_all_decoding_hooks;
 use server::state::AppState;
 use settings::Settings;
 
+/// Format current time as "DD HH:MM:SS"
+fn format_time() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap();
+    let secs = now.as_secs();
+
+    // Simple conversion from Unix timestamp to day-of-year and time
+    let _days_since_epoch = (secs / 86400) as i64;
+    let _epoch_start = 11_000; // Approximate days from 0000-01-01 to 1970-01-01
+    let remaining = secs % 31_557_600;
+    let day_of_year = (remaining / 86_400) + 1;
+
+    let hour = (secs % 86400 / 3600) as u8;
+    let minute = (secs % 3600 / 60) as u8;
+    let second = (secs % 60) as u8;
+
+    format!("{} {:02}:{:02}:{:02}", day_of_year, hour, minute, second)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // === Setup Logging ===
@@ -30,8 +51,7 @@ async fn main() -> Result<()> {
 
     impl tracing_subscriber::fmt::time::FormatTime for CustomTimer {
         fn format_time(&self, w: &mut tracing_subscriber::fmt::format::Writer<'_>) -> std::fmt::Result {
-            let now = chrono::Local::now();
-            write!(w, "{}", now.format("%d %H:%M:%S"))
+            write!(w, "{}", format_time())
         }
     }
 
@@ -53,10 +73,7 @@ async fn main() -> Result<()> {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     info!("---");
     info!("🚀 Session start: PhotoMap Processor v{}", VERSION);
-    info!(
-        "🕒 Launch time: {}",
-        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
-    );
+    info!("🕒 Launch time: {}", format_time());
     info!("---");
 
     // Register HEIC/HEIF decoder

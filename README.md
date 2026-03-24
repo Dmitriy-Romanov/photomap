@@ -1,10 +1,17 @@
-# PhotoMap Processor v0.9.7
+# PhotoMap Processor v0.9.8
 
 A modern, high-performance photo mapping application with In-Memory database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.9.7)
+## ✨ Latest Improvements (v0.9.8)
 
-- **Offline Reverse Geocoding**: Photos now display city and country names ("📍 Paris, FR") using an embedded GeoNames database with 140k+ cities. Fully offline with KD-Tree spatial indexing for instant lookups.
+- **Dependency Cleanup**: Removed unnecessary dependencies (`ignore`, `chrono`, `kdtree`) — replaced with lightweight std implementations.
+- **Smaller Binary**: Optimized binary size while maintaining full functionality.
+- **Faster Compilation**: Fewer external dependencies = faster build times.
+- **Code Simplicity**: More std-lib usage, less external magic.
+
+### v0.9.7
+
+- **Offline Reverse Geocoding**: Photos now display city and country names ("📍 Paris, FR") using an embedded GeoNames database with 163k+ cities. Fully offline with fast linear search.
 - **Unified Popup UI**: Consistent popup layout between map markers and gallery view with clean CSS architecture.
 - **Performance**: Lazy initialization of geocoding module to avoid blocking startup.
 
@@ -13,6 +20,9 @@ A modern, high-performance photo mapping application with In-Memory database sto
 ### Prerequisites
 
 - **Rust 1.70+**
+- **macOS**: `brew install cmake pkgconf libheif libjpeg-turbo`
+- **Ubuntu**: `sudo apt install build-essential cmake nasm libde265-dev libx265-dev libjpeg-turbo8-dev pkg-config`
+- **Windows**: vcpkg install libheif:x64-windows-static libjpeg-turbo:x64-windows-static
 
 ### Installation & Usage
 

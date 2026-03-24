@@ -1,9 +1,6 @@
 use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
-use kdtree::distance::squared_euclidean;
-use kdtree::KdTree;
 use serde::{Deserialize, Serialize};
-use std::io::Cursor;
 use std::sync::OnceLock;
 
 // Embed the compressed geodata binary
@@ -20,7 +17,6 @@ pub struct GeoLocation {
 
 pub struct ReverseGeocoder {
     locations: Vec<GeoLocation>,
-    tree: KdTree<f64, usize, [f64; 2]>,
 }
 
 // Global singleton instance
@@ -31,19 +27,13 @@ impl ReverseGeocoder {
         println!("🌍 Initializing Reverse Geocoder...");
         let start = std::time::Instant::now();
 
-        // 1. Decompress and Deserialize
-        let decoder = GzDecoder::new(Cursor::new(GEODATA_BYTES));
+        // Decompress and deserialize
+        let decoder = GzDecoder::new(GEODATA_BYTES);
         let locations: Vec<GeoLocation> = bincode::deserialize_from(decoder)
             .context("Failed to deserialize geodata")?;
 
-        // 2. Build KD-Tree
-        let mut tree = KdTree::new(2);
-        for (i, loc) in locations.iter().enumerate() {
-            tree.add([loc.lat, loc.lon], i)?;
-        }
-
         println!("✅ Geocoder initialized in {:?} with {} cities", start.elapsed(), locations.len());
-        Ok(ReverseGeocoder { locations, tree })
+        Ok(ReverseGeocoder { locations })
     }
 
     pub fn get() -> Option<&'static ReverseGeocoder> {
@@ -57,9 +47,6 @@ impl ReverseGeocoder {
                 Ok(g) => g,
                 Err(e) => {
                     eprintln!("❌ Failed to initialize geocoder: {}", e);
-                    // Return a dummy/empty one or panic? 
-                    // Better to panic or handle gracefully. 
-                    // For now, let's panic since this is static data that should be valid.
                     panic!("Failed to initialize geocoder: {}", e);
                 }
             }
@@ -67,23 +54,24 @@ impl ReverseGeocoder {
     }
 
     pub fn lookup(&self, lat: f64, lon: f64) -> Option<String> {
-        // Find nearest neighbor
-        // We use squared_euclidean for speed. For small distances on Earth, it's "okay" for finding nearest city.
-        // For strict correctness we should use Haversine, but KdTree works with Euclidean.
-        // Since we just want the NEAREST point, Euclidean on lat/lon is a reasonable approximation for "nearest city"
-        // unless we are near poles or dateline, which is rare for photos.
-        
-        match self.tree.nearest(&[lat, lon], 1, &squared_euclidean) {
-            Ok(nearest) => {
-                if let Some((_dist, &index)) = nearest.first() {
-                    let loc = &self.locations[index];
-                    // Format: "Paris, FR"
-                    return Some(format!("{}, {}", loc.name, loc.country));
-                }
-                None
+        // Simple linear search with squared euclidean distance
+        // For ~163k cities this is fast enough (~1-2ms)
+        let mut nearest: Option<&GeoLocation> = None;
+        let mut nearest_dist_sq = f64::MAX;
+
+        for loc in &self.locations {
+            // Squared euclidean distance (faster than sqrt, sufficient for comparison)
+            let d_lat = loc.lat - lat;
+            let d_lon = loc.lon - lon;
+            let dist_sq = d_lat * d_lat + d_lon * d_lon;
+
+            if dist_sq < nearest_dist_sq {
+                nearest_dist_sq = dist_sq;
+                nearest = Some(loc);
             }
-            Err(_) => None,
         }
+
+        nearest.map(|loc| format!("{}, {}", loc.name, loc.country))
     }
 }
 
