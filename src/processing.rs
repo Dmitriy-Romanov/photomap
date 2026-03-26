@@ -6,7 +6,6 @@ use anyhow::Result;
 use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tracing::{error, info, warn};
 
 /// Recursively walks a directory collecting image files
 fn walk_dir(dir: &Path) -> Vec<PathBuf> {
@@ -46,7 +45,7 @@ pub fn process_photos_with_stats(
     clear_database: bool,
 ) -> Result<(usize, usize, usize, usize, usize)> {
     if !silent_mode {
-        info!("🔍 Scanning photos directory: {}", photos_dir.display());
+        println!("🔍 Scanning photos directory: {}", photos_dir.display());
     }
 
     if !photos_dir.exists() {
@@ -54,7 +53,7 @@ pub fn process_photos_with_stats(
         if silent_mode {
             return Err(anyhow::Error::msg(error_msg));
         } else {
-            error!("{}", error_msg);
+            eprintln!("{}", error_msg);
             return Ok((0, 0, 0, 0, 0));
         }
     }
@@ -62,11 +61,11 @@ pub fn process_photos_with_stats(
     // Clear existing photos from database before processing new folder
     if clear_database {
         if !silent_mode {
-            info!("🗑️  Clearing existing photos from database...");
+            println!("🗑️  Clearing existing photos from database...");
         }
         db.clear_all_photos()?;
         if !silent_mode {
-            info!("✅ Database cleared successfully");
+            println!("✅ Database cleared successfully");
         }
     }
 
@@ -77,7 +76,7 @@ pub fn process_photos_with_stats(
     let start_time = std::time::Instant::now();
 
     if !silent_mode {
-        info!("📊 Starting parallel processing of files...");
+        println!("📊 Starting parallel processing of files...");
     }
 
     let reduction_result = all_files
@@ -114,9 +113,9 @@ pub fn process_photos_with_stats(
                     Err(e) => {
                         let err_msg = e.to_string();
                         if err_msg.contains("GPS data not found") {
-                            info!("ℹ️  Skipped {}: No GPS data", path.display());
+                            println!("ℹ️  Skipped {}: No GPS data", path.display());
                         } else {
-                            warn!("Failed to process file {}: {}", path.display(), e);
+                            eprintln!("Failed to process file {}: {}", path.display(), e);
                         }
                     }
                 }
@@ -138,18 +137,18 @@ pub fn process_photos_with_stats(
 
     // Insert all photos into database at once
     if !silent_mode {
-        info!("💾 Inserting {} photos into database...", all_photos.len());
+        println!("💾 Inserting {} photos into database...", all_photos.len());
     }
 
     match db.insert_photos_batch(&all_photos) {
         Ok(inserted) => {
             successful_count = inserted;
             if !silent_mode {
-                info!("✅ Successfully inserted {} photos", inserted);
+                println!("✅ Successfully inserted {} photos", inserted);
             }
         }
         Err(e) => {
-            error!("Failed to insert photos: {}", e);
+            eprintln!("Failed to insert photos: {}", e);
         }
     }
 
@@ -167,24 +166,24 @@ pub fn process_photos_with_stats(
 
     // Print processing statistics
     if !silent_mode {
-        info!("\n📊 Processing Statistics:");
-        info!("   🔍 Total files checked: {}", total_files);
-        info!("   📸 Photos processed: {}", final_count);
-        info!("   🗺️  With GPS data: {}", gps_count);
-        info!("   ❌ Without GPS: {}", no_gps_count);
-        info!("   📱 HEIC files: {}", heic_count);
-        info!(
+        println!("\n📊 Processing Statistics:");
+        println!("   🔍 Total files checked: {}", total_files);
+        println!("   📸 Photos processed: {}", final_count);
+        println!("   🗺️  With GPS data: {}", gps_count);
+        println!("   ❌ Without GPS: {}", no_gps_count);
+        println!("   📱 HEIC files: {}", heic_count);
+        println!(
             "   📷 JPEG/other: {}",
             final_count.saturating_sub(heic_count)
         );
-        info!("   ⏱️  Processing time: {:.2} sec", processing_secs);
-        info!(
+        println!("   ⏱️  Processing time: {:.2} sec", processing_secs);
+        println!(
             "   📈 Average time per file: {:.1} ms",
             avg_time_per_file_ms
         );
 
-        info!("\n🎉 Processing complete! Data stored in memory.");
-        info!(
+        println!("\n🎉 Processing complete! Data stored in memory.");
+        println!(
             "   🗄️  Database contains {} photos with GPS data",
             final_count
         );
@@ -207,7 +206,7 @@ pub fn process_photos_from_directory(
     db: &Database,
     photos_dir: &Path,
 ) -> Result<(usize, usize, usize, usize, usize)> {
-    info!(
+    println!(
         "🔍 Processing photos from directory: {}",
         photos_dir.display()
     );

@@ -2,6 +2,16 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
+## [0.9.9] - 2026-03-26
+
+### Changed
+- **Dependency Cleanup Round 2**: Removed 4 more unnecessary dependencies
+  - Replaced `rust-embed` with std `include_bytes!` for 3 frontend files
+  - Replaced `tokio-stream` with 15-line custom `ReceiverStream` adapter
+  - Replaced `tracing` + `tracing-subscriber` with `println!`/`eprintln!`
+  - Added `futures-core` (already a transitive dependency of tokio)
+- **Binary size**: Reduced from 5.7MB to 5.1MB (-11%)
+
 ## [0.9.8] - 2026-03-24
 
 ### Changed

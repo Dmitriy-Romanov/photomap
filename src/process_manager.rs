@@ -2,16 +2,13 @@ use anyhow::Result;
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
-use tracing::info;
-#[cfg(not(target_os = "windows"))]
-use tracing::warn;
 
 #[cfg(target_os = "windows")]
 use anyhow::Context;
 
 /// Checks if the PhotoMap process is already running and kills it if necessary
 pub fn ensure_single_instance() -> Result<()> {
-    info!("🔍 Checking for existing PhotoMap processes...");
+    println!("🔍 Checking for existing PhotoMap processes...");
 
     #[cfg(target_os = "windows")]
     let result = kill_existing_windows();
@@ -42,27 +39,27 @@ fn kill_existing_unix() -> Result<()> {
         }
         Ok(_) => {
             // pgrep returns exit code 1 if no processes found
-            info!("✅ No existing PhotoMap processes found");
+            println!("✅ No existing PhotoMap processes found");
             return Ok(());
         }
         Err(e) => {
-            warn!("⚠️  pgrep command failed: {}. Skipping process check.", e);
+            eprintln!("⚠️  pgrep command failed: {}. Skipping process check.", e);
             return Ok(());
         }
     };
 
     if pids.is_empty() {
-        info!("✅ No existing PhotoMap processes found");
+        println!("✅ No existing PhotoMap processes found");
         return Ok(());
     }
 
-    info!(
+    println!(
         "🔄 Found {} existing PhotoMap process(es), terminating...",
         pids.len()
     );
 
     for pid in pids {
-        info!("   🚫 Terminating process PID: {}", pid);
+        println!("   🚫 Terminating process PID: {}", pid);
 
         // Try graceful termination first (SIGTERM)
         let term_result = Command::new("kill")
@@ -81,7 +78,7 @@ fn kill_existing_unix() -> Result<()> {
 
             if check.is_ok() {
                 // Process still alive, force kill
-                info!("   ⚡ Process still alive, force killing PID: {}", pid);
+                println!("   ⚡ Process still alive, force killing PID: {}", pid);
                 let _ = Command::new("kill")
                     .arg("-KILL")
                     .arg(pid.to_string())
@@ -89,7 +86,7 @@ fn kill_existing_unix() -> Result<()> {
             }
         } else {
             // SIGTERM failed, try SIGKILL directly
-            info!("   ⚡ SIGTERM failed, force killing PID: {}", pid);
+            println!("   ⚡ SIGTERM failed, force killing PID: {}", pid);
             let _ = Command::new("kill")
                 .arg("-KILL")
                 .arg(pid.to_string())
@@ -98,7 +95,7 @@ fn kill_existing_unix() -> Result<()> {
     }
 
     thread::sleep(Duration::from_secs(1));
-    info!("✅ All existing processes terminated");
+    println!("✅ All existing processes terminated");
 
     Ok(())
 }
@@ -114,7 +111,7 @@ fn kill_existing_windows() -> Result<()> {
         .context("Failed to run tasklist command")?;
 
     if !output.status.success() {
-        info!("✅ No existing PhotoMap processes found");
+        println!("✅ No existing PhotoMap processes found");
         return Ok(());
     }
 
@@ -135,17 +132,17 @@ fn kill_existing_windows() -> Result<()> {
         .collect();
 
     if pids.is_empty() {
-        info!("✅ No existing PhotoMap processes found");
+        println!("✅ No existing PhotoMap processes found");
         return Ok(());
     }
 
-    info!(
+    println!(
         "🔄 Found {} existing PhotoMap process(es), terminating...",
         pids.len()
     );
 
     for pid in pids {
-        info!("   🚫 Terminating process PID: {}", pid);
+        println!("   🚫 Terminating process PID: {}", pid);
 
         // Try graceful termination first
         let term_result = Command::new("taskkill")
@@ -163,7 +160,7 @@ fn kill_existing_windows() -> Result<()> {
             if let Ok(out) = check_output {
                 if !out.stdout.is_empty() && String::from_utf8_lossy(&out.stdout).contains(&pid.to_string()) {
                     // Process still alive, force kill
-                    info!("   ⚡ Process still alive, force killing PID: {}", pid);
+                    println!("   ⚡ Process still alive, force killing PID: {}", pid);
                     let _ = Command::new("taskkill")
                         .args(["/F", "/PID", &pid.to_string()])
                         .status();
@@ -171,7 +168,7 @@ fn kill_existing_windows() -> Result<()> {
             }
         } else {
             // Graceful kill failed, force kill
-            info!("   ⚡ Graceful kill failed, force killing PID: {}", pid);
+            println!("   ⚡ Graceful kill failed, force killing PID: {}", pid);
             let _ = Command::new("taskkill")
                 .args(["/F", "/PID", &pid.to_string()])
                 .status();
@@ -179,7 +176,7 @@ fn kill_existing_windows() -> Result<()> {
     }
 
     thread::sleep(Duration::from_secs(1));
-    info!("✅ All existing processes terminated");
+    println!("✅ All existing processes terminated");
 
     Ok(())
 }

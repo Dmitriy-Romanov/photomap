@@ -6,19 +6,33 @@ use axum::{
 };
 use std::collections::HashMap;
 use std::convert::Infallible;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::time::Duration;
-use tokio_stream::wrappers::ReceiverStream;
-use tokio_stream::Stream;
+use futures_core::Stream;
 
 use crate::database::ImageMetadata;
 use crate::image_processing::{convert_heic_to_jpeg, create_scaled_image_in_memory, ImageType};
-use rust_embed::RustEmbed;
-
-#[derive(RustEmbed)]
-#[folder = "frontend/"]
-struct Asset;
 use crate::processing::{process_photos_from_directory, process_photos_with_stats};
 use crate::geocoding;
+
+// Embedded frontend assets
+const INDEX_HTML: &[u8] = include_bytes!("../../frontend/index.html");
+const STYLE_CSS: &[u8] = include_bytes!("../../frontend/style.css");
+const SCRIPT_JS: &[u8] = include_bytes!("../../frontend/script.js");
+
+// Simple adapter: tokio mpsc::Receiver → futures_core::Stream
+struct ReceiverStream {
+    rx: tokio::sync::mpsc::Receiver<Result<axum::response::sse::Event, Infallible>>,
+}
+
+impl Stream for ReceiverStream {
+    type Item = Result<axum::response::sse::Event, Infallible>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.rx.poll_recv(cx)
+    }
+}
 
 /// Simple MIME type detection based on file extension
 fn get_mime_type(path: &std::path::Path) -> &'static str {
@@ -596,7 +610,7 @@ pub async fn processing_events_stream(
         }
     });
 
-    let stream = ReceiverStream::new(rx);
+    let stream = ReceiverStream { rx };
 
     Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
@@ -608,23 +622,21 @@ pub async fn processing_events_stream(
 // Helper struct for SSE events
 use axum::response::sse::Event as SseEvent;
 
-pub async fn index_html() -> Html<Vec<u8>> {
-    Html(Asset::get("index.html").unwrap().data.into_owned())
+pub async fn index_html() -> Html<&'static [u8]> {
+    Html(INDEX_HTML)
 }
 
 pub async fn style_css() -> Response {
-    let content = Asset::get("style.css").unwrap().data;
     Response::builder()
         .header(header::CONTENT_TYPE, "text/css")
-        .body(content.into_owned().into())
+        .body(STYLE_CSS.to_vec().into())
         .unwrap()
 }
 
 pub async fn script_js() -> Response {
-    let content = Asset::get("script.js").unwrap().data;
     Response::builder()
         .header(header::CONTENT_TYPE, "application/javascript")
-        .body(content.into_owned().into())
+        .body(SCRIPT_JS.to_vec().into())
         .unwrap()
 }
 

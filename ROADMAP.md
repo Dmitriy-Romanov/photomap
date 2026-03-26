@@ -8,13 +8,14 @@
 - **Research-Driven**: Best practices research for each feature
 - **User-Focused**: Features are implemented based on user needs, not trends
 
-## 📍 Current Status: v0.9.8 (Stable)
+## 📍 Current Status: v0.9.9 (Stable)
 
 The project has reached a high level of stability and feature completeness. The core functionality—processing photos, extracting metadata (including offline reverse geocoding), and displaying them on a high-performance map—is working robustly on macOS, Windows, and Linux.
 
 ### ✅ Recently Completed Milestones
 
-- **Dependency Cleanup (v0.9.8)**: Removed unnecessary external dependencies (`ignore`, `chrono`, `kdtree`) in favor of std library implementations for simpler, faster builds.
+- **Dependency Cleanup Round 2 (v0.9.9)**: Removed `rust-embed`, `tokio-stream`, `tracing`, `tracing-subscriber`. Binary down to 5.1MB.
+- **Dependency Cleanup (v0.9.8)**: Removed `ignore`, `chrono`, `kdtree` in favor of std library implementations.
 - **Offline Reverse Geocoding**: Embedded 163k+ cities database (GeoNames) with fast linear search for instant, offline location naming.
 - **Multi-Folder Support**: Capability to process up to 5 distinct folders simultaneously.
 - **Unified UI**: Consistent styling across map markers, popups, and the gallery view.

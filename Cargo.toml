@@ -1,6 +1,6 @@
 [package]
 name = "photomap_processor"
-version = "0.9.8"
+version = "0.9.9"
 edition = "2021"
 description = "Parallel photo processing: extract GPS from EXIF, create thumbnails, and generate an interactive map"
 authors = ["PhotoMap Contributors"]
@@ -13,20 +13,17 @@ categories = ["graphics", "command-line-utilities"]
 anyhow = "1.0"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 exif = { package = "kamadak-exif", version = "0.6" }
+futures-core = "0.3"
 rayon = "1.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs", "io-util", "signal", "sync"] }
 axum = "0.7"
 tower = "0.5"
-tower-http = { version = "0.5", features = ["fs", "cors", "compression-gzip"] }  # Changed from compression-full to gzip only
-tokio-stream = "0.1"
+tower-http = { version = "0.5", features = ["fs", "cors", "compression-gzip"] }
 libheif-rs = { version = "2.0.0", features = ["image"] }
 turbojpeg = { version = "1.3.3", features = ["image"] }
-rust-embed = "8.0.0"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-bincode = "1.3"  # Used for database cache serialization
+bincode = "1.3"
 flate2 = "1.0"
 
 
