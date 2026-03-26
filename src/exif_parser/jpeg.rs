@@ -1,18 +1,17 @@
-use super::generic::{get_datetime_from_exif, get_gps_coord};
+use super::generic::{get_datetime_string, get_gps_coord};
 use super::gps_parser;
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use exif::Tag;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
-pub fn extract_metadata_from_jpeg(path: &Path) -> Result<(f64, f64, Option<DateTime<Utc>>)> {
+pub fn extract_metadata_from_jpeg(path: &Path) -> Result<(f64, f64, Option<String>)> {
     let file = File::open(path)?;
     let mut buf_reader = BufReader::new(file);
     let mut exif_reader = exif::Reader::new();
     exif_reader.continue_on_error(true); // Tolerate non-standard EXIF structures
-    
+
     match exif_reader.read_from_container(&mut buf_reader) {
         Ok(exif) => {
             // Try to extract GPS using standard method
@@ -20,7 +19,7 @@ pub fn extract_metadata_from_jpeg(path: &Path) -> Result<(f64, f64, Option<DateT
                 get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?,
                 get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?,
             ) {
-                let datetime = get_datetime_from_exif(&exif);
+                let datetime = get_datetime_string(&exif);
                 return Ok((lat, lng, datetime));
             }
         }
@@ -31,13 +30,13 @@ pub fn extract_metadata_from_jpeg(path: &Path) -> Result<(f64, f64, Option<DateT
                 get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?,
                 get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?,
             ) {
-                let datetime = get_datetime_from_exif(&exif);
+                let datetime = get_datetime_string(&exif);
                 return Ok((lat, lng, datetime));
             }
         }
         Err(_) => {}
     }
-    
+
     // Fallback to custom GPS parser for malformed EXIF files (e.g., Lightroom-processed)
     if let Some((lat, lng)) = gps_parser::extract_gps_from_malformed_exif(path) {
         // We have GPS, but no datetime from custom parser
@@ -48,8 +47,8 @@ pub fn extract_metadata_from_jpeg(path: &Path) -> Result<(f64, f64, Option<DateT
                 let mut buf = BufReader::new(f);
                 exif::Reader::new().read_from_container(&mut buf).ok()
             })
-            .and_then(|exif| get_datetime_from_exif(&exif));
-        
+            .and_then(|exif| get_datetime_string(&exif));
+
         return Ok((lat, lng, datetime));
     }
 

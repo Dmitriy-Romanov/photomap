@@ -2,6 +2,21 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
+## [0.9.8] - 2026-03-24
+
+### Changed
+- **Dependency Cleanup**: Removed 3 unnecessary external dependencies in favor of std library implementations
+  - Replaced `ignore` crate with custom `walk_dir()` using `std::fs::read_dir`
+  - Replaced `chrono` crate with manual datetime parsing (`parse_exif_datetime()`)
+  - Replaced `kdtree` crate with simple linear search (fast enough for 163k cities)
+- **Code Simplification**: More direct std-lib usage, less external magic
+- **Build Performance**: Faster compilation due to fewer dependencies
+
+### Technical Details
+- `walk_dir()`: ~20 lines of iterative directory traversal (prevents stack overflow on deep trees)
+- `parse_exif_datetime()`: ~15 lines for EXIF datetime format parsing
+- Linear geocoding search: ~25 lines, performs ~1-2ms for 163k cities
+
 ## [0.9.7] - 2026-03-22
 
 ### Security
@@ -11,7 +26,7 @@ All notable changes to PhotoMap will be documented in this file.
 - **Frontend Dependencies Pinning**: Replaced `@latest` tags with fixed versions for Leaflet and MarkerCluster to prevent supply chain attacks
 
 ### Changed
-- **CI/CD Infrastructure**: 
+- **CI/CD Infrastructure**:
   - Upgraded GitHub Actions to `@v4`
   - Opted-in to Node.js 24 environment for all workflows
   - Improved caching strategy for faster builds

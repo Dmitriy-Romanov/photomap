@@ -1,8 +1,47 @@
 use anyhow::Result;
-use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{In, Reader, Tag, Value};
 use std::fs;
 use std::path::Path;
+
+/// Parses EXIF datetime string (format: "YYYY:MM:DD HH:MM:SS") into ISO format
+/// Returns None if parsing fails
+pub fn parse_exif_datetime(s: &[u8]) -> Option<String> {
+    let s = std::str::from_utf8(s).ok()?;
+    if s.len() >= 19 {
+        // Format: "YYYY:MM:DD HH:MM:SS"
+        let parts: Vec<&str> = s.split(' ').collect();
+        if parts.len() == 2 {
+            let date_parts: Vec<&str> = parts[0].split(':').collect();
+            let time_parts: Vec<&str> = parts[1].split(':').collect();
+            if date_parts.len() == 3 && time_parts.len() == 3 {
+                return Some(format!(
+                    "{}-{}-{} {}:{}:{}",
+                    date_parts[0], date_parts[1], date_parts[2],
+                    time_parts[0], time_parts[1], time_parts[2]
+                ));
+            }
+        }
+    }
+    None
+}
+
+/// Extracts datetime string from EXIF data
+pub fn get_datetime_string(exif: &exif::Exif) -> Option<String> {
+    let try_tags = [Tag::DateTimeOriginal, Tag::DateTime];
+
+    for &tag in &try_tags {
+        if let Some(field) = exif.get_field(tag, In::PRIMARY) {
+            if let exif::Value::Ascii(ref vec) = field.value {
+                if let Some(datetime_bytes) = vec.first() {
+                    if let Some(dt) = parse_exif_datetime(datetime_bytes) {
+                        return Some(dt);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
 
 /// Applies EXIF orientation to the image
 pub fn apply_exif_orientation(
@@ -143,34 +182,4 @@ fn try_get_gps_from_ifd(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag, ifd: In
         }
     }
     Ok(None)
-}
-
-pub fn get_datetime_from_exif(exif: &exif::Exif) -> Option<DateTime<Utc>> {
-    let try_tags = [Tag::DateTimeOriginal, Tag::DateTime];
-
-    for &tag in &try_tags {
-        if let Some(field) = exif.get_field(tag, In::PRIMARY) {
-            if let exif::Value::Ascii(ref vec) = field.value {
-                if let Some(datetime_bytes) = vec.first() {
-                    if let Ok(s) = std::str::from_utf8(datetime_bytes) {
-                        // EXIF format is usually: "YYYY:MM:DD HH:MM:SS"
-                        let s = s.replace(" ", "T"); // Convert to "YYYY:MM:DDTHH:MM:SS"
-                        let s = s.replacen(":", "-", 2); // Convert to "YYYY-MM-DD HH:MM:SS"
-
-                        // Parse with NaiveDateTime first, then make it Utc
-                        if let Ok(naive_datetime) =
-                            NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S")
-                        {
-                            return Some(DateTime::<Utc>::from_naive_utc_and_offset(
-                                naive_datetime,
-                                Utc,
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    None
 }

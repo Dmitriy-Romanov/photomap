@@ -8,13 +8,14 @@
 - **Research-Driven**: Best practices research for each feature
 - **User-Focused**: Features are implemented based on user needs, not trends
 
-## 📍 Current Status: v0.9.6 (Stable)
+## 📍 Current Status: v0.9.8 (Stable)
 
 The project has reached a high level of stability and feature completeness. The core functionality—processing photos, extracting metadata (including offline reverse geocoding), and displaying them on a high-performance map—is working robustly on macOS, Windows, and Linux.
 
 ### ✅ Recently Completed Milestones
 
-- **Offline Reverse Geocoding**: Embedded 140k+ cities database (GeoNames) with KD-Tree for instant, offline location naming.
+- **Dependency Cleanup (v0.9.8)**: Removed unnecessary external dependencies (`ignore`, `chrono`, `kdtree`) in favor of std library implementations for simpler, faster builds.
+- **Offline Reverse Geocoding**: Embedded 163k+ cities database (GeoNames) with fast linear search for instant, offline location naming.
 - **Multi-Folder Support**: Capability to process up to 5 distinct folders simultaneously.
 - **Unified UI**: Consistent styling across map markers, popups, and the gallery view.
 - **Performance**: Lazy initialization of heavy modules, optimized startup time.
