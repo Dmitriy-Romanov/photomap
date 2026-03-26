@@ -63,7 +63,6 @@ fn try_load_jpeg(path: &Path, target_size: u32) -> Result<Option<DynamicImage>> 
     
     // Calculate the best scaling factor
     let scaling_factor = if target_size > 0 {
-        let _min_dim = std::cmp::min(header.width, header.height);
         let factors = turbojpeg::Decompressor::supported_scaling_factors();
         
         // Find the smallest factor that produces an image >= target_size

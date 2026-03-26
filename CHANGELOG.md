@@ -12,6 +12,15 @@ All notable changes to PhotoMap will be documented in this file.
   - Added `futures-core` (already a transitive dependency of tokio)
 - **Binary size**: Reduced from 5.7MB to 5.1MB (-11%)
 
+### Fixed
+- **Code Cleanup**: Removed redundant variables and unified duplicate code
+  - Removed unused `_min_dim` variable in image processing
+  - Unified image format validation in single `constants.rs` function
+  - Fixed `lon`/`lng` inconsistency - now consistently uses `lng` everywhere
+  - Removed redundant `gps_count` from statistics (always equaled `processed_count`)
+  - Fixed `serve_photo` handler to work with multiple folders (was using only `folders[0]`)
+- **Net change**: 67 lines added, 67 lines removed (pure refactoring, no functionality loss)
+
 ## [0.9.8] - 2026-03-24
 
 ### Changed

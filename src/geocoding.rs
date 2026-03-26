@@ -10,7 +10,7 @@ const GEODATA_BYTES: &[u8] = include_bytes!("geodata.bin.gz");
 pub struct GeoLocation {
     pub name: String,
     pub lat: f64,
-    pub lon: f64,
+    pub lng: f64,
     pub country: String,
     pub admin1: String,
 }
@@ -53,7 +53,7 @@ impl ReverseGeocoder {
         });
     }
 
-    pub fn lookup(&self, lat: f64, lon: f64) -> Option<String> {
+    pub fn lookup(&self, lat: f64, lng: f64) -> Option<String> {
         // Simple linear search with squared euclidean distance
         // For ~163k cities this is fast enough (~1-2ms)
         let mut nearest: Option<&GeoLocation> = None;
@@ -62,8 +62,8 @@ impl ReverseGeocoder {
         for loc in &self.locations {
             // Squared euclidean distance (faster than sqrt, sufficient for comparison)
             let d_lat = loc.lat - lat;
-            let d_lon = loc.lon - lon;
-            let dist_sq = d_lat * d_lat + d_lon * d_lon;
+            let d_lng = loc.lng - lng;
+            let dist_sq = d_lat * d_lat + d_lng * d_lng;
 
             if dist_sq < nearest_dist_sq {
                 nearest_dist_sq = dist_sq;
@@ -76,14 +76,14 @@ impl ReverseGeocoder {
 }
 
 // Public helper for easy access
-pub fn get_location_name(lat: f64, lon: f64) -> Option<String> {
+pub fn get_location_name(lat: f64, lng: f64) -> Option<String> {
     if let Some(geocoder) = ReverseGeocoder::get() {
-        geocoder.lookup(lat, lon)
+        geocoder.lookup(lat, lng)
     } else {
         // Try to init if not initialized (lazy)
         ReverseGeocoder::init();
         if let Some(geocoder) = ReverseGeocoder::get() {
-            geocoder.lookup(lat, lon)
+            geocoder.lookup(lat, lng)
         } else {
             None
         }

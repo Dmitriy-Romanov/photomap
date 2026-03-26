@@ -1,3 +1,4 @@
+use crate::constants::{is_heic_format, is_supported_image};
 use crate::database::{Database, PhotoMetadata};
 use crate::exif_parser::{
     extract_metadata_from_heic, extract_metadata_from_jpeg, get_datetime_string, get_gps_coord,
@@ -37,13 +38,13 @@ fn walk_dir(dir: &Path) -> Vec<PathBuf> {
 }
 
 /// Processes photos and saves metadata to the database
-/// Returns processing statistics: (total_files, processed_count, gps_count, no_gps_count, heic_count)
+/// Returns processing statistics: (total_files, processed_count, no_gps_count, heic_count)
 pub fn process_photos_with_stats(
     db: &Database,
     photos_dir: &Path,
     silent_mode: bool,
     clear_database: bool,
-) -> Result<(usize, usize, usize, usize, usize)> {
+) -> Result<(usize, usize, usize, usize)> {
     if !silent_mode {
         println!("🔍 Scanning photos directory: {}", photos_dir.display());
     }
@@ -54,7 +55,7 @@ pub fn process_photos_with_stats(
             return Err(anyhow::Error::msg(error_msg));
         } else {
             eprintln!("{}", error_msg);
-            return Ok((0, 0, 0, 0, 0));
+            return Ok((0, 0, 0, 0));
         }
     }
 
@@ -83,16 +84,10 @@ pub fn process_photos_with_stats(
         .into_par_iter()  // Rayon parallel iterator
         .filter(|path| {
             // Filter by extension - only process supported image formats
-            // This prevents trying to process video files or other non-images
-            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                let ext_lower = ext.to_lowercase();
-                matches!(
-                    ext_lower.as_str(),
-                    "jpg" | "jpeg" | "heic" | "heif" | "avif"
-                )
-            } else {
-                false
-            }
+            path.extension()
+                .and_then(|s| s.to_str())
+                .map(|ext| is_supported_image(ext))
+                .unwrap_or(false)
         })
         .fold(
             || (vec![], 0usize, 0usize), // Initial state for each thread: (photo_metadata_vec, total_files, heic_count)
@@ -160,21 +155,18 @@ pub fn process_photos_with_stats(
         0.0
     };
 
-    let final_count = successful_count;
-    let gps_count = successful_count; // All successfully processed have GPS data
     let no_gps_count = total_files - successful_count;
 
     // Print processing statistics
     if !silent_mode {
         println!("\n📊 Processing Statistics:");
         println!("   🔍 Total files checked: {}", total_files);
-        println!("   📸 Photos processed: {}", final_count);
-        println!("   🗺️  With GPS data: {}", gps_count);
+        println!("   📸 Photos with GPS: {}", successful_count);
         println!("   ❌ Without GPS: {}", no_gps_count);
         println!("   📱 HEIC files: {}", heic_count);
         println!(
             "   📷 JPEG/other: {}",
-            final_count.saturating_sub(heic_count)
+            successful_count.saturating_sub(heic_count)
         );
         println!("   ⏱️  Processing time: {:.2} sec", processing_secs);
         println!(
@@ -185,7 +177,7 @@ pub fn process_photos_with_stats(
         println!("\n🎉 Processing complete! Data stored in memory.");
         println!(
             "   🗄️  Database contains {} photos with GPS data",
-            final_count
+            successful_count
         );
 
     }
@@ -194,8 +186,7 @@ pub fn process_photos_with_stats(
 
     Ok((
         total_files,
-        final_count,
-        gps_count,
+        successful_count,
         no_gps_count,
         heic_count,
     ))
@@ -205,7 +196,7 @@ pub fn process_photos_with_stats(
 pub fn process_photos_from_directory(
     db: &Database,
     photos_dir: &Path,
-) -> Result<(usize, usize, usize, usize, usize)> {
+) -> Result<(usize, usize, usize, usize)> {
     println!(
         "🔍 Processing photos from directory: {}",
         photos_dir.display()
@@ -224,17 +215,13 @@ fn process_file_to_metadata(path: &Path, photos_dir: &Path) -> Result<PhotoMetad
         .map(|s| s.to_lowercase())
         .unwrap_or_default();
 
-    // Basic list of supported formats
-    let supported_formats = [
-        "jpg", "jpeg", "heic", "heif", "avif",
-    ];
-
-    if !supported_formats.contains(&ext_lower.as_str()) {
+    // Check if file format is supported
+    if !is_supported_image(&ext_lower) {
         anyhow::bail!("File is not a supported image");
     }
 
-    // Check if it's HEIC or not, using the lowercase version
-    let is_heif = matches!(ext_lower.as_str(), "heic" | "heif" | "avif");
+    // Check if it's HEIC/HEIF format
+    let is_heif = is_heic_format(&ext_lower);
 
     // --- GPS and date extraction ---
     let (lat, lng, datetime_opt) = if is_heif {
@@ -246,7 +233,7 @@ fn process_file_to_metadata(path: &Path, photos_dir: &Path) -> Result<PhotoMetad
             // Use our own JPEG parser
             extract_metadata_from_jpeg(path)?
         } else {
-            // For other formats (PNG, TIFF, etc.), keep the old method
+            // Fallback for other formats with EXIF
             let file = fs::File::open(path)?;
             let mut bufreader = std::io::BufReader::new(&file);
             let exifreader = exif::Reader::new();

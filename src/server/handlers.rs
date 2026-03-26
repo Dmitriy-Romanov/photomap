@@ -209,12 +209,18 @@ pub async fn serve_photo(
     State(state): State<AppState>,
     AxumPath(filepath): AxumPath<String>,
 ) -> Result<Response, StatusCode> {
-    let base_dir = {
-        let settings = state.settings.lock().unwrap();
-        settings.folders[0].clone().unwrap_or_default()
-    };
+    // Find photo in database by relative_path (supports multi-folder)
+    let photos = state
+        .db
+        .get_all_photos()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let path = std::path::Path::new(&base_dir).join(&filepath);
+    let photo = photos
+        .into_iter()
+        .find(|p| p.relative_path == filepath)
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let path = std::path::Path::new(&photo.file_path);
 
     if !path.exists() {
         return Err(StatusCode::NOT_FOUND);
@@ -227,7 +233,7 @@ pub async fn serve_photo(
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, content_type)
             .body(data.into())
-            .unwrap()),
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
@@ -381,23 +387,22 @@ pub async fn reprocess_photos(
 
     // Start processing in background task
     tokio::spawn(async move {
-        let mut total_stats = (0usize, 0usize, 0usize, 0usize, 0usize);
-        
+        let mut total_stats = (0usize, 0usize, 0usize, 0usize);
+
         for photos_dir in &folders_clone {
             if !photos_dir.exists() {
                 eprintln!("⚠️  Folder not found: {}", photos_dir.display());
                 continue;
             }
-            
+
             // Use process_photos_with_stats with clear_database=false (DB already cleared once)
             match process_photos_with_stats(&db, photos_dir, false, false) {
-                Ok((total_files, processed_count, gps_count, no_gps_count, heic_count)) => {
+                Ok((total_files, processed_count, no_gps_count, heic_count)) => {
                     // Aggregate statistics
                     total_stats.0 += total_files;
                     total_stats.1 += processed_count;
-                    total_stats.2 += gps_count;
-                    total_stats.3 += no_gps_count;
-                    total_stats.4 += heic_count;
+                    total_stats.2 += no_gps_count;
+                    total_stats.3 += heic_count;
                 }
                 Err(e) => {
                     eprintln!("Processing error for {}: {}", photos_dir.display(), e);
@@ -422,9 +427,9 @@ pub async fn reprocess_photos(
             data: ProcessingData {
                 total_files: Some(total_stats.0),
                 processed: Some(total_stats.1),
-                gps_found: Some(total_stats.2),
-                no_gps: Some(total_stats.3),
-                heic_files: Some(total_stats.4),
+                gps_found: Some(total_stats.1), // All processed have GPS
+                no_gps: Some(total_stats.2),
+                heic_files: Some(total_stats.3),
                 skipped: Some(total_stats.0 - total_stats.1),
                 message: Some(format!(
                     "Processing finished! Processed {} photos from {} folder(s)",
@@ -487,12 +492,12 @@ pub async fn initiate_processing(
     
     // Start processing in background task for all folders
     tokio::spawn(async move {
-        let mut total_stats = (0usize, 0usize, 0usize, 0usize, 0usize);
-        
+        let mut total_stats = (0usize, 0usize, 0usize, 0usize);
+
         for photos_dir in &folders_clone {
             if !photos_dir.exists() {
                 eprintln!("⚠️  Folder not found: {}", photos_dir.display());
-                
+
                 let error_event = ProcessingEvent {
                     event_type: "processing_error".to_string(),
                     data: ProcessingData {
@@ -504,17 +509,16 @@ pub async fn initiate_processing(
                 let _ = event_sender.send(error_event);
                 continue;
             }
-            
+
             let result = process_photos_from_directory(&db, photos_dir);
 
             match result {
-                Ok((total_files, processed_count, gps_count, no_gps_count, heic_count)) => {
+                Ok((total_files, processed_count, no_gps_count, heic_count)) => {
                     // Aggregate statistics
                     total_stats.0 += total_files;
                     total_stats.1 += processed_count;
-                    total_stats.2 += gps_count;
-                    total_stats.3 += no_gps_count;
-                    total_stats.4 += heic_count;
+                    total_stats.2 += no_gps_count;
+                    total_stats.3 += heic_count;
                 }
                 Err(e) => {
                     eprintln!("Processing error for {}: {}", photos_dir.display(), e);
@@ -537,9 +541,9 @@ pub async fn initiate_processing(
             data: ProcessingData {
                 total_files: Some(total_stats.0),
                 processed: Some(total_stats.1),
-                gps_found: Some(total_stats.2),
-                no_gps: Some(total_stats.3),
-                heic_files: Some(total_stats.4),
+                gps_found: Some(total_stats.1), // All processed have GPS
+                no_gps: Some(total_stats.2),
+                heic_files: Some(total_stats.3),
                 skipped: Some(total_stats.0 - total_stats.1),
                 message: Some(format!(
                     "Processing finished! Processed {} photos from {} folder(s)",
