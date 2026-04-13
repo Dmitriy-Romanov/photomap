@@ -34,3 +34,34 @@ GEMINI.md
 exif_parser_test/target/
 exif_parser_test/failures.txt
 exif_parser_test/JPG for checks/
+
+# Development scripts (not for repo)
+*.sh
+!/*.sh.example
+
+# Editor temporary files
+.#*
+\#*\#
+.*.swp
+*.swo
+*~
+.benchmarking
+
+# Build artifacts
+/build.sh
+/vibe.sh
+/vibe_enhanced.sh
+/push.sh
+/dev.sh
+/COMMIT_INSTRUCTIONS.md
+/GITHUB_COMMIT.md
+/EXIF_IMPROVEMENTS.md
+/VIBE_CODING.md
+/PERMANENT_SOLUTION.md
+/PATH_FIX.md
+
+# MemPalace artifacts
+mempalace.yaml
+entities.json
+.last_size
+compilation_errors.txt
