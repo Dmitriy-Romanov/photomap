@@ -81,6 +81,11 @@ pub fn apply_exif_orientation(
     Ok(rotated)
 }
 
+/// Validate that a float value is safe to use (not NaN or Infinity)
+fn is_valid_float(value: f64) -> bool {
+    !value.is_nan() && !value.is_infinite()
+}
+
 pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<Option<f64>> {
     // Try PRIMARY IFD first (most common location)
     if let Some(result) = try_get_gps_from_ifd(exif, coord_tag, ref_tag, In::PRIMARY)? {
@@ -102,7 +107,18 @@ pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<
                             let d = vec[0].to_f64();
                             let m = vec[1].to_f64();
                             let s = vec[2].to_f64();
+
+                            // Validate all components before calculation
+                            if !is_valid_float(d) || !is_valid_float(m) || !is_valid_float(s) {
+                                continue;
+                            }
+
                             let mut decimal = d + (m / 60.0) + (s / 3600.0);
+
+                            // Validate final result
+                            if !is_valid_float(decimal) {
+                                continue;
+                            }
 
                             // Apply reference (S/W are negative values)
                             if let Some(ref_val) = ref_field.display_value().to_string().chars().next() {
@@ -113,14 +129,25 @@ pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<
                             return Ok(Some(decimal));
                         }
                     }
-                    
+
                     // Try SRational (signed) - some Samsung devices use this (e.g., SM-N900)
                     if let Value::SRational(ref vec) = &field.value {
                         if vec.len() == 3 {
                             let d = vec[0].to_f64();
                             let m = vec[1].to_f64();
                             let s = vec[2].to_f64();
+
+                            // Validate all components before calculation
+                            if !is_valid_float(d) || !is_valid_float(m) || !is_valid_float(s) {
+                                continue;
+                            }
+
                             let mut decimal = d + (m / 60.0) + (s / 3600.0);
+
+                            // Validate final result
+                            if !is_valid_float(decimal) {
+                                continue;
+                            }
 
                             // Apply reference (S/W are negative values)
                             if let Some(ref_val) = ref_field.display_value().to_string().chars().next() {
@@ -151,7 +178,18 @@ fn try_get_gps_from_ifd(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag, ifd: In
                 let d = vec[0].to_f64();
                 let m = vec[1].to_f64();
                 let s = vec[2].to_f64();
+
+                // Validate all components before calculation
+                if !is_valid_float(d) || !is_valid_float(m) || !is_valid_float(s) {
+                    return Ok(None);
+                }
+
                 let mut decimal = d + (m / 60.0) + (s / 3600.0);
+
+                // Validate final result
+                if !is_valid_float(decimal) {
+                    return Ok(None);
+                }
 
                 // Apply reference (S/W are negative values)
                 if let Some(ref_val) = ref_val.display_value().to_string().chars().next() {
@@ -162,14 +200,25 @@ fn try_get_gps_from_ifd(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag, ifd: In
                 return Ok(Some(decimal));
             }
         }
-        
+
         // Try SRational (signed) - some Samsung devices use this (e.g., SM-N900)
         if let Value::SRational(ref vec) = coord.value {
             if vec.len() == 3 {
                 let d = vec[0].to_f64();
                 let m = vec[1].to_f64();
                 let s = vec[2].to_f64();
+
+                // Validate all components before calculation
+                if !is_valid_float(d) || !is_valid_float(m) || !is_valid_float(s) {
+                    return Ok(None);
+                }
+
                 let mut decimal = d + (m / 60.0) + (s / 3600.0);
+
+                // Validate final result
+                if !is_valid_float(decimal) {
+                    return Ok(None);
+                }
 
                 // Apply reference (S/W are negative values)
                 if let Some(ref_val) = ref_val.display_value().to_string().chars().next() {

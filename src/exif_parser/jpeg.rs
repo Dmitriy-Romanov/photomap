@@ -12,26 +12,34 @@ pub fn extract_metadata_from_jpeg(path: &Path) -> Result<(f64, f64, Option<Strin
     let mut exif_reader = exif::Reader::new();
     exif_reader.continue_on_error(true); // Tolerate non-standard EXIF structures
 
+    // Try to extract datetime from the first EXIF read attempt
+    // This avoids re-opening the file later when using custom GPS parser
+    let mut cached_datetime: Option<String> = None;
+
     match exif_reader.read_from_container(&mut buf_reader) {
         Ok(exif) => {
+            // Cache datetime from this successful read
+            cached_datetime = get_datetime_string(&exif);
+
             // Try to extract GPS using standard method
             if let (Some(lat), Some(lng)) = (
                 get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?,
                 get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?,
             ) {
-                let datetime = get_datetime_string(&exif);
-                return Ok((lat, lng, datetime));
+                return Ok((lat, lng, cached_datetime));
             }
         }
         Err(exif::Error::PartialResult(partial)) => {
             let (exif, _errors) = partial.into_inner();
+            // Cache datetime from partial result
+            cached_datetime = get_datetime_string(&exif);
+
             // Try to extract GPS from partial result
             if let (Some(lat), Some(lng)) = (
                 get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?,
                 get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?,
             ) {
-                let datetime = get_datetime_string(&exif);
-                return Ok((lat, lng, datetime));
+                return Ok((lat, lng, cached_datetime));
             }
         }
         Err(_) => {}
@@ -39,15 +47,19 @@ pub fn extract_metadata_from_jpeg(path: &Path) -> Result<(f64, f64, Option<Strin
 
     // Fallback to custom GPS parser for malformed EXIF files (e.g., Lightroom-processed)
     if let Some((lat, lng)) = gps_parser::extract_gps_from_malformed_exif(path) {
-        // We have GPS, but no datetime from custom parser
-        // Try to get datetime from standard EXIF if possible
-        let datetime = File::open(path)
-            .ok()
-            .and_then(|f| {
-                let mut buf = BufReader::new(f);
-                exif::Reader::new().read_from_container(&mut buf).ok()
-            })
-            .and_then(|exif| get_datetime_string(&exif));
+        // Use cached datetime if available, otherwise try to read it
+        let datetime = if cached_datetime.is_some() {
+            cached_datetime
+        } else {
+            // Only re-open the file if we don't have cached datetime
+            File::open(path)
+                .ok()
+                .and_then(|f| {
+                    let mut buf = BufReader::new(f);
+                    exif::Reader::new().read_from_container(&mut buf).ok()
+                })
+                .and_then(|exif| get_datetime_string(&exif))
+        };
 
         return Ok((lat, lng, datetime));
     }

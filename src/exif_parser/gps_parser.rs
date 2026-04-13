@@ -173,32 +173,49 @@ fn parse_gps_ifd(data: &[u8], tiff_start: usize, gps_offset: usize, byte_order: 
     Some((final_lat, final_lon))
 }
 
+/// Validate that a float value is safe to use (not NaN or Infinity)
+fn is_valid_float(value: f64) -> bool {
+    !value.is_nan() && !value.is_infinite()
+}
+
 /// Read GPS coordinate (degrees, minutes, seconds) and convert to decimal
 fn read_gps_coordinate(data: &[u8], tiff_start: usize, offset: usize, byte_order: ByteOrder) -> Option<f64> {
     let pos = tiff_start + offset;
     if pos + 24 > data.len() {
         return None;
     }
-    
+
     // Read 3 rational values (degrees, minutes, seconds)
     let deg_num = read_u32(&data[pos..pos + 4], byte_order) as f64;
     let deg_den = read_u32(&data[pos + 4..pos + 8], byte_order) as f64;
-    
+
     let min_num = read_u32(&data[pos + 8..pos + 12], byte_order) as f64;
     let min_den = read_u32(&data[pos + 12..pos + 16], byte_order) as f64;
-    
+
     let sec_num = read_u32(&data[pos + 16..pos + 20], byte_order) as f64;
     let sec_den = read_u32(&data[pos + 20..pos + 24], byte_order) as f64;
-    
+
     if deg_den == 0.0 || min_den == 0.0 || sec_den == 0.0 {
         return None;
     }
-    
+
     let degrees = deg_num / deg_den;
     let minutes = min_num / min_den;
     let seconds = sec_num / sec_den;
-    
-    Some(degrees + minutes / 60.0 + seconds / 3600.0)
+
+    // Validate all components before using them
+    if !is_valid_float(degrees) || !is_valid_float(minutes) || !is_valid_float(seconds) {
+        return None;
+    }
+
+    let decimal = degrees + minutes / 60.0 + seconds / 3600.0;
+
+    // Validate final result
+    if is_valid_float(decimal) {
+        Some(decimal)
+    } else {
+        None
+    }
 }
 
 /// Read u16 with specified byte order
