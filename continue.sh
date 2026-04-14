@@ -1,1 +1,0 @@
-claude --resume d630f743-cbad-45e6-a74b-ecd08f0935fd --dangerously-skip-permissions

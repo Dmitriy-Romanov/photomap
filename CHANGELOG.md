@@ -2,6 +2,14 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
+## [0.10.1] - 2026-04-14
+
+### Fixed
+- **EXIF Parser Improvements**: Fixed file duplication in jpeg.rs by caching datetime from first EXIF read
+- **Float Validation**: Added NaN/Infinity validation in GPS coordinate parsers (gps_parser.rs, generic.rs)
+- **Documentation**: Translated all markdown files to English (CLAUDE.md, PROJECT_MAP.md, etc.)
+- **Cleanup**: Removed temporary documentation files (.#continue.sh)
+
 ## [0.9.9] - 2026-03-26
 
 ### Changed

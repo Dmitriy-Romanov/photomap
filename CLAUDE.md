@@ -4,87 +4,87 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PhotoMap Processor — это высокопроизводительное приложение на Rust для обработки фотографий, извлечения EXIF/GPS метаданных и отображения их на интерактивной карте. Использует in-memory базу данных с бинарным кэшем на диске для мгновенной загрузки больших коллекций.
+PhotoMap Processor is a high-performance Rust application for processing photos, extracting EXIF/GPS metadata, and displaying them on an interactive map. Uses an in-memory database with binary disk cache for instant loading of large collections.
 
 ## Common Development Commands
 
 ```bash
-# Сборка релизной версии (оптимизированной)
+# Build release version (optimized)
 cargo build --release
 
-# Запуск приложения
+# Run application
 ./target/release/photomap_processor
 
-# Запуск разработческой версии
+# Run development version
 cargo run
 
-# Запуск тестов
+# Run tests
 cargo test
 
-# Линтинг
+# Linting
 cargo clippy
 
-# Форматирование кода
+# Code formatting
 cargo fmt
 
-# Запуск с логированием debug уровня
+# Run with debug logging
 RUST_LOG=debug cargo run
 ```
 
-После запуска веб-интерфейс доступен по адресу http://127.0.0.1:3001
+After startup, web interface is available at http://127.0.0.1:3001
 
 ## Architecture
 
 ### Backend (Rust)
 
-- **main.rs** — точка входа. Инициализирует логирование, базу данных, настройки, запускает HTTP-сервер. Обрабатывает загрузку кэша при старте.
-- **server/** — Axum HTTP сервер с API для фронтенда
-  - `mod.rs` — роутер и запуск сервера на порту 3001
-  - `handlers.rs` — обработчики API (фото, изображения, настройки, обработка, shutdown)
-  - `state.rs` — AppState с Arc<RwLock<>> для совместного использования
-  - `events.rs` — SSE события для реального времени
-- **database.rs** — in-memory база данных (Vec<PhotoMetadata>) с персистентностью через bincode в `photos.bin`
-- **processing.rs** — сканирование папок и координация обработки фотографий
-- **exif_parser/** — модуль для извлечения метаданных
-  - `jpeg.rs` — EXIF из JPEG через kamadak-exif
-  - `heic.rs` — EXIF из HEIC через libheif-rs
-  - `gps_parser.rs` — low-level GPS парсер для повреждённых EXIF
-  - `generic.rs` — общие функции для GPS координат и дат
-- **image_processing.rs** — создание thumbnails, конвертация HEIC→JPEG, использует turbojpeg для скорости
-- **geocoding.rs** — offline reverse geocoding через встроенную GeoNames базу (140k+ городов) с KD-Tree индексом
-- **settings.rs** — управление настройками (INI файл), сохраняет up to 5 папок
-- **folder_picker.rs** — нативные диалоги выбора папок (macOS/Windows/Linux)
+- **main.rs** — entry point. Initializes logging, database, settings, starts HTTP server. Handles cache loading on startup.
+- **server/** — Axum HTTP server with API for frontend
+  - `mod.rs` — router and server startup on port 3001
+  - `handlers.rs` — API handlers (photos, images, settings, processing, shutdown)
+  - `state.rs` — AppState with Arc<RwLock<>> for sharing
+  - `events.rs` — SSE events for real-time updates
+- **database.rs** — in-memory database (Vec<PhotoMetadata>) with persistence via bincode in `photos.bin`
+- **processing.rs** — folder scanning and photo processing coordination
+- **exif_parser/** — metadata extraction module
+  - `jpeg.rs` — EXIF from JPEG via kamadak-exif
+  - `heic.rs` — EXIF from HEIC via libheif-rs
+  - `gps_parser.rs` — low-level GPS parser for corrupted EXIF
+  - `generic.rs` — common functions for GPS coordinates and dates
+- **image_processing.rs** — thumbnail creation, HEIC→JPEG conversion, uses turbojpeg for speed
+- **geocoding.rs** — offline reverse geocoding via embedded GeoNames database (140k+ cities) with KD-Tree index
+- **settings.rs** — settings management (INI file), stores up to 5 folders
+- **folder_picker.rs** — native folder selection dialogs (macOS/Windows/Linux)
 
 ### Frontend (embedded)
 
-Фронтенд находится в `frontend/` и встраивается в бинарник через rust-embed.
+Frontend is located in `frontend/` and embedded into binary via rust-embed.
 
-- **index.html** — структура страницы с Leaflet картой
-- **script.js** — логика карты, маркеров, кластеризации, галереи. Разделён на секции: API, DataService, MapController, UIController
-- **style.css** — стили для карты, попапов, draggable panel
+- **index.html** — page structure with Leaflet map
+- **script.js** — map logic, markers, clustering, gallery. Divided into sections: API, DataService, MapController, UIController
+- **style.css** — styles for map, popups, draggable panel
 
 ### Data Flow
 
-1. При старте загружается кэш `photos.bin` если пути папок совпадают
-2. Если кэш недействителен — сканируются папки, извлекается EXIF, metadata сохраняется в in-memory DB
-3. Фронтенд запрашивает `/api/photos` — получает JSON с метаданными
-4. Изображения генерируются on-demand при запросе `/api/marker/*`, `/api/thumbnail/*`, `/api/popup/*`
-5. SSE `/api/events` используется для прогресса обработки
+1. On startup, loads cache `photos.bin` if folder paths match
+2. If cache invalid — scans folders, extracts EXIF, metadata saved to in-memory DB
+3. Frontend requests `/api/photos` — receives JSON with metadata
+4. Images generated on-demand when requesting `/api/marker/*`, `/api/thumbnail/*`, `/api/popup/*`
+5. SSE `/api/events` used for processing progress
 
 ## Key Technical Details
 
-- **Multi-folder support**: до 5 папок одновременно, хранятся в settings как массив
-- **Lazy geocoding**: модуль geocoding инициализируется в фоне при старте
+- **Multi-folder support**: up to 5 folders simultaneously, stored in settings as array
+- **Lazy geocoding**: geocoding module initializes in background on startup
 - **Image sizes** (constants.rs): MARKER=40px, THUMBNAIL=120px, GALLERY=240px, POPUP=1400px
-- **Cross-platform**: Windows/macOS/Linux, используются разные native dialogs для каждой платформы
-- **Single instance**: process_manager убивает существующие процессы перед запуском
-- **Graceful shutdown**: `/api/shutdown` останавливает сервер корректно
+- **Cross-platform**: Windows/macOS/Linux, uses different native dialogs for each platform
+- **Single instance**: process_manager kills existing processes before starting
+- **Graceful shutdown**: `/api/shutdown` stops server gracefully
 
 ## Configuration
 
-Файл настроек автоматически создаётся в:
+Settings file automatically created in:
 - macOS: `~/Library/Application Support/PhotoMap/config.ini`
 - Windows: `%APPDATA%\PhotoMap\config.ini`
 - Linux: `~/.config/PhotoMap/config.ini`
 
-Содержит: папки, позицию панели, toggles (координаты, маршруты, heatmap, автозапуск браузера)
+Contains: folders, panel position, toggles (coordinates, routes, heatmap, browser autostart)
