@@ -1,8 +1,8 @@
-# PhotoMap Processor v0.10.1
+# PhotoMap Processor v0.10.2
 
 A modern, high-performance photo mapping application with In-Memory database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.10.1)
+## ✨ Latest Improvements (v0.10.2)
 
 - **EXIF Parser Optimization**: Eliminated file duplication in JPEG parsing — ~90% reduction in file operations when using custom GPS parser
 - **Enhanced Float Validation**: Added comprehensive NaN/Infinity validation in all GPS coordinate calculations

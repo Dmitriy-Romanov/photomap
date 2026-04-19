@@ -2,7 +2,7 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
-## [0.10.1] - 2026-04-14
+## [0.10.2] - 2026-04-19
 
 ### Fixed
 - **EXIF Parser Improvements**: Fixed file duplication in jpeg.rs by caching datetime from first EXIF read
