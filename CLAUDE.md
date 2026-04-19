@@ -26,9 +26,6 @@ cargo clippy
 
 # Code formatting
 cargo fmt
-
-# Run with debug logging
-RUST_LOG=debug cargo run
 ```
 
 After startup, web interface is available at http://127.0.0.1:3001
@@ -37,7 +34,7 @@ After startup, web interface is available at http://127.0.0.1:3001
 
 ### Backend (Rust)
 
-- **main.rs** — entry point. Initializes logging, database, settings, starts HTTP server. Handles cache loading on startup.
+- **main.rs** — entry point. Initializes database, settings, starts HTTP server. Handles cache loading on startup.
 - **server/** — Axum HTTP server with API for frontend
   - `mod.rs` — router and server startup on port 3001
   - `handlers.rs` — API handlers (photos, images, settings, processing, shutdown)
@@ -57,7 +54,7 @@ After startup, web interface is available at http://127.0.0.1:3001
 
 ### Frontend (embedded)
 
-Frontend is located in `frontend/` and embedded into binary via rust-embed.
+Frontend is located in `frontend/` and embedded into binary via `std::include_bytes!`.
 
 - **index.html** — page structure with Leaflet map
 - **script.js** — map logic, markers, clustering, gallery. Divided into sections: API, DataService, MapController, UIController
