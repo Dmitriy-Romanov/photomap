@@ -86,7 +86,7 @@ pub fn process_photos_with_stats(
             // Filter by extension - only process supported image formats
             path.extension()
                 .and_then(|s| s.to_str())
-                .map(|ext| is_supported_image(ext))
+                .map(is_supported_image)
                 .unwrap_or(false)
         })
         .fold(
@@ -275,4 +275,3 @@ fn process_file_to_metadata(path: &Path, photos_dir: &Path) -> Result<PhotoMetad
         is_heic: is_heif,
     })
 }
-

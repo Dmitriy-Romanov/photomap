@@ -65,6 +65,8 @@ photomap/
 │   ├── database.rs      # In-memory database operations
 │   ├── processing.rs    # Core photo processing logic
 │   ├── image_processing.rs # Image manipulation
+│   ├── geocoding.rs     # Offline reverse geocoding
+│   ├── geodata.bin.gz   # Embedded GeoNames city database
 │   ├── server/          # HTTP Server (Axum)
 │   │   ├── mod.rs
 │   │   ├── handlers.rs
@@ -72,7 +74,8 @@ photomap/
 │   ├── exif_parser/     # EXIF metadata extraction
 │   │   ├── mod.rs
 │   │   ├── heic.rs
-│   │   └── jpeg.rs
+│   │   ├── jpeg.rs
+│   │   └── gps_parser.rs
 │   └── ...
 ├── exif_parser_test/    # Debugging tool for EXIF parsing
 │   ├── src/

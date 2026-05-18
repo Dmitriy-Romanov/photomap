@@ -1,6 +1,6 @@
 # UI & Map Features
 
-This document documents the implemented user interface features and map interactions in PhotoMap v0.9.5.
+This document summarizes the implemented user interface features and map interactions in PhotoMap v0.10.2.
 
 ## 🗺️ Main Map Interface
 
@@ -37,7 +37,7 @@ A modern, floating, draggable control panel containing all application settings.
 ### 3. Folder Management
 *   **Native Dialog**: "Open" button triggers the OS-native folder picker (supports multi-selection).
 *   **Path Display**: Shows the currently selected source folder(s).
-*   **Process Button**: Manually triggers a re-scan of the selected folder.
+*   **Process Button**: Manually triggers a re-scan of the selected folder(s).
 
 ### 4. Filters & Statistics
 *   **Year Range Filter**:

@@ -40,7 +40,7 @@ After startup, web interface is available at http://127.0.0.1:3001
   - `handlers.rs` — API handlers (photos, images, settings, processing, shutdown)
   - `state.rs` — AppState with Arc<RwLock<>> for sharing
   - `events.rs` — SSE events for real-time updates
-- **database.rs** — in-memory database (Vec<PhotoMetadata>) with persistence via bincode in `photos.bin`
+- **database.rs** — in-memory database (Vec<PhotoMetadata>) with persistence via bincode in `photos_v1.bin`
 - **processing.rs** — folder scanning and photo processing coordination
 - **exif_parser/** — metadata extraction module
   - `jpeg.rs` — EXIF from JPEG via kamadak-exif
@@ -48,9 +48,9 @@ After startup, web interface is available at http://127.0.0.1:3001
   - `gps_parser.rs` — low-level GPS parser for corrupted EXIF
   - `generic.rs` — common functions for GPS coordinates and dates
 - **image_processing.rs** — thumbnail creation, HEIC→JPEG conversion, uses turbojpeg for speed
-- **geocoding.rs** — offline reverse geocoding via embedded GeoNames database (140k+ cities) with KD-Tree index
+- **geocoding.rs** — offline reverse geocoding via embedded GeoNames database (163k+ cities)
 - **settings.rs** — settings management (INI file), stores up to 5 folders
-- **folder_picker.rs** — native folder selection dialogs (macOS/Windows/Linux)
+- **utils.rs** — app data paths, browser launch, and native folder selection dialogs (macOS/Windows/Linux)
 
 ### Frontend (embedded)
 
@@ -62,7 +62,7 @@ Frontend is located in `frontend/` and embedded into binary via `std::include_by
 
 ### Data Flow
 
-1. On startup, loads cache `photos.bin` if folder paths match
+1. On startup, loads cache `photos_v1.bin` if folder paths match
 2. If cache invalid — scans folders, extracts EXIF, metadata saved to in-memory DB
 3. Frontend requests `/api/photos` — receives JSON with metadata
 4. Images generated on-demand when requesting `/api/marker/*`, `/api/thumbnail/*`, `/api/popup/*`
@@ -80,8 +80,8 @@ Frontend is located in `frontend/` and embedded into binary via `std::include_by
 ## Configuration
 
 Settings file automatically created in:
-- macOS: `~/Library/Application Support/PhotoMap/config.ini`
-- Windows: `%APPDATA%\PhotoMap\config.ini`
-- Linux: `~/.config/PhotoMap/config.ini`
+- macOS: `~/Library/Application Support/PhotoMap/photomap.ini`
+- Windows: `%APPDATA%\PhotoMap\photomap.ini`
+- Linux: `~/.local/share/PhotoMap/photomap.ini` by default, or `$XDG_DATA_HOME/PhotoMap/photomap.ini` when `XDG_DATA_HOME` is set
 
 Contains: folders, panel position, toggles (coordinates, routes, heatmap, browser autostart)

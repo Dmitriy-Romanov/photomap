@@ -226,9 +226,9 @@ pub async fn serve_photo(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    let content_type = get_mime_type(&path);
+    let content_type = get_mime_type(path);
 
-    match std::fs::read(&path) {
+    match std::fs::read(path) {
         Ok(data) => Ok(Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, content_type)
