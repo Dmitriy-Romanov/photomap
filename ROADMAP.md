@@ -8,12 +8,13 @@
 - **Research-Driven**: Best practices research for each feature
 - **User-Focused**: Features are implemented based on user needs, not trends
 
-## 📍 Current Status: v0.9.9 (Stable)
+## 📍 Current Status: v0.10.2 (Stable)
 
 The project has reached a high level of stability and feature completeness. The core functionality—processing photos, extracting metadata (including offline reverse geocoding), and displaying them on a high-performance map—is working robustly on macOS, Windows, and Linux.
 
 ### ✅ Recently Completed Milestones
 
+- **EXIF Parser Robustness (v0.10.2)**: Reduced duplicate JPEG reads and added stronger GPS float validation.
 - **Dependency Cleanup Round 2 (v0.9.9)**: Removed `rust-embed`, `tokio-stream`, `tracing`, `tracing-subscriber`. Binary down to 5.1MB.
 - **Dependency Cleanup (v0.9.8)**: Removed `ignore`, `chrono`, `kdtree` in favor of std library implementations.
 - **Offline Reverse Geocoding**: Embedded 163k+ cities database (GeoNames) with fast linear search for instant, offline location naming.
@@ -33,7 +34,7 @@ Target: Final polish and stability verification for a major version number.
 **Potential Tasks:**
 - [ ] **Dependency Audit**: Review and update crates to their latest stable versions.
 - [ ] **Code Cleanup**: Remove any lingering debug code or unused modules.
-- [ ] **Final UI Polish**: Ensure perfect alignment and consistenty across all operating systems.
+- [ ] **Final UI Polish**: Ensure perfect alignment and consistency across all operating systems.
 - [ ] **Documentation**: Ensure all docs are perfectly synced with behavior.
 
 ### 🔮 Backlog / Ideas (Low Priority)
@@ -47,7 +48,7 @@ These are ideas that have been discussed but are not currently scheduled:
 
 ## 🔧 Technical Debt & Improvements
 
-- **Monitoring**: Keep an eye on `chrono`, `tokio`, and `image` crate updates for performance wins.
+- **Monitoring**: Keep an eye on `tokio`, `image`, `libheif-rs`, and `turbojpeg` crate updates for performance wins.
 - **Refactoring**: Continue distinguishing between "scripting" logic and "application" logic if the codebase grows.
 
 ## 🔄 Release Process
@@ -65,4 +66,4 @@ These are ideas that have been discussed but are not currently scheduled:
 
 ---
 
-*This roadmap is a living document. Last updated: January 2026.*
+*This roadmap is a living document. Last updated: May 2026.*

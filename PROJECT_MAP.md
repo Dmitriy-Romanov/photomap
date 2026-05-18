@@ -11,10 +11,12 @@ photomap/
 │   ├── database.rs
 │   ├── exif_parser/
 │   │   ├── generic.rs
+│   │   ├── gps_parser.rs
 │   │   ├── heic.rs
 │   │   ├── jpeg.rs
 │   │   └── mod.rs
-│   ├── folder_picker.rs
+│   ├── geocoding.rs
+│   ├── geodata.bin.gz
 │   ├── image_processing.rs
 │   ├── main.rs
 │   ├── process_manager.rs
@@ -30,8 +32,6 @@ photomap/
 │   ├── index.html
 │   ├── script.js
 │   └── style.css
-├── log/
-│   └── photomap.log
 ├── Cargo.toml
 └── ...
 ```
@@ -46,8 +46,8 @@ photomap/
     *   Initializes the database (`database.rs`).
     *   Loads settings (`settings.rs`).
     *   Starts the web server (`server/mod.rs`).
-    *   Handles the initial processing of photos from the last used folder.
-    *   **New in v0.6.5+:** Clears database on startup if configured folder is invalid.
+    *   Loads configured folders and reuses the binary cache when folder paths match.
+    *   Processes configured folders on startup when the cache is missing or invalid.
 
 ### `server/`
 
@@ -63,7 +63,7 @@ photomap/
     *   `get_settings`, `set_folder`, `update_settings`: Handles application settings.
     *   `reprocess_photos`, `initiate_processing`: Triggers photo processing.
     *   `processing_events_stream`: Provides real-time updates on photo processing via Server-Sent Events (SSE).
-    *   **`shutdown`**: (New) Gracefully shuts down the server.
+    *   `shutdown_app`: Gracefully shuts down the server.
 *   **`state.rs`:** Defines the `AppState` struct, which is shared across all `axum` handlers. It contains the database connection, application settings, and the SSE event sender.
 *   **`events.rs`:** Defines the `ProcessingEvent` and `ProcessingData` structs used for SSE.
 
@@ -71,7 +71,7 @@ photomap/
 
 *   **Purpose:** Contains the core logic for processing photos.
 *   **Responsibilities:**
-    *   Scans the photo directory.
+    *   Scans configured photo directories.
     *   Extracts EXIF metadata from photos using the `exif_parser` module.
     *   Saves photo metadata to the database.
 
@@ -79,8 +79,9 @@ photomap/
 
 *   **Purpose:** Manages the In-Memory database and persistence operations.
 *   **Responsibilities:**
-    *   Initializes the database and creates the necessary tables.
-    *   Provides functions to insert, query, and delete photo metadata.
+    *   Stores photo metadata in memory.
+    *   Provides functions to insert, query, clear, save, and load photo metadata.
+    *   Persists the cache as `photos_v1.bin`.
 
 ### `exif_parser/`
 
@@ -88,6 +89,7 @@ photomap/
 *   **`mod.rs`:** The root of the `exif_parser` module. Declares and exports functions from the sub-modules.
 *   **`heic.rs`:** Contains `extract_metadata_from_heic` for parsing HEIC files using the `libheif-rs` library.
 *   **`jpeg.rs`:** Contains `extract_metadata_from_jpeg` for parsing JPEG files using the `kamadak-exif` library.
+*   **`gps_parser.rs`:** Contains a low-level GPS parser used as a fallback for malformed JPEG EXIF.
 *   **`generic.rs`:** Contains generic EXIF parsing functions like `get_gps_coord` and `get_datetime_from_exif`, and `apply_exif_orientation`.
 
 ### `image_processing.rs`
@@ -106,10 +108,12 @@ photomap/
     *   Saves settings to an `.ini` file.
 *   The `Settings` struct is shared across the application using an `Arc<Mutex<>>`.
 
-### `folder_picker.rs`
+### `geocoding.rs`
 
-*   **Purpose:** Provides a native folder picker dialog.
-*   **Note:** This is currently only implemented for macOS.
+*   **Purpose:** Provides offline reverse geocoding.
+*   **Responsibilities:**
+    *   Loads the embedded GeoNames data from `geodata.bin.gz`.
+    *   Resolves coordinates to city/country labels without network calls.
 
 ### `process_manager.rs`
 
@@ -117,7 +121,11 @@ photomap/
 
 ### `utils.rs`
 
-*   **Purpose:** Contains utility functions that can be used across the application.
+*   **Purpose:** Contains cross-platform utility functions.
+*   **Responsibilities:**
+    *   Resolves app data and config paths.
+    *   Provides native folder selection dialogs for macOS, Windows, and Linux.
+    *   Opens the browser on startup when enabled.
 
 ### `constants.rs`
 
@@ -129,12 +137,12 @@ photomap/
 *   **`index.html`**:
     *   Structure of the application.
     *   Includes map container, floating info window, controls.
-    *   **New**: Year range inputs, "Close map" button.
+    *   Includes year range inputs, visualization toggles, and the "Close map" button.
 *   **`script.js`**:
     *   `initializeMap`: Sets up Leaflet map and clusters.
     *   `processFolder`: Handles processing workflow.
-    *   `filterMarkers`: (New) Filters photos by year range.
-    *   `shutdownApp`: (New) Calls shutdown API and closes window.
+    *   `filterMarkers`: Filters photos by year range.
+    *   `shutdownApp`: Calls shutdown API and closes the window.
 *   **`style.css`**:
     *   Styling for map, info window, and controls.
     *   Handles responsive design and animations.
@@ -155,7 +163,7 @@ photomap/
     *   When the frontend requests an image (`/api/marker/*` or `/api/thumbnail/*`), the `serve_processed_image` handler in `server/handlers.rs` is called.
     *   This handler uses `image_processing.rs` to resize the image and sends it back to the frontend.
     *   HEIC images are converted to JPEG on the fly by `image_processing.rs`.
-8.  **Shutdown Flow (New):**
+8.  **Shutdown Flow:**
     *   User clicks "Close map".
     *   Frontend calls `/api/shutdown`.
     *   Server initiates graceful shutdown.
