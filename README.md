@@ -1,8 +1,14 @@
-# PhotoMap Processor v0.10.2
+# PhotoMap Processor v0.11.0
 
 A modern, high-performance photo mapping application with In-Memory database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.10.2)
+## ✨ Latest Improvements (v0.11.0)
+
+- **Smaller Embedded GeoData**: Rebuilt reverse geocoding data from GeoNames `cities5000.txt`, reducing embedded geodata from ~3.1MB to ~1.2MB
+- **Smaller Binary**: Release binary is ~2.9MB on macOS arm64, down from ~4.8MB
+- **Tooling Cleanup**: Restored `geodata_builder`, moved diagnostic tools under `tools/`, and split utility helpers into focused modules
+
+### v0.10.2
 
 - **EXIF Parser Optimization**: Eliminated file duplication in JPEG parsing — ~90% reduction in file operations when using custom GPS parser
 - **Enhanced Float Validation**: Added comprehensive NaN/Infinity validation in all GPS coordinate calculations

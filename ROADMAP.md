@@ -8,7 +8,7 @@
 - **Research-Driven**: Best practices research for each feature
 - **User-Focused**: Features are implemented based on user needs, not trends
 
-## 📍 Current Status: v0.10.2 (Stable)
+## 📍 Current Status: v0.11.0 (Stable)
 
 The project has reached a high level of stability and feature completeness. The core functionality—processing photos, extracting metadata (including offline reverse geocoding), and displaying them on a high-performance map—is working robustly on macOS, Windows, and Linux.
 
