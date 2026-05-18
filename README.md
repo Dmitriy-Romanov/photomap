@@ -81,6 +81,8 @@ photomap/
 │   ├── src/
 │   ├── README.md
 │   └── ...
+├── tools/
+│   └── geodata_builder/ # Build-time helper for regenerating geodata.bin.gz
 ├── frontend/            # Embedded web interface files
 ├── log/                 # Log files (git-ignored)
 ├── photos/              # Your photo collection (git-ignored)

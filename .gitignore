@@ -34,6 +34,7 @@ GEMINI.md
 exif_parser_test/target/
 exif_parser_test/failures.txt
 exif_parser_test/JPG for checks/
+tools/*/target/
 
 # Development scripts (not for repo)
 *.sh

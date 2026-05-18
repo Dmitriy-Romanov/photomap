@@ -32,6 +32,8 @@ photomap/
 │   ├── index.html
 │   ├── script.js
 │   └── style.css
+├── tools/
+│   └── geodata_builder/
 ├── Cargo.toml
 └── ...
 ```
@@ -146,6 +148,12 @@ photomap/
 *   **`style.css`**:
     *   Styling for map, info window, and controls.
     *   Handles responsive design and animations.
+
+## Tools (`tools/`)
+
+*   **`geodata_builder/`**:
+    *   Build-time helper for regenerating `src/geodata.bin.gz` from a GeoNames `cities1000.txt` TSV file.
+    *   Kept outside the main Cargo package so the normal PhotoMap build still produces only the application binary.
 
 ## Data Flow
 
