@@ -8,7 +8,7 @@
 - **Research-Driven**: Best practices research for each feature
 - **User-Focused**: Features are implemented based on user needs, not trends
 
-## 📍 Current Status: v0.10.2 (Stable)
+## 📍 Current Status: v0.11.0 (Stable)
 
 The project has reached a high level of stability and feature completeness. The core functionality—processing photos, extracting metadata (including offline reverse geocoding), and displaying them on a high-performance map—is working robustly on macOS, Windows, and Linux.
 
@@ -17,7 +17,7 @@ The project has reached a high level of stability and feature completeness. The 
 - **EXIF Parser Robustness (v0.10.2)**: Reduced duplicate JPEG reads and added stronger GPS float validation.
 - **Dependency Cleanup Round 2 (v0.9.9)**: Removed `rust-embed`, `tokio-stream`, `tracing`, `tracing-subscriber`. Binary down to 5.1MB.
 - **Dependency Cleanup (v0.9.8)**: Removed `ignore`, `chrono`, `kdtree` in favor of std library implementations.
-- **Offline Reverse Geocoding**: Embedded 163k+ cities database (GeoNames) with fast linear search for instant, offline location naming.
+- **Offline Reverse Geocoding**: Embedded 68k+ cities database (GeoNames cities5000) with fast linear search for instant, offline location naming.
 - **Multi-Folder Support**: Capability to process up to 5 distinct folders simultaneously.
 - **Unified UI**: Consistent styling across map markers, popups, and the gallery view.
 - **Performance**: Lazy initialization of heavy modules, optimized startup time.

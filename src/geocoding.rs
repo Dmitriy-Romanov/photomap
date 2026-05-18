@@ -12,7 +12,6 @@ pub struct GeoLocation {
     pub lat: f64,
     pub lng: f64,
     pub country: String,
-    pub admin1: String,
 }
 
 pub struct ReverseGeocoder {
@@ -55,7 +54,7 @@ impl ReverseGeocoder {
 
     pub fn lookup(&self, lat: f64, lng: f64) -> Option<String> {
         // Simple linear search with squared euclidean distance
-        // For ~163k cities this is fast enough (~1-2ms)
+        // For the embedded city set this is fast enough (~1-2ms)
         let mut nearest: Option<&GeoLocation> = None;
         let mut nearest_dist_sq = f64::MAX;
 

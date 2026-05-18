@@ -48,7 +48,7 @@ After startup, web interface is available at http://127.0.0.1:3001
   - `gps_parser.rs` — low-level GPS parser for corrupted EXIF
   - `generic.rs` — common functions for GPS coordinates and dates
 - **image_processing.rs** — thumbnail creation, HEIC→JPEG conversion, uses turbojpeg for speed
-- **geocoding.rs** — offline reverse geocoding via embedded GeoNames database (163k+ cities)
+- **geocoding.rs** — offline reverse geocoding via embedded GeoNames database (68k+ cities)
 - **settings.rs** — settings management (INI file), stores up to 5 folders
 - **utils.rs** — app data paths, browser launch, and native folder selection dialogs (macOS/Windows/Linux)
 

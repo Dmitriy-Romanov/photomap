@@ -32,6 +32,9 @@ photomap/
 │   ├── index.html
 │   ├── script.js
 │   └── style.css
+├── tools/
+│   ├── exif_parser_test/
+│   └── geodata_builder/
 ├── Cargo.toml
 └── ...
 ```
@@ -146,6 +149,15 @@ photomap/
 *   **`style.css`**:
     *   Styling for map, info window, and controls.
     *   Handles responsive design and animations.
+
+## Tools (`tools/`)
+
+*   **`geodata_builder/`**:
+    *   Build-time helper for regenerating `src/geodata.bin.gz` from a GeoNames `cities5000.txt` TSV file.
+    *   Kept outside the main Cargo package so the normal PhotoMap build still produces only the application binary.
+*   **`exif_parser_test/`**:
+    *   Standalone diagnostic tool for EXIF/GPS parser validation.
+    *   Kept outside the main Cargo package because it is not part of the PhotoMap runtime.
 
 ## Data Flow
 
