@@ -153,7 +153,7 @@ photomap/
 ## Tools (`tools/`)
 
 *   **`geodata_builder/`**:
-    *   Build-time helper for regenerating `src/geodata.bin.gz` from a GeoNames `cities1000.txt` TSV file.
+    *   Build-time helper for regenerating `src/geodata.bin.gz` from a GeoNames `cities5000.txt` TSV file.
     *   Kept outside the main Cargo package so the normal PhotoMap build still produces only the application binary.
 *   **`exif_parser_test/`**:
     *   Standalone diagnostic tool for EXIF/GPS parser validation.

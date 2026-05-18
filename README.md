@@ -25,7 +25,7 @@ A modern, high-performance photo mapping application with In-Memory database sto
 
 ### v0.9.7
 
-- **Offline Reverse Geocoding**: Photos now display city and country names ("📍 Paris, FR") using an embedded GeoNames database with 163k+ cities. Fully offline with fast linear search.
+- **Offline Reverse Geocoding**: Photos now display city and country names ("📍 Paris, FR") using an embedded GeoNames database with 68k+ cities. Fully offline with fast linear search.
 - **Unified Popup UI**: Consistent popup layout between map markers and gallery view with clean CSS architecture.
 - **Performance**: Lazy initialization of geocoding module to avoid blocking startup.
 

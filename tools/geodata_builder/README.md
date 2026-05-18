@@ -12,10 +12,10 @@ where `GeoLocation` matches `src/geocoding.rs`.
 
 ## Usage
 
-Download `cities1000.zip` from GeoNames, extract `cities1000.txt`, then run:
+Download `cities5000.zip` from GeoNames, extract `cities5000.txt`, then run:
 
 ```bash
-cargo run --release -- cities1000.txt ../../src/geodata.bin.gz
+cargo run --release -- cities5000.txt ../../src/geodata.bin.gz
 ```
 
 The tool reads GeoNames columns:
@@ -24,6 +24,6 @@ The tool reads GeoNames columns:
 - `latitude`
 - `longitude`
 - `country code`
-- `admin1 code`
+- `population`
 
-Malformed rows and rows with non-finite coordinates are skipped.
+Malformed rows, rows with non-finite coordinates, and rows below 5,000 population are skipped.

@@ -12,7 +12,6 @@ struct GeoLocation {
     lat: f64,
     lng: f64,
     country: String,
-    admin1: String,
 }
 
 fn main() -> Result<()> {
@@ -23,10 +22,10 @@ fn main() -> Result<()> {
             .first()
             .map(String::as_str)
             .unwrap_or("geodata_builder");
-        eprintln!("Usage: {program} <geonames-cities1000.txt> <output-geodata.bin.gz>");
+        eprintln!("Usage: {program} <geonames-cities5000.txt> <output-geodata.bin.gz>");
         eprintln!();
         eprintln!("Example:");
-        eprintln!("  {program} cities1000.txt ../../src/geodata.bin.gz");
+        eprintln!("  {program} cities5000.txt ../../src/geodata.bin.gz");
         bail!("expected input and output paths");
     }
 
@@ -65,7 +64,7 @@ fn read_geonames(path: &Path) -> Result<Vec<GeoLocation>> {
     }
 
     if skipped > 0 {
-        eprintln!("Skipped {skipped} malformed or non-finite row(s)");
+        eprintln!("Skipped {skipped} malformed, non-finite, or below-threshold row(s)");
     }
 
     Ok(locations)
@@ -73,7 +72,7 @@ fn read_geonames(path: &Path) -> Result<Vec<GeoLocation>> {
 
 fn parse_geonames_line(line: &str) -> Option<GeoLocation> {
     let fields: Vec<&str> = line.split('\t').collect();
-    if fields.len() < 11 {
+    if fields.len() < 15 {
         return None;
     }
 
@@ -81,9 +80,14 @@ fn parse_geonames_line(line: &str) -> Option<GeoLocation> {
     let lat: f64 = fields[4].parse().ok()?;
     let lng: f64 = fields[5].parse().ok()?;
     let country = fields[8].trim();
-    let admin1 = fields[10].trim();
+    let population: u64 = fields[14].parse().ok()?;
 
-    if name.is_empty() || country.is_empty() || !lat.is_finite() || !lng.is_finite() {
+    if name.is_empty()
+        || country.is_empty()
+        || population < 5_000
+        || !lat.is_finite()
+        || !lng.is_finite()
+    {
         return None;
     }
 
@@ -92,7 +96,6 @@ fn parse_geonames_line(line: &str) -> Option<GeoLocation> {
         lat,
         lng,
         country: country.to_string(),
-        admin1: admin1.to_string(),
     })
 }
 
@@ -127,9 +130,15 @@ mod tests {
 
         assert_eq!(location.name, "Berlin");
         assert_eq!(location.country, "DE");
-        assert_eq!(location.admin1, "16");
         assert_eq!(location.lat, 52.52437);
         assert_eq!(location.lng, 13.41053);
+    }
+
+    #[test]
+    fn skips_rows_below_population_threshold() {
+        let line = "123\tTiny place\tTiny place\tTiny place\t52.0\t13.0\tP\tPPL\tDE\t\t16\t\t\t\t4999\t\t74\tEurope/Berlin\t2024-01-01";
+
+        assert!(parse_geonames_line(line).is_none());
     }
 
     #[test]
@@ -139,7 +148,6 @@ mod tests {
             lat: 52.52437,
             lng: 13.41053,
             country: "DE".to_string(),
-            admin1: "16".to_string(),
         }];
 
         let path = env::temp_dir().join(format!(

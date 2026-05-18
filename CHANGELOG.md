@@ -2,6 +2,12 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **GeoData size reduction**: Rebuilt `src/geodata.bin.gz` from GeoNames `cities5000.txt` and removed the unused `admin1` field from embedded geodata records.
+- **Smaller binary**: Embedded geodata reduced from ~3.1MB to ~1.2MB, reducing the release binary from ~4.8MB to ~2.9MB on macOS arm64.
+
 ## [0.10.2] - 2026-04-19
 
 ### Fixed
