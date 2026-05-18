@@ -77,11 +77,8 @@ photomap/
 │   │   ├── jpeg.rs
 │   │   └── gps_parser.rs
 │   └── ...
-├── exif_parser_test/    # Debugging tool for EXIF parsing
-│   ├── src/
-│   ├── README.md
-│   └── ...
 ├── tools/
+│   ├── exif_parser_test/ # Debugging tool for EXIF parsing
 │   └── geodata_builder/ # Build-time helper for regenerating geodata.bin.gz
 ├── frontend/            # Embedded web interface files
 ├── log/                 # Log files (git-ignored)

@@ -40,7 +40,6 @@ async fn main() -> Result<()> {
     println!("✅ Database initialized successfully");
 
     // Initialize Reverse Geocoder (Lazy load in background)
-    println!("🌍 Initializing Reverse Geocoder...");
     std::thread::spawn(|| {
         geocoding::ReverseGeocoder::init();
     });
