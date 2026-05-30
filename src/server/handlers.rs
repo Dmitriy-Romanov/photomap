@@ -175,8 +175,10 @@ pub async fn convert_heic(
     let filename = query_params
         .get("filename")
         .ok_or(StatusCode::BAD_REQUEST)?;
-    let default_size = "popup".to_string();
-    let size_param = query_params.get("size").unwrap_or(&default_size);
+    let size_param = query_params
+        .get("size")
+        .cloned()
+        .unwrap_or_else(|| "popup".to_string());
 
     let photo = state
         .db
@@ -184,8 +186,21 @@ pub async fn convert_heic(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    let jpeg_data =
-        convert_heic_to_jpeg(&photo, size_param).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let jpeg_data = match tokio::task::spawn_blocking(move || {
+        convert_heic_to_jpeg(&photo, &size_param)
+    })
+    .await
+    {
+        Ok(Ok(data)) => data,
+        Ok(Err(e)) => {
+            eprintln!("HEIC conversion error: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+        Err(e) => {
+            eprintln!("HEIC conversion task failed: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
 
     Ok(Response::builder()
         .status(StatusCode::OK)
