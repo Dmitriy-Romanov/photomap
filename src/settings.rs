@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
-    pub folders: [Option<String>; 5],  // Maximum 5 folder paths
+    pub folders: [Option<String>; 5], // Maximum 5 folder paths
     pub start_browser: bool,
     pub top: i32,
     pub left: i32,
@@ -23,9 +23,9 @@ impl Default for Settings {
             start_browser: true,
             top: 12,
             left: 52,
-            map_coords: true,   // Show coordinates by default
-            routes: false,      // Routes off by default
-            heatmap: false,     // Heatmap off by default
+            map_coords: true, // Show coordinates by default
+            routes: false,    // Routes off by default
+            heatmap: false,   // Heatmap off by default
         }
     }
 }
@@ -34,10 +34,12 @@ impl Settings {
     pub fn load() -> Result<Self> {
         let config_path = Self::config_path();
         let mut settings = Settings::default();
-        
+
         if !config_path.exists() {
             // Create default settings file
-            settings.save().context("Failed to create default settings file")?;
+            settings
+                .save()
+                .context("Failed to create default settings file")?;
             return Ok(settings);
         }
 
@@ -65,7 +67,7 @@ impl Settings {
                 }
             }
         }
-        
+
         // Backward compatibility: migrate last_folder to path1
         if let Some(last_folder) = config_map.get("last_folder") {
             let trimmed = last_folder.trim_matches('"').trim();
@@ -73,7 +75,7 @@ impl Settings {
                 settings.folders[0] = Some(trimmed.to_string());
             }
         }
-        
+
         if let Some(start_browser) = config_map.get("start_browser") {
             if let Ok(val) = start_browser.trim().parse::<bool>() {
                 settings.start_browser = val;
@@ -112,7 +114,7 @@ impl Settings {
         }
 
         // If file exists but some fields are missing, save defaults back to file
-        let needs_save = !config_map.contains_key("top") 
+        let needs_save = !config_map.contains_key("top")
             || !config_map.contains_key("left")
             || !config_map.contains_key("map_coords")
             || !config_map.contains_key("routes")
@@ -128,7 +130,7 @@ impl Settings {
 
     pub fn save(&self) -> Result<()> {
         let config_path = Self::config_path();
-        
+
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent).context("Creating config directory")?;
         }
@@ -147,7 +149,7 @@ impl Settings {
             let value = folder.as_deref().unwrap_or("");
             content.push_str(&format!("path{} = \"{}\"\n", i + 1, value));
         }
-        
+
         content.push_str(&format!("start_browser = {}\n", self.start_browser));
         content.push_str(&format!("top = {}\n", self.top));
         content.push_str(&format!("left = {}\n", self.left));
@@ -180,13 +182,13 @@ mod tests {
         // Create a temp directory to act as HOME
         let mut temp_path = env::temp_dir();
         temp_path.push("photomap_test_settings");
-        
+
         // Clean up previous run if exists
         if temp_path.exists() {
             fs::remove_dir_all(&temp_path).unwrap();
         }
         fs::create_dir_all(&temp_path).unwrap();
-        
+
         // Override HOME/APPDATA/XDG_DATA_HOME based on OS to point to temp dir
         // For this test, we'll just set all potentially used vars to be safe
         unsafe {
@@ -209,7 +211,7 @@ mod tests {
         // Verify content
         let content = fs::read_to_string(config_path).unwrap();
         assert!(content.contains("# PhotoMap Configuration File"));
-        
+
         // Cleanup
         let _ = fs::remove_dir_all(&temp_path);
     }

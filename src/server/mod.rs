@@ -13,16 +13,29 @@ pub mod events;
 pub mod handlers;
 pub mod state;
 
-use self::state::AppState;
 use self::handlers::{
     convert_heic, get_all_photos, get_gallery_image, get_marker_image, get_popup_image,
-    get_settings, get_thumbnail_image, index_html, initiate_processing,
-    processing_events_stream, reprocess_photos, reveal_file, script_js, select_folder_dialog,
-    serve_photo, set_folder, shutdown_app, style_css, update_settings,
+    get_settings, get_thumbnail_image, index_html, initiate_processing, processing_events_stream,
+    reprocess_photos, reveal_file, script_js, select_folder_dialog, serve_photo, set_folder,
+    shutdown_app, style_css, update_settings,
 };
+use self::state::AppState;
 
 // Create the main application router
 async fn create_app(state: AppState) -> Router {
+    let secure_cors = CorsLayer::new()
+        .allow_origin(tower_http::cors::AllowOrigin::predicate(
+            |origin: &axum::http::HeaderValue, _parts| {
+                let bytes = origin.as_bytes();
+                bytes.starts_with(b"http://localhost:")
+                    || bytes.starts_with(b"http://127.0.0.1:")
+                    || bytes == b"http://localhost"
+                    || bytes == b"http://127.0.0.1"
+            },
+        ))
+        .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
+        .allow_headers([axum::http::header::CONTENT_TYPE]);
+
     Router::new()
         .route("/", get(index_html))
         .route("/style.css", get(style_css))
@@ -45,20 +58,16 @@ async fn create_app(state: AppState) -> Router {
         .route("/photos/*filepath", get(serve_photo))
         .layer(
             ServiceBuilder::new()
-                .layer(CorsLayer::permissive())
+                .layer(secure_cors)
                 .layer(CompressionLayer::new()),
         )
         .with_state(state)
 }
 
-pub async fn start_server(state: AppState) -> Result<()> {
-    start_server_with_port(state, 3001).await
-}
-
-async fn start_server_with_port(state: AppState, port: u16) -> Result<()> {
+pub async fn start_server(state: AppState, port: u16) -> Result<()> {
     // Subscribe to shutdown signal before moving state into app
     let mut shutdown_receiver = state.shutdown_sender.subscribe();
-    
+
     let app = create_app(state).await;
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = TcpListener::bind(addr).await?;

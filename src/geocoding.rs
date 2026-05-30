@@ -28,29 +28,34 @@ impl ReverseGeocoder {
 
         // Decompress and deserialize
         let decoder = GzDecoder::new(GEODATA_BYTES);
-        let locations: Vec<GeoLocation> = bincode::deserialize_from(decoder)
+        use bincode::Options;
+        let locations: Vec<GeoLocation> = bincode::options()
+            .with_limit(20 * 1024 * 1024)
+            .deserialize_from(decoder)
             .context("Failed to deserialize geodata")?;
 
-        println!("✅ Geocoder initialized in {:?} with {} cities", start.elapsed(), locations.len());
+        println!(
+            "✅ Geocoder initialized in {:?} with {} cities",
+            start.elapsed(),
+            locations.len()
+        );
         Ok(ReverseGeocoder { locations })
     }
 
-pub fn get() -> Option<&'static ReverseGeocoder> {
-    GEOCODER.get().and_then(|opt| opt.as_ref())
-}
+    pub fn get() -> Option<&'static ReverseGeocoder> {
+        GEOCODER.get().and_then(|opt| opt.as_ref())
+    }
 
-pub fn init() {
-    // Initialize in background or on first access — skip on corrupt/missing geodata
-    let _ = GEOCODER.get_or_init(|| {
-        match ReverseGeocoder::new() {
+    pub fn init() {
+        // Initialize in background or on first access — skip on corrupt/missing geodata
+        let _ = GEOCODER.get_or_init(|| match ReverseGeocoder::new() {
             Ok(g) => Some(g),
             Err(e) => {
                 eprintln!("⚠️ Skipping reverse geocoder: {}", e);
                 None
             }
-        }
-    });
-}
+        });
+    }
 
     pub fn lookup(&self, lat: f64, lng: f64) -> Option<String> {
         // Simple linear search with squared euclidean distance

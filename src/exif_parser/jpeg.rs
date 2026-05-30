@@ -64,5 +64,5 @@ pub fn extract_metadata_from_jpeg(path: &Path) -> Result<(f64, f64, Option<Strin
         return Ok((lat, lng, datetime));
     }
 
-    anyhow::bail!("GPS data not found in JPEG file")
+    Err(super::ExifError::GpsNotFound.into())
 }

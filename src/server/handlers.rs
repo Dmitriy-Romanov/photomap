@@ -4,18 +4,18 @@ use axum::{
     http::{header, StatusCode},
     response::{Html, Json, Response, Sse},
 };
+use futures_core::Stream;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use futures_core::Stream;
-use tokio::sync::mpsc;
 use std::time::Duration;
+use tokio::sync::mpsc;
 
 use crate::database::ImageMetadata;
+use crate::geocoding;
 use crate::image_processing::{convert_heic_to_jpeg, create_scaled_image_in_memory, ImageType};
 use crate::processing::{process_photos_from_directory, process_photos_with_stats};
-use crate::geocoding;
 use crate::settings::Settings;
 
 use super::events::{ProcessingData, ProcessingEvent};
@@ -184,7 +184,8 @@ pub async fn convert_heic(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    let jpeg_data = convert_heic_to_jpeg(&photo, size_param).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let jpeg_data =
+        convert_heic_to_jpeg(&photo, size_param).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Response::builder()
         .status(StatusCode::OK)
@@ -208,7 +209,9 @@ pub async fn serve_photo(
     if !path.exists() {
         return Err(StatusCode::NOT_FOUND);
     }
-    let data = tokio::fs::read(path).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let data = tokio::fs::read(path)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let content_type = get_mime_type(path);
     Ok(Response::builder()
         .status(StatusCode::OK)
@@ -226,19 +229,20 @@ pub async fn set_folder(
     State(state): State<AppState>,
     Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let folder_paths = if let Some(paths_array) = payload.get("folder_paths").and_then(|v| v.as_array()) {
-        paths_array
-            .iter()
-            .filter_map(|v| v.as_str().map(String::from))
-            .collect::<Vec<String>>()
-    } else if let Some(single_path) = payload.get("folder_path").and_then(|v| v.as_str()) {
-        vec![single_path.to_string()]
-    } else {
-        return Ok(Json(serde_json::json!({
-            "status": "error",
-            "message": "No folder_path or folder_paths provided"
-        })));
-    };
+    let folder_paths =
+        if let Some(paths_array) = payload.get("folder_paths").and_then(|v| v.as_array()) {
+            paths_array
+                .iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect::<Vec<String>>()
+        } else if let Some(single_path) = payload.get("folder_path").and_then(|v| v.as_str()) {
+            vec![single_path.to_string()]
+        } else {
+            return Ok(Json(serde_json::json!({
+                "status": "error",
+                "message": "No folder_path or folder_paths provided"
+            })));
+        };
 
     if folder_paths.is_empty() {
         return Ok(Json(serde_json::json!({
@@ -305,7 +309,8 @@ pub async fn reprocess_photos(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let folders_to_process = {
         let settings = state.settings.lock().await;
-        settings.folders
+        settings
+            .folders
             .iter()
             .filter_map(|f| f.as_ref().map(|s| std::path::Path::new(s).to_path_buf()))
             .collect::<Vec<_>>()
@@ -364,7 +369,11 @@ pub async fn reprocess_photos(
                     let _ = event_sender.blocking_send(ProcessingEvent {
                         event_type: "processing_error".to_string(),
                         data: ProcessingData {
-                            message: Some(format!("Processing failed for {}: {}", photos_dir.display(), e)),
+                            message: Some(format!(
+                                "Processing failed for {}: {}",
+                                photos_dir.display(),
+                                e
+                            )),
                             phase: Some("error".to_string()),
                             ..Default::default()
                         },
@@ -408,7 +417,8 @@ pub async fn initiate_processing(
 
     let folders_to_process = {
         let settings = state.settings.lock().await;
-        settings.folders
+        settings
+            .folders
             .iter()
             .filter_map(|f| f.as_ref().map(|s| std::path::Path::new(s).to_path_buf()))
             .collect::<Vec<_>>()
@@ -537,14 +547,12 @@ pub async fn shutdown_app(
 pub async fn select_folder_dialog(
     State(_state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let folder_paths = tokio::task::spawn_blocking(|| {
-        crate::utils::select_folders_native()
-    })
-    .await
-    .map_err(|e| {
-        eprintln!("Task join error: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let folder_paths = tokio::task::spawn_blocking(crate::utils::select_folders_native)
+        .await
+        .map_err(|e| {
+            eprintln!("Task join error: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     if !folder_paths.is_empty() {
         Ok(Json(serde_json::json!({
@@ -573,8 +581,8 @@ pub async fn reveal_file(
         #[cfg(target_os = "windows")]
         {
             let clean_path = file_path.replace("/", "\\");
-            Command::new("cmd")
-                .args(["/C", "start", "", "explorer", "/select,", &clean_path])
+            Command::new("explorer")
+                .arg(format!("/select,{}", clean_path))
                 .spawn()
         }
         #[cfg(target_os = "macos")]
@@ -583,10 +591,14 @@ pub async fn reveal_file(
         }
         #[cfg(target_os = "linux")]
         {
-            Command::new("nautilus").arg("--select").arg(&file_path).spawn()
+            Command::new("nautilus")
+                .arg("--select")
+                .arg(&file_path)
+                .spawn()
                 .or_else(|_| {
                     use std::path::Path;
-                    let parent = Path::new(&file_path).parent()
+                    let parent = Path::new(&file_path)
+                        .parent()
                         .and_then(|p| p.to_str())
                         .unwrap_or(&file_path);
                     Command::new("xdg-open").arg(parent).spawn()

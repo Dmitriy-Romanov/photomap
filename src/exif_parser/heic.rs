@@ -6,11 +6,11 @@ use std::path::Path;
 pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, Option<String>)> {
     // Try to read as HEIC first
     let heic_result = (|| -> Result<(f64, f64, Option<String>)> {
-    let path_str = path
-        .to_str()
-        .ok_or_else(|| anyhow::anyhow!("Path contains invalid UTF-8 characters: {:?}", path))?;
-    let ctx = libheif_rs::HeifContext::read_from_file(path_str)
-    .map_err(|e| anyhow::anyhow!("Failed to read HEIF context: {}", e))?;
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Path contains invalid UTF-8 characters: {:?}", path))?;
+        let ctx = libheif_rs::HeifContext::read_from_file(path_str)
+            .map_err(|e| anyhow::anyhow!("Failed to read HEIF context: {}", e))?;
 
         let primary_image_handle = ctx
             .primary_image_handle()
@@ -31,26 +31,29 @@ pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, Option<Strin
             // Check if it's Exif
             if let Some(type_str) = primary_image_handle.metadata_type(*id) {
                 if type_str == "Exif" {
-                     let exif_data = primary_image_handle
-                        .metadata(*id)
-                        .map_err(|e| anyhow::anyhow!("Failed to get metadata for ID {}: {}", id, e))?;
+                    let exif_data = primary_image_handle.metadata(*id).map_err(|e| {
+                        anyhow::anyhow!("Failed to get metadata for ID {}: {}", id, e)
+                    })?;
 
                     // `libheif-rs` provides the raw EXIF data, which usually starts with "Exif\0\0"
                     // and then the TIFF header. `exif::Reader::read_raw` expects the TIFF header directly.
                     // The first 4 bytes are the length of the data, so we skip them.
-                    let tiff_header_start = if exif_data.len() > 4 && exif_data[4..].starts_with(b"Exif\0\0") {
-                        10
-                    } else if exif_data.starts_with(b"Exif\0\0") {
-                        6
-                    } else {
-                        0
-                    };
+                    let tiff_header_start =
+                        if exif_data.len() > 4 && exif_data[4..].starts_with(b"Exif\0\0") {
+                            10
+                        } else if exif_data.starts_with(b"Exif\0\0") {
+                            6
+                        } else {
+                            0
+                        };
 
                     if exif_data.len() > tiff_header_start {
-                        if let Ok(exif) = exif::Reader::new().read_raw(exif_data[tiff_header_start..].to_vec())
+                        if let Ok(exif) =
+                            exif::Reader::new().read_raw(exif_data[tiff_header_start..].to_vec())
                         {
                             let lat = get_gps_coord(&exif, Tag::GPSLatitude, Tag::GPSLatitudeRef)?;
-                            let lng = get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
+                            let lng =
+                                get_gps_coord(&exif, Tag::GPSLongitude, Tag::GPSLongitudeRef)?;
                             let datetime = get_datetime_string(&exif);
 
                             if let (Some(lat), Some(lng)) = (lat, lng) {
@@ -61,7 +64,7 @@ pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, Option<Strin
                 }
             }
         }
-        bail!("GPS data not found in HEIF file")
+        Err(super::ExifError::GpsNotFound.into())
     })();
 
     if heic_result.is_ok() {

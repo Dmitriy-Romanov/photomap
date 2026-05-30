@@ -30,13 +30,11 @@ fn kill_existing_unix() -> Result<()> {
         .output();
 
     let pids = match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter_map(|line| line.trim().parse::<u32>().ok())
-                .filter(|&pid| pid != current_pid)
-                .collect::<Vec<_>>()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| line.trim().parse::<u32>().ok())
+            .filter(|&pid| pid != current_pid)
+            .collect::<Vec<_>>(),
         Ok(_) => {
             // pgrep returns exit code 1 if no processes found
             println!("✅ No existing PhotoMap processes found");
@@ -71,10 +69,7 @@ fn kill_existing_unix() -> Result<()> {
             thread::sleep(Duration::from_millis(500));
 
             // Check if process still exists
-            let check = Command::new("kill")
-                .arg("-0")
-                .arg(pid.to_string())
-                .status();
+            let check = Command::new("kill").arg("-0").arg(pid.to_string()).status();
 
             if check.is_ok() {
                 // Process still alive, force kill
@@ -106,7 +101,13 @@ fn kill_existing_windows() -> Result<()> {
 
     // Use tasklist to find photomap_processor.exe processes
     let output = Command::new("tasklist")
-        .args(["/FI", "IMAGENAME eq photomap_processor.exe", "/FO", "CSV", "/NH"])
+        .args([
+            "/FI",
+            "IMAGENAME eq photomap_processor.exe",
+            "/FO",
+            "CSV",
+            "/NH",
+        ])
         .output()
         .context("Failed to run tasklist command")?;
 
@@ -158,7 +159,9 @@ fn kill_existing_windows() -> Result<()> {
                 .output();
 
             if let Ok(out) = check_output {
-                if !out.stdout.is_empty() && String::from_utf8_lossy(&out.stdout).contains(&pid.to_string()) {
+                if !out.stdout.is_empty()
+                    && String::from_utf8_lossy(&out.stdout).contains(&pid.to_string())
+                {
                     // Process still alive, force kill
                     println!("   ⚡ Process still alive, force killing PID: {}", pid);
                     let _ = Command::new("taskkill")

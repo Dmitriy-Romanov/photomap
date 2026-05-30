@@ -1,7 +1,7 @@
+use anyhow::{Context, Result};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use anyhow::{Context, Result};
 
 mod constants;
 mod database;
@@ -27,6 +27,46 @@ async fn main() -> Result<()> {
     println!("---");
 
     register_all_decoding_hooks();
+
+    let mut port = 3001;
+    let args: Vec<String> = std::env::args().collect();
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--port" | "-p" => {
+                if i + 1 < args.len() {
+                    if let Ok(p) = args[i + 1].parse::<u16>() {
+                        port = p;
+                    } else {
+                        eprintln!("⚠️ Invalid port value: {}", args[i + 1]);
+                        std::process::exit(1);
+                    }
+                    i += 2;
+                } else {
+                    eprintln!("⚠️ Missing value for --port");
+                    std::process::exit(1);
+                }
+            }
+            "--help" | "-h" => {
+                println!("PhotoMap Processor v{}", VERSION);
+                println!("Parallel photo processing, EXIF metadata extraction and interactive map server.");
+                println!();
+                println!("Usage:");
+                println!("  photomap_processor [options]");
+                println!();
+                println!("Options:");
+                println!("  -p, --port <port>  Specify port number (default: 3001)");
+                println!("  -h, --help         Show this help message");
+                return Ok(());
+            }
+            _ => {
+                eprintln!("⚠️ Unknown argument: {}", args[i]);
+                eprintln!("Run with --help to see available options.");
+                std::process::exit(1);
+            }
+        }
+    }
+
     process_manager::ensure_single_instance()?;
 
     println!("🗄️ Initializing database (In-Memory)...");
@@ -51,11 +91,18 @@ async fn main() -> Result<()> {
     });
 
     let settings = Arc::new(Mutex::new(Settings::load()?));
-    println!(" ⚙️ Config file loaded from: {}", Settings::config_path().display());
+    println!(
+        " ⚙️ Config file loaded from: {}",
+        Settings::config_path().display()
+    );
 
     let folder_paths: Vec<String> = {
         let guard = settings.lock().await;
-        guard.folders.iter().filter_map(|f| f.as_ref().cloned()).collect()
+        guard
+            .folders
+            .iter()
+            .filter_map(|f| f.as_ref().cloned())
+            .collect()
     };
 
     if !folder_paths.is_empty() {
@@ -65,7 +112,10 @@ async fn main() -> Result<()> {
                 println!("✅ Loaded {} photos from cache (paths match)", count);
             }
             _ => {
-                println!("🚀 Cache miss or mismatch. Processing {} folder(s)...", folder_paths.len());
+                println!(
+                    "🚀 Cache miss or mismatch. Processing {} folder(s)...",
+                    folder_paths.len()
+                );
                 let _ = db.clear_all_photos();
 
                 for folder_path in &folder_paths {
@@ -75,7 +125,9 @@ async fn main() -> Result<()> {
                         continue;
                     }
                     println!("📂 Processing saved folder: {}", folder_path);
-                    if let Err(e) = processing::process_photos_with_stats(&db, photos_path, false, false) {
+                    if let Err(e) =
+                        processing::process_photos_with_stats(&db, photos_path, false, false)
+                    {
                         eprintln!("⚠️ Error processing {}: {}", folder_path, e);
                     }
                 }
@@ -105,9 +157,8 @@ async fn main() -> Result<()> {
     {
         let guard = settings.lock().await;
         if guard.start_browser {
-            let url = "http://127.0.0.1:3001";
+            let url = format!("http://127.0.0.1:{}", port);
             println!(" 🌐 Opening browser at {}", url);
-            let url = url.to_string();
             tokio::spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 if let Err(e) = utils::open_browser(&url) {
@@ -117,6 +168,6 @@ async fn main() -> Result<()> {
         }
     }
 
-    server::start_server(app_state).await?;
+    server::start_server(app_state, port).await?;
     Ok(())
 }

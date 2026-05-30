@@ -121,7 +121,11 @@ impl Database {
             return Ok(false);
         }
         let file = std::fs::File::open(&cache_path)?;
-        let cache: CachedDatabase = match bincode::deserialize_from(file) {
+        use bincode::Options;
+        let cache: CachedDatabase = match bincode::options()
+            .with_limit(50 * 1024 * 1024)
+            .deserialize_from(file)
+        {
             Ok(c) => c,
             Err(_) => {
                 eprintln!("⚠️ Cache format incompatible or corrupted");
@@ -131,7 +135,10 @@ impl Database {
             }
         };
         if cache.version != 1 {
-            eprintln!("⚠️ Cache version mismatch (found {}, expected 1)", cache.version);
+            eprintln!(
+                "⚠️ Cache version mismatch (found {}, expected 1)",
+                cache.version
+            );
             eprintln!("🗑️ Deleting outdated cache file");
             let _ = std::fs::remove_file(&cache_path);
             return Ok(false);
@@ -140,7 +147,11 @@ impl Database {
             return Ok(false);
         }
         let mut photos = self.photos.write().unwrap();
-        *photos = cache.photos.into_iter().map(|p| (p.relative_path.clone(), p)).collect();
+        *photos = cache
+            .photos
+            .into_iter()
+            .map(|p| (p.relative_path.clone(), p))
+            .collect();
         Ok(true)
     }
 }

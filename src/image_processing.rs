@@ -39,19 +39,19 @@ fn create_scaled_image(img: DynamicImage, size: u32, pad_to_square: bool) -> Res
     } else {
         // Just resize the image to the given size (max dimension) while maintaining the aspect ratio
         let scaled = img.resize(size, size, image::imageops::FilterType::Triangle);
-        
+
         // Convert to RGB8 and encode with turbojpeg (faster than image crate's encoder)
         let rgb_image = scaled.to_rgb8();
         let jpeg_data = turbojpeg::compress_image(&rgb_image, 85, turbojpeg::Subsamp::None)
             .with_context(|| "Failed to compress image with turbojpeg")?;
-        
+
         Ok(jpeg_data.to_vec())
     }
 }
 
 fn try_load_jpeg(path: &Path, target_size: u32) -> Result<Option<DynamicImage>> {
     let data = std::fs::read(path)?;
-    
+
     // Check for JPEG magic bytes (FF D8 FF)
     if data.len() < 3 || data[0] != 0xFF || data[1] != 0xD8 || data[2] != 0xFF {
         return Ok(None);
@@ -60,13 +60,14 @@ fn try_load_jpeg(path: &Path, target_size: u32) -> Result<Option<DynamicImage>> 
     // Try to decompress with turbojpeg (much faster than image crate)
     let mut decompressor = turbojpeg::Decompressor::new()?;
     let header = decompressor.read_header(&data)?;
-    
+
     // Calculate the best scaling factor
     let scaling_factor = if target_size > 0 {
         let factors = turbojpeg::Decompressor::supported_scaling_factors();
-        
+
         // Find the smallest factor that produces an image >= target_size
-        factors.iter()
+        factors
+            .iter()
             .filter(|f| {
                 let scaled_w = (header.width * f.num()).div_ceil(f.denom());
                 let scaled_h = (header.height * f.num()).div_ceil(f.denom());
@@ -89,23 +90,23 @@ fn try_load_jpeg(path: &Path, target_size: u32) -> Result<Option<DynamicImage>> 
     };
 
     decompressor.set_scaling_factor(scaling_factor)?;
-    
+
     // Decompress directly into an ImageBuffer
     // Note: decompress_image creates the buffer for us, but it doesn't seem to expose scaling easily?
     // Wait, if I use `decompressor.decompress`, I need to provide the buffer.
     // Let's try to use `decompressor.decompress` with a manually created buffer.
-    
+
     // Re-read header to get scaled dimensions? Or calculate them?
     // The API might update header info or we need to calculate.
     // Let's assume we need to calculate or use `decompressor` to get output info.
     // Actually, `turbojpeg-rs` documentation says `read_header` returns `Header`.
     // `ScalingFactor` has `apply_to(width, height)`.
-    
+
     let scaled_width = (header.width * scaling_factor.num()).div_ceil(scaling_factor.denom());
     let scaled_height = (header.height * scaling_factor.num()).div_ceil(scaling_factor.denom());
-    
+
     let mut image = image::RgbImage::new(scaled_width as u32, scaled_height as u32);
-    
+
     // We need to wrap the buffer in turbojpeg::Image
     // image::RgbImage is a flat buffer of RGB pixels
     let turbo_image = turbojpeg::Image {
@@ -115,7 +116,7 @@ fn try_load_jpeg(path: &Path, target_size: u32) -> Result<Option<DynamicImage>> 
         format: turbojpeg::PixelFormat::RGB,
         pitch: scaled_width * 3,
     };
-    
+
     match decompressor.decompress(&data, turbo_image) {
         Ok(_) => Ok(Some(DynamicImage::ImageRgb8(image))),
         Err(_) => Ok(None),
@@ -180,6 +181,18 @@ impl ImageType {
     }
 }
 
+struct TempFileGuard {
+    path: Option<PathBuf>,
+}
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        if let Some(ref path) = self.path {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+}
+
 /// Converts a HEIC file to JPEG with specified dimensions using native code
 fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Result<Vec<u8>> {
     let max_dimension = match size_param {
@@ -194,7 +207,7 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
 
     let original_path = Path::new(&photo.file_path);
     let mut path_to_decode = original_path.to_path_buf();
-    let mut temp_symlink_path: Option<PathBuf> = None;
+    let mut temp_guard = TempFileGuard { path: None };
 
     // Check the file extension
     let ext_lower = original_path
@@ -241,25 +254,17 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
             // On Windows and other non-Unix systems, we copy the file instead of symlinking
             // because symlinks require special privileges on Windows
             std::fs::copy(original_path, &final_symlink_path).with_context(|| {
-                format!(
-                    "Failed to copy HEIC file for decoding: {:?}",
-                    original_path
-                )
+                format!("Failed to copy HEIC file for decoding: {:?}", original_path)
             })?;
         }
         path_to_decode = final_symlink_path.clone();
-        temp_symlink_path = Some(final_symlink_path);
+        temp_guard.path = Some(final_symlink_path);
     }
 
     let img = ImageReader::open(&path_to_decode)?
         .with_guessed_format()?
         .decode()
         .with_context(|| format!("Failed to decode image: {:?}", &path_to_decode))?;
-
-    // Remove the temporary symlink if it was created
-    if let Some(symlink) = temp_symlink_path {
-        let _ = std::fs::remove_file(&symlink);
-    }
 
     create_scaled_image(img, max_dimension, pad_to_square)
 }

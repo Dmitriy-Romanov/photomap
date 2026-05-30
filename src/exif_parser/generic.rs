@@ -16,8 +16,12 @@ pub fn parse_exif_datetime(s: &[u8]) -> Option<String> {
             if date_parts.len() == 3 && time_parts.len() == 3 {
                 return Some(format!(
                     "{}-{}-{} {}:{}:{}",
-                    date_parts[0], date_parts[1], date_parts[2],
-                    time_parts[0], time_parts[1], time_parts[2]
+                    date_parts[0],
+                    date_parts[1],
+                    date_parts[2],
+                    time_parts[0],
+                    time_parts[1],
+                    time_parts[2]
                 ));
             }
         }
@@ -91,7 +95,7 @@ pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<
     if let Some(result) = try_get_gps_from_ifd(exif, coord_tag, ref_tag, In::PRIMARY)? {
         return Ok(Some(result));
     }
-    
+
     // Fallback: Search through ALL fields to find GPS data
     // Some cameras (like Samsung) may store GPS in different IFDs or use SRational instead of Rational
     for field in exif.fields() {
@@ -100,7 +104,7 @@ pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<
             for ref_field in exif.fields() {
                 if ref_field.tag == ref_tag && ref_field.ifd_num == field.ifd_num {
                     // Found matching reference in same IFD
-                    
+
                     // Try Rational (unsigned) first - most common
                     if let Value::Rational(ref vec) = &field.value {
                         if vec.len() == 3 {
@@ -121,7 +125,9 @@ pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<
                             }
 
                             // Apply reference (S/W are negative values)
-                            if let Some(ref_val) = ref_field.display_value().to_string().chars().next() {
+                            if let Some(ref_val) =
+                                ref_field.display_value().to_string().chars().next()
+                            {
                                 if ref_val == 'S' || ref_val == 'W' {
                                     decimal *= -1.0;
                                 }
@@ -150,7 +156,9 @@ pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<
                             }
 
                             // Apply reference (S/W are negative values)
-                            if let Some(ref_val) = ref_field.display_value().to_string().chars().next() {
+                            if let Some(ref_val) =
+                                ref_field.display_value().to_string().chars().next()
+                            {
                                 if ref_val == 'S' || ref_val == 'W' {
                                     decimal *= -1.0;
                                 }
@@ -162,12 +170,17 @@ pub fn get_gps_coord(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag) -> Result<
             }
         }
     }
-    
+
     Ok(None)
 }
 
 // Helper function to try GPS extraction from specific IFD
-fn try_get_gps_from_ifd(exif: &exif::Exif, coord_tag: Tag, ref_tag: Tag, ifd: In) -> Result<Option<f64>> {
+fn try_get_gps_from_ifd(
+    exif: &exif::Exif,
+    coord_tag: Tag,
+    ref_tag: Tag,
+    ifd: In,
+) -> Result<Option<f64>> {
     let coord_field = exif.get_field(coord_tag, ifd);
     let ref_field = exif.get_field(ref_tag, ifd);
 

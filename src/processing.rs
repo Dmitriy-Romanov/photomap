@@ -14,23 +14,43 @@ fn walk_dir(dir: &Path) -> Vec<PathBuf> {
     let mut dirs_to_visit = vec![dir.to_path_buf()];
 
     while let Some(current_dir) = dirs_to_visit.pop() {
-        if let Ok(entries) = fs::read_dir(&current_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    // Skip hidden directories and common ignore patterns
-                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        if !name.starts_with('.')
-                            && name != "node_modules"
-                            && name != "target"
-                            && name != ".git"
-                        {
-                            dirs_to_visit.push(path);
+        match fs::read_dir(&current_dir) {
+            Ok(entries) => {
+                for entry_res in entries {
+                    match entry_res {
+                        Ok(entry) => {
+                            let path = entry.path();
+                            if path.is_dir() {
+                                // Skip hidden directories and common ignore patterns
+                                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                                    if !name.starts_with('.')
+                                        && name != "node_modules"
+                                        && name != "target"
+                                        && name != ".git"
+                                    {
+                                        dirs_to_visit.push(path);
+                                    }
+                                }
+                            } else if path.is_file() {
+                                files.push(path);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "⚠️ Warning: Failed to read directory entry in {}: {}",
+                                current_dir.display(),
+                                e
+                            );
                         }
                     }
-                } else if path.is_file() {
-                    files.push(path);
                 }
+            }
+            Err(e) => {
+                eprintln!(
+                    "⚠️ Warning: Failed to read directory {}: {}",
+                    current_dir.display(),
+                    e
+                );
             }
         }
     }
@@ -101,7 +121,7 @@ pub fn process_photos_with_stats(
     }
 
     let reduction_result = all_files
-        .into_par_iter()  // Rayon parallel iterator
+        .into_par_iter() // Rayon parallel iterator
         .filter(|path| {
             // Filter by extension - only process supported image formats
             path.extension()
@@ -126,8 +146,9 @@ pub fn process_photos_with_stats(
                         acc.0.push(photo_metadata); // Collect successful metadata
                     }
                     Err(e) => {
-                        let err_msg = e.to_string();
-                        if err_msg.contains("GPS data not found") {
+                        if let Some(crate::exif_parser::ExifError::GpsNotFound) =
+                            e.downcast_ref::<crate::exif_parser::ExifError>()
+                        {
                             println!("ℹ️  Skipped {}: No GPS data", path.display());
                         } else {
                             eprintln!("Failed to process file {}: {}", path.display(), e);
@@ -199,17 +220,11 @@ pub fn process_photos_with_stats(
             "   🗄️  Database contains {} photos with GPS data",
             successful_count
         );
-
     }
 
     // Note: Cache is saved manually by caller (main.rs) with all folder paths
 
-    Ok((
-        total_files,
-        successful_count,
-        no_gps_count,
-        heic_count,
-    ))
+    Ok((total_files, successful_count, no_gps_count, heic_count))
 }
 
 /// Processes photos from the specified folder and sends progress events
@@ -264,7 +279,7 @@ fn process_file_to_metadata(path: &Path, photos_dir: &Path) -> Result<PhotoMetad
             let datetime = get_datetime_string(&exif);
 
             if lat.is_none() || lng.is_none() {
-                anyhow::bail!("GPS data not found");
+                return Err(crate::exif_parser::ExifError::GpsNotFound.into());
             }
 
             (lat.unwrap(), lng.unwrap(), datetime)

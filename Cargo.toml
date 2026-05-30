@@ -25,6 +25,7 @@ libheif-rs = { version = "2.0.0", features = ["image"] }
 turbojpeg = { version = "1.3.3", features = ["image"] }
 bincode = "1.3"
 flate2 = "1.0"
+thiserror = "1.0"
 
 
 [profile.release]
