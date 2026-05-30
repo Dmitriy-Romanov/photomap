@@ -14,7 +14,7 @@ The project has reached a high level of stability and feature completeness. The 
 
 ### ✅ Recently Completed Milestones
 
-- **Security & Stability (v0.12.0)**: Hardened Windows `reveal_file` against command injection, restricted CORS to localhost, added strict cache size limits, implemented RAII HEIC cleanup guard, and introduced custom type-safe `ExifError` and scanning warnings. Added CLI `--port` dynamic argument.
+- **Security, Stability & Performance (v0.12.0)**: Closed the high/medium-priority TODO set: buffered SSE events, O(1) database lookups and batch inserts, async-safe blocking boundaries, safer settings locking, HEIC/geodata/cache hardening, frontend escaping, marker URL encoding, localhost-only CORS, and Windows `reveal_file` command-injection prevention. Added CLI `--port` dynamic argument.
 - **EXIF Parser Robustness (v0.10.2)**: Reduced duplicate JPEG reads and added stronger GPS float validation.
 - **Dependency Cleanup Round 2 (v0.9.9)**: Removed `rust-embed`, `tokio-stream`, `tracing`, `tracing-subscriber`. Binary down to 5.1MB.
 - **Dependency Cleanup (v0.9.8)**: Removed `ignore`, `chrono`, `kdtree` in favor of std library implementations.
@@ -33,7 +33,7 @@ We are currently in a **Maintenance & Polish** phase. No major feature overhauls
 Target: Final polish and stability verification for a major version number.
 
 **Potential Tasks:**
-- [ ] **Dependency Audit**: Review and update crates to their latest stable versions.
+- [ ] **Dependency Audit**: Review and update crates to their latest stable versions where binary size and platform compatibility remain acceptable.
 - [ ] **Code Cleanup**: Remove any lingering debug code or unused modules.
 - [ ] **Final UI Polish**: Ensure perfect alignment and consistency across all operating systems.
 - [ ] **Documentation**: Ensure all docs are perfectly synced with behavior.
@@ -54,7 +54,7 @@ These are ideas that have been discussed but are not currently scheduled:
 
 ## 🔄 Release Process
 
-1. **Development**: Implement changes on `main` branch.
+1. **Development**: Implement changes on a release or feature branch.
 2. **Testing**:
    - Verify on macOS (Primary dev environment)
    - Verify on Windows (Excellent support, crucial for cross-platform promise)
@@ -63,7 +63,7 @@ These are ideas that have been discussed but are not currently scheduled:
    - Update `Cargo.toml` version.
    - Update `CHANGELOG.md`.
    - Update `README.md` if user-facing features changed.
-   - Tag commit.
+   - Merge after review, then tag the release commit.
 
 ---
 

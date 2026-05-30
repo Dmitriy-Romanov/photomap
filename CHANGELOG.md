@@ -11,6 +11,26 @@ All notable changes to PhotoMap will be documented in this file.
 - **Type-Safe GPS Missing Errors**: Defined custom `ExifError` enum using `thiserror` to handle missing GPS coordinates type-safely via downcasting, removing error-prone string checks.
 - **Directory Traversal Warning Logs**: Replaced silent error skips during directory scanning with explicit logging of traversal and read warnings to standard error.
 
+### Changed
+- **Buffered Processing Events**: Reworked processing event delivery from direct broadcast into an `mpsc` queue with broadcast fan-out, reducing lost progress/completion events when the frontend connects late.
+- **Indexed In-Memory Database**: Replaced vector-based metadata storage and O(n²) deduplication with a `HashMap<String, PhotoMetadata>` keyed by relative path.
+- **O(1) Image Lookup**: Added direct `get_photo_by_relative_path()` lookup for marker, thumbnail, gallery, popup, and original photo routes instead of cloning and scanning the full database.
+- **Async Boundary Cleanup**: Moved CPU-heavy resizing, folder selection, and reprocessing work to blocking threads or `spawn_blocking` so the Tokio runtime stays responsive.
+- **Async Settings Lock**: Replaced the settings `std::sync::Mutex` with `tokio::sync::Mutex` for async handlers.
+- **HEIC Decode Boundary**: Kept HEIC conversion behind the blocking image-processing path to avoid decoding work on async runtime workers.
+- **Single SSE Keepalive Source**: Removed the custom heartbeat loop and kept Axum's SSE `KeepAlive` as the only heartbeat mechanism.
+- **Async File Serving**: Switched original-photo reads in `serve_photo` to `tokio::fs::read`.
+
+### Fixed
+- **HEIC Non-UTF-8 Paths**: HEIC conversion now reports graceful errors for paths that cannot be represented safely instead of panicking.
+- **Corrupt/Absent GeoData**: Reverse geocoding initialization now falls back to disabled geocoding instead of panicking when embedded data is unavailable or invalid.
+- **Settings Toggle Endpoint**: Frontend settings toggles now post to `/api/update_settings`, matching the backend route.
+- **Response Builder Errors**: Response construction failures are propagated as `500` responses instead of unwrapping.
+- **Duplicate HTML ID**: Removed duplicate `exp-year-range-label` markup.
+- **Popup Escaping**: Escaped popup filenames and file paths to prevent HTML/attribute injection.
+- **Year Range Label**: Replaced the em dash with an ASCII hyphen and adjusted label sizing.
+- **Non-ASCII Marker URLs**: Encoded marker/thumbnail/popup path segments so Cyrillic and other non-ASCII folder names load correctly.
+
 ### Security
 - **Command Injection Prevention**: Fixed command injection vulnerability in `reveal_file` on Windows by executing `explorer.exe` directly instead of using shell execution (`cmd /C start`).
 - **Localhost-Only CORS Restrict**: Restricted `CorsLayer` origins to `localhost` and `127.0.0.1`, blocking malicious websites from querying private local photo EXIF or file maps.

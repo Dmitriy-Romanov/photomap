@@ -58,7 +58,8 @@ photomap/
 *   **`mod.rs`:** The root of the server module.
     *   Declares the other server sub-modules.
     *   Contains the `create_app` function, which builds the `axum` router and defines the API routes.
-    *   Contains the `start_server` function, which starts the web server.
+    *   Applies localhost-only CORS and gzip compression.
+    *   Contains the `start_server` function, which starts the web server on the configured port.
 *   **`handlers.rs`:** Contains all the `axum` handler functions for the API endpoints.
     *   `get_all_photos`: Returns a list of all photos with their metadata.
     *   `serve_processed_image`: Serves dynamically resized images (markers, thumbnails).
@@ -67,7 +68,7 @@ photomap/
     *   `reprocess_photos`, `initiate_processing`: Triggers photo processing.
     *   `processing_events_stream`: Provides real-time updates on photo processing via Server-Sent Events (SSE).
     *   `shutdown_app`: Gracefully shuts down the server.
-*   **`state.rs`:** Defines the `AppState` struct, which is shared across all `axum` handlers. It contains the database connection, application settings, and the SSE event sender.
+*   **`state.rs`:** Defines the `AppState` struct, which is shared across all `axum` handlers. It contains the database, async settings lock, buffered processing event sender, broadcast fan-out channel, and shutdown signal.
 *   **`events.rs`:** Defines the `ProcessingEvent` and `ProcessingData` structs used for SSE.
 
 ### `processing.rs`
@@ -75,21 +76,24 @@ photomap/
 *   **Purpose:** Contains the core logic for processing photos.
 *   **Responsibilities:**
     *   Scans configured photo directories.
+    *   Reports traversal/read warnings instead of silently skipping inaccessible entries.
     *   Extracts EXIF metadata from photos using the `exif_parser` module.
-    *   Saves photo metadata to the database.
+    *   Saves photo metadata to the database in batches.
 
 ### `database.rs`
 
 *   **Purpose:** Manages the In-Memory database and persistence operations.
 *   **Responsibilities:**
-    *   Stores photo metadata in memory.
+    *   Stores photo metadata in memory as a `HashMap<String, PhotoMetadata>` keyed by relative path.
     *   Provides functions to insert, query, clear, save, and load photo metadata.
     *   Persists the cache as `photos_v1.bin`.
+    *   Uses bounded `bincode` deserialization and deletes incompatible/corrupt cache files.
 
 ### `exif_parser/`
 
 *   **Purpose:** Extracts EXIF metadata from various image formats.
 *   **`mod.rs`:** The root of the `exif_parser` module. Declares and exports functions from the sub-modules.
+    *   Defines the `ExifError` enum for type-safe GPS-missing control flow.
 *   **`heic.rs`:** Contains `extract_metadata_from_heic` for parsing HEIC files using the `libheif-rs` library.
 *   **`jpeg.rs`:** Contains `extract_metadata_from_jpeg` for parsing JPEG files using the `kamadak-exif` library.
 *   **`gps_parser.rs`:** Contains a low-level GPS parser used as a fallback for malformed JPEG EXIF.
@@ -101,7 +105,7 @@ photomap/
 *   **Responsibilities:**
     *   `create_scaled_image_in_memory`: Creates resized versions of images (markers, thumbnails).
         *   **Optimization**: Uses `turbojpeg` for fast JPEG scaling and `Triangle` filter for quality/speed balance.
-    *   `convert_heic_to_jpeg`: Converts HEIC images to JPEG.
+    *   `convert_heic_to_jpeg`: Converts HEIC images to JPEG, with guarded temporary-file cleanup for non-standard paths.
 
 ### `settings.rs`
 
@@ -109,7 +113,7 @@ photomap/
 *   **Responsibilities:**
     *   Loads settings from an `.ini` file.
     *   Saves settings to an `.ini` file.
-*   The `Settings` struct is shared across the application using an `Arc<Mutex<>>`.
+*   The `Settings` struct is shared across async handlers using `Arc<tokio::sync::Mutex<Settings>>`.
 
 ### `geocoding.rs`
 
@@ -117,6 +121,7 @@ photomap/
 *   **Responsibilities:**
     *   Loads the embedded GeoNames data from `geodata.bin.gz`.
     *   Resolves coordinates to city/country labels without network calls.
+    *   Falls back to disabled geocoding if embedded data cannot be loaded.
 
 ### `process_manager.rs`
 
@@ -129,6 +134,7 @@ photomap/
     *   Resolves app data and config paths.
     *   Provides native folder selection dialogs for macOS, Windows, and Linux.
     *   Opens the browser on startup when enabled.
+    *   Reveals files through platform-specific process spawning without shell interpolation.
 
 ### `constants.rs`
 
@@ -170,10 +176,10 @@ photomap/
     *   `processing.rs` scans the photo directory.
     *   For each photo, it calls the appropriate function from `exif_parser` to extract metadata.
     *   The metadata is saved to the database via `database.rs`.
-    *   During processing, events are sent to the frontend via SSE (`server/events.rs`).
+    *   During processing, events are sent through an internal `mpsc` queue and broadcast to connected SSE clients (`server/events.rs`).
 7.  **Image Serving:**
     *   When the frontend requests an image (`/api/marker/*` or `/api/thumbnail/*`), the `serve_processed_image` handler in `server/handlers.rs` is called.
-    *   This handler uses `image_processing.rs` to resize the image and sends it back to the frontend.
+    *   The handler looks up the photo by relative path in O(1), then uses `image_processing.rs` on a blocking worker to resize the image and sends it back to the frontend.
     *   HEIC images are converted to JPEG on the fly by `image_processing.rs`.
 8.  **Shutdown Flow:**
     *   User clicks "Close map".

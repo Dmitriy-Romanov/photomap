@@ -18,6 +18,9 @@ cargo build --release
 # Run development version
 cargo run
 
+# Run on a custom local port
+cargo run -- --port 3002
+
 # Run tests
 cargo test
 
@@ -28,26 +31,26 @@ cargo clippy
 cargo fmt
 ```
 
-After startup, web interface is available at http://127.0.0.1:3001
+After startup, the web interface is available at http://127.0.0.1:3001 by default.
 
 ## Architecture
 
 ### Backend (Rust)
 
-- **main.rs** — entry point. Initializes database, settings, starts HTTP server. Handles cache loading on startup.
+- **main.rs** — entry point. Parses `--port`, initializes database/settings/events, starts HTTP server. Handles cache loading on startup.
 - **server/** — Axum HTTP server with API for frontend
-  - `mod.rs` — router and server startup on port 3001
+  - `mod.rs` — router, localhost-only CORS, compression, and server startup on the configured port
   - `handlers.rs` — API handlers (photos, images, settings, processing, shutdown)
-  - `state.rs` — AppState with Arc<RwLock<>> for sharing
+  - `state.rs` — AppState with database, `Arc<tokio::sync::Mutex<Settings>>`, mpsc processing events, broadcast SSE, and shutdown channel
   - `events.rs` — SSE events for real-time updates
-- **database.rs** — in-memory database (Vec<PhotoMetadata>) with persistence via bincode in `photos_v1.bin`
+- **database.rs** — in-memory database (`HashMap<String, PhotoMetadata>`) with persistence via bounded bincode in `photos_v1.bin`
 - **processing.rs** — folder scanning and photo processing coordination
 - **exif_parser/** — metadata extraction module
   - `jpeg.rs` — EXIF from JPEG via kamadak-exif
   - `heic.rs` — EXIF from HEIC via libheif-rs
   - `gps_parser.rs` — low-level GPS parser for corrupted EXIF
   - `generic.rs` — common functions for GPS coordinates and dates
-- **image_processing.rs** — thumbnail creation, HEIC→JPEG conversion, uses turbojpeg for speed
+- **image_processing.rs** — thumbnail creation, HEIC→JPEG conversion, uses turbojpeg for speed and guarded temp-file cleanup
 - **geocoding.rs** — offline reverse geocoding via embedded GeoNames database (68k+ cities)
 - **settings.rs** — settings management (INI file), stores up to 5 folders
 - **utils.rs** — app data paths, browser launch, and native folder selection dialogs (macOS/Windows/Linux)
@@ -66,12 +69,14 @@ Frontend is located in `frontend/` and embedded into binary via `std::include_by
 2. If cache invalid — scans folders, extracts EXIF, metadata saved to in-memory DB
 3. Frontend requests `/api/photos` — receives JSON with metadata
 4. Images generated on-demand when requesting `/api/marker/*`, `/api/thumbnail/*`, `/api/popup/*`
-5. SSE `/api/events` used for processing progress
+5. Processing events flow through an internal mpsc queue and are broadcast to SSE `/api/events`
 
 ## Key Technical Details
 
 - **Multi-folder support**: up to 5 folders simultaneously, stored in settings as array
 - **Lazy geocoding**: geocoding module initializes in background on startup
+- **Dynamic port**: default 3001, override with `-p`/`--port <port>`
+- **Indexed image lookup**: image routes use O(1) relative-path lookups
 - **Image sizes** (constants.rs): MARKER=40px, THUMBNAIL=120px, GALLERY=240px, POPUP=1400px
 - **Cross-platform**: Windows/macOS/Linux, uses different native dialogs for each platform
 - **Single instance**: process_manager kills existing processes before starting

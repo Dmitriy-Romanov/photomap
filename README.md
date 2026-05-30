@@ -2,14 +2,15 @@
 
 A modern, high-performance photo mapping application with In-Memory database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.12.0)
+## Latest Improvements (v0.12.0)
 
-- **Security Hardening**: Eliminated command injection vectors in `reveal_file` on Windows by spawning `explorer.exe` directly, and restricted CORS allowed origins to `localhost` and `127.0.0.1` to protect user privacy.
-- **Dynamic Port Argument**: Added CLI options `-p`/`--port <port>` and `-h`/`--help` to let users customize the web port on launch.
-- **Improved Robustness & OOM Protection**: Configured strict deserialization size limits on all `bincode` imports, protecting database cache and reverse geocoding from panics.
-- **RAII HEIC Temp File Cleanup**: Introduced a `TempFileGuard` implementing the `Drop` trait to guarantee temporary HEIC copies are cleanly deleted even on decoding errors.
-- **Type-Safe Exif Errors**: Designed custom `ExifError` enum via `thiserror` crate, replacing error-prone string checks during batch coordinate checks with type downcasts.
-- **Traverse Warnings**: Detailed traversal warning reporting on standard error instead of silent skips during folder scanning.
+- **Processing Reliability**: SSE processing events now pass through an internal `mpsc` buffer before fan-out, preserving completion/progress events even when the browser connects late.
+- **Database Performance**: Photo metadata is stored in a `HashMap` keyed by relative path, making batch inserts and image lookups O(1) instead of cloning or scanning the whole database.
+- **Async Runtime Health**: CPU-heavy image resizing, folder processing, and native folder dialogs are moved off async worker threads; settings now use `tokio::sync::Mutex`.
+- **Security Hardening**: Windows `reveal_file` no longer shells through `cmd /C start`, CORS is restricted to local origins, and popup filenames/paths are escaped in the frontend.
+- **Robustness & OOM Protection**: `bincode` cache/geodata reads use strict size limits, corrupt geodata falls back cleanly, HEIC temp files are cleaned with RAII, and non-UTF-8 HEIC paths now return graceful errors.
+- **UI/API Fixes**: Settings toggles post to `/api/update_settings`, duplicate HTML IDs were removed, Cyrillic and other non-ASCII marker paths are URL-encoded per path segment, and the year range label uses a compact ASCII hyphen.
+- **Dynamic Port Argument**: Added `-p`/`--port <port>` and `-h`/`--help` CLI options.
 
 ### v0.11.0
 
@@ -65,6 +66,10 @@ A modern, high-performance photo mapping application with In-Memory database sto
 3.  **Run the application**:
     ```bash
     ./target/release/photomap_processor
+    ```
+    To use a custom local port:
+    ```bash
+    ./target/release/photomap_processor --port 3002
     ```
 4.  **Open the map** in your browser at [http://127.0.0.1:3001](http://127.0.0.1:3001).
 5.  **Select folders** with photos to start processing (up to 5 folders).
@@ -147,7 +152,7 @@ photomap/
 - **UI**: Modern redesign with system fonts and compact spacing
 
 ### v0.8.0 - Instant Startup & Persistence
-- **Binary Cache**: Implemented `bincode` persistence (`photos.bin`). The application now saves the database state to disk and reloads it instantly on startup if the source folder is unchanged.
+- **Binary Cache**: Implemented `bincode` persistence. The current cache file is `photos_v1.bin`; legacy cache/database files are cleaned up automatically.
 - **UI Fixes**: Fixed "Open" button resizing glitch by enforcing minimum width.
 - **Optimization**: Zero-latency startup for large collections (20k+ photos).
 
