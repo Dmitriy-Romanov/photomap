@@ -2,6 +2,19 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
+## [0.12.0] - 2026-05-30
+
+### Added
+- **Dynamic CLI Port Configuration**: Added zero-dependency command-line parsing for `-p` / `--port <port>` and `-h` / `--help` on startup, allowing flexible custom binding.
+- **Robust Cache Size Limits**: Added strict size limits (`50MB` for database cache and `20MB` for embedded GeoNames) to `bincode::deserialize_from` calls to avoid potential OOM or panic crashes on corrupt files.
+- **Automatic HEIC Temp File Cleanup**: Implemented a `TempFileGuard` using RAII drop pattern to guarantee temporary files or symlinks are removed from disk on failures or panic.
+- **Type-Safe GPS Missing Errors**: Defined custom `ExifError` enum using `thiserror` to handle missing GPS coordinates type-safely via downcasting, removing error-prone string checks.
+- **Directory Traversal Warning Logs**: Replaced silent error skips during directory scanning with explicit logging of traversal and read warnings to standard error.
+
+### Security
+- **Command Injection Prevention**: Fixed command injection vulnerability in `reveal_file` on Windows by executing `explorer.exe` directly instead of using shell execution (`cmd /C start`).
+- **Localhost-Only CORS Restrict**: Restricted `CorsLayer` origins to `localhost` and `127.0.0.1`, blocking malicious websites from querying private local photo EXIF or file maps.
+
 ## [0.11.0] - 2026-05-19
 
 ### Changed

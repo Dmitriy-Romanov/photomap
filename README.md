@@ -1,14 +1,21 @@
-# PhotoMap Processor v0.11.0
+# PhotoMap Processor v0.12.0
 
 A modern, high-performance photo mapping application with In-Memory database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## ✨ Latest Improvements (v0.11.0)
+## ✨ Latest Improvements (v0.12.0)
+
+- **Security Hardening**: Eliminated command injection vectors in `reveal_file` on Windows by spawning `explorer.exe` directly, and restricted CORS allowed origins to `localhost` and `127.0.0.1` to protect user privacy.
+- **Dynamic Port Argument**: Added CLI options `-p`/`--port <port>` and `-h`/`--help` to let users customize the web port on launch.
+- **Improved Robustness & OOM Protection**: Configured strict deserialization size limits on all `bincode` imports, protecting database cache and reverse geocoding from panics.
+- **RAII HEIC Temp File Cleanup**: Introduced a `TempFileGuard` implementing the `Drop` trait to guarantee temporary HEIC copies are cleanly deleted even on decoding errors.
+- **Type-Safe Exif Errors**: Designed custom `ExifError` enum via `thiserror` crate, replacing error-prone string checks during batch coordinate checks with type downcasts.
+- **Traverse Warnings**: Detailed traversal warning reporting on standard error instead of silent skips during folder scanning.
+
+### v0.11.0
 
 - **Smaller Embedded GeoData**: Rebuilt reverse geocoding data from GeoNames `cities5000.txt`, reducing embedded geodata from ~3.1MB to ~1.2MB
 - **Smaller Binary**: Release binary is ~2.9MB on macOS arm64, down from ~4.8MB
 - **Tooling Cleanup**: Restored `geodata_builder`, moved diagnostic tools under `tools/`, and split utility helpers into focused modules
-
-### v0.10.2
 
 - **EXIF Parser Optimization**: Eliminated file duplication in JPEG parsing — ~90% reduction in file operations when using custom GPS parser
 - **Enhanced Float Validation**: Added comprehensive NaN/Infinity validation in all GPS coordinate calculations

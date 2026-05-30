@@ -8,12 +8,13 @@
 - **Research-Driven**: Best practices research for each feature
 - **User-Focused**: Features are implemented based on user needs, not trends
 
-## 📍 Current Status: v0.11.0 (Stable)
+## 📍 Current Status: v0.12.0 (Stable)
 
 The project has reached a high level of stability and feature completeness. The core functionality—processing photos, extracting metadata (including offline reverse geocoding), and displaying them on a high-performance map—is working robustly on macOS, Windows, and Linux.
 
 ### ✅ Recently Completed Milestones
 
+- **Security & Stability (v0.12.0)**: Hardened Windows `reveal_file` against command injection, restricted CORS to localhost, added strict cache size limits, implemented RAII HEIC cleanup guard, and introduced custom type-safe `ExifError` and scanning warnings. Added CLI `--port` dynamic argument.
 - **EXIF Parser Robustness (v0.10.2)**: Reduced duplicate JPEG reads and added stronger GPS float validation.
 - **Dependency Cleanup Round 2 (v0.9.9)**: Removed `rust-embed`, `tokio-stream`, `tracing`, `tracing-subscriber`. Binary down to 5.1MB.
 - **Dependency Cleanup (v0.9.8)**: Removed `ignore`, `chrono`, `kdtree` in favor of std library implementations.

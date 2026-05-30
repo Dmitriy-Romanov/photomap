@@ -1,6 +1,6 @@
 # UI & Map Features
 
-This document summarizes the implemented user interface features and map interactions in PhotoMap v0.11.0.
+This document summarizes the implemented user interface features and map interactions in PhotoMap v0.12.0.
 
 ## 🗺️ Main Map Interface
 
