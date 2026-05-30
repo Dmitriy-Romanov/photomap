@@ -41,6 +41,8 @@ const API = {
     REPROCESS: '/api/reprocess'
 };
 
+const escAttr = (s) => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const escHtml = (s) => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 let photoData = [];
 
 /**
@@ -205,16 +207,16 @@ function formatPhotoData(photo) {
 
     // Generate HTML for popup (div)
     // We separate the clickable filename part from the metadata part
-    const filenameHtml = `
-        <div class="filename popup-filename reveal-file-btn" data-tooltip="${photo.file_path}" 
-             data-full-path="${photo.file_path}" 
-             style="cursor: pointer;">
-            📁 ${filename}
-        </div>
-        <div class="popup-metadata">
-            ${metaLine}
-        </div>
-    `;
+const filenameHtml = `
+<div class="filename popup-filename reveal-file-btn" data-tooltip="${escAttr(photo.file_path)}"
+data-full-path="${escAttr(photo.file_path)}"
+style="cursor: pointer;">
+📁 ${escHtml(filename)}
+</div>
+<div class="popup-metadata">
+${metaLine}
+</div>
+`;
 
     // For gallery detail view - use EXACTLY the same structure as map popup
     const filenameHtmlSpan = filenameHtml;
@@ -522,16 +524,17 @@ let heatLayer = null;
  * @returns {L.Icon} The Leaflet icon instance.
  */
 function createPhotoIcon(photo, useThumbnail = false) {
-    const iconSize = useThumbnail ? 60 : 40;
-    const apiUrl = useThumbnail ? API.THUMBNAIL : API.MARKER;
+  const iconSize = useThumbnail ? 60 : 40;
+  const apiUrl = useThumbnail ? API.THUMBNAIL : API.MARKER;
+  const encodedPath = photo.relative_path.split('/').map(encodeURIComponent).join('/');
 
-    return L.icon({
-        iconUrl: apiUrl + '/' + photo.relative_path,
-        iconSize: [iconSize, iconSize],
-        iconAnchor: [iconSize / 2, iconSize / 2],
-        popupAnchor: [0, -iconSize / 2],
-        className: 'thumbnail-icon'
-    });
+  return L.icon({
+    iconUrl: apiUrl + '/' + encodedPath,
+    iconSize: [iconSize, iconSize],
+    iconAnchor: [iconSize / 2, iconSize / 2],
+    popupAnchor: [0, -iconSize / 2],
+    className: 'thumbnail-icon'
+  });
 }
 
 /**
@@ -845,14 +848,12 @@ markerClusterGroup.on('clusterclick', function (a) {
 function createPopupContent(photo) {
     const { formattedDateTime, filenameHtml } = formatPhotoData(photo);
 
-    return `
-        <div class="photo-popup">
-            <img src="${photo.url}"
-                 onerror="this.src='${photo.fallback_url}'"
-                 alt="${photo.filename}" />
-            ${filenameHtml}
-        </div>
-    `;
+  return `
+<div class="photo-popup">
+<img src="${photo.url}" onerror="this.src='${photo.fallback_url}'" alt="${escHtml(photo.filename)}" />
+${filenameHtml}
+</div>
+`;
 }
 
 /**
@@ -1013,7 +1014,7 @@ function initializeYearControls() {
 
     // Update info label
     if (expRangeLabel) {
-        expRangeLabel.textContent = ` (${minYear}—${maxYear})`;
+        expRangeLabel.textContent = ` (${minYear}-${maxYear})`;
     }
 
     // Set initial values
@@ -1690,11 +1691,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentSettings = await getResponse.json();
                 const newSettings = { ...currentSettings, start_browser: startBrowser };
 
-                const response = await fetch(API.SETTINGS, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newSettings)
-                });
+  const response = await fetch(API.UPDATE_SETTINGS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newSettings)
+  });
 
                 if (response.ok) {
                     showNotification('✅ Settings saved', 'success');

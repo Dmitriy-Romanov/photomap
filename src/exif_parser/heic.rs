@@ -6,8 +6,11 @@ use std::path::Path;
 pub fn extract_metadata_from_heic(path: &Path) -> Result<(f64, f64, Option<String>)> {
     // Try to read as HEIC first
     let heic_result = (|| -> Result<(f64, f64, Option<String>)> {
-        let ctx = libheif_rs::HeifContext::read_from_file(path.to_str().unwrap())
-            .map_err(|e| anyhow::anyhow!("Failed to read HEIF context: {}", e))?;
+    let path_str = path
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Path contains invalid UTF-8 characters: {:?}", path))?;
+    let ctx = libheif_rs::HeifContext::read_from_file(path_str)
+    .map_err(|e| anyhow::anyhow!("Failed to read HEIF context: {}", e))?;
 
         let primary_image_handle = ctx
             .primary_image_handle()

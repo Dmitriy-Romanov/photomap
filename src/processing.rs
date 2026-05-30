@@ -59,6 +59,26 @@ pub fn process_photos_with_stats(
         }
     }
 
+    if clear_database {
+        if !silent_mode {
+            println!("🗑️ Clearing existing photos from database...");
+        }
+        db.clear_all_photos()?;
+        if !silent_mode {
+            println!("✅ Database cleared successfully");
+        }
+    }
+
+    if !photos_dir.exists() {
+        let error_msg = format!("❌ Photos directory not found: {}", photos_dir.display());
+        if silent_mode {
+            return Err(anyhow::Error::msg(error_msg));
+        } else {
+            eprintln!("{}", error_msg);
+            return Ok((0, 0, 0, 0));
+        }
+    }
+
     // Clear existing photos from database before processing new folder
     if clear_database {
         if !silent_mode {

@@ -18,8 +18,8 @@ pub struct ReverseGeocoder {
     locations: Vec<GeoLocation>,
 }
 
-// Global singleton instance
-static GEOCODER: OnceLock<ReverseGeocoder> = OnceLock::new();
+// Global singleton instance — wrapped in Option so failures are stored as None
+static GEOCODER: OnceLock<Option<ReverseGeocoder>> = OnceLock::new();
 
 impl ReverseGeocoder {
     pub fn new() -> Result<Self> {
@@ -35,22 +35,22 @@ impl ReverseGeocoder {
         Ok(ReverseGeocoder { locations })
     }
 
-    pub fn get() -> Option<&'static ReverseGeocoder> {
-        GEOCODER.get()
-    }
+pub fn get() -> Option<&'static ReverseGeocoder> {
+    GEOCODER.get().and_then(|opt| opt.as_ref())
+}
 
-    pub fn init() {
-        // Initialize in background or on first access
-        let _ = GEOCODER.get_or_init(|| {
-            match ReverseGeocoder::new() {
-                Ok(g) => g,
-                Err(e) => {
-                    eprintln!("❌ Failed to initialize geocoder: {}", e);
-                    panic!("Failed to initialize geocoder: {}", e);
-                }
+pub fn init() {
+    // Initialize in background or on first access — skip on corrupt/missing geodata
+    let _ = GEOCODER.get_or_init(|| {
+        match ReverseGeocoder::new() {
+            Ok(g) => Some(g),
+            Err(e) => {
+                eprintln!("⚠️ Skipping reverse geocoder: {}", e);
+                None
             }
-        });
-    }
+        }
+    });
+}
 
     pub fn lookup(&self, lat: f64, lng: f64) -> Option<String> {
         // Simple linear search with squared euclidean distance
