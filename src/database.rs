@@ -66,6 +66,18 @@ fn normalize_relative_path(path: &str) -> String {
     path.replace('\\', "/")
 }
 
+fn normalize_file_path(path: &str) -> String {
+    #[cfg(windows)]
+    {
+        path.replace('/', "\\")
+    }
+
+    #[cfg(not(windows))]
+    {
+        path.to_string()
+    }
+}
+
 impl Database {
     pub fn new() -> Result<Self> {
         Ok(Database {
@@ -83,6 +95,7 @@ impl Database {
         let mut photos = self.photos.write().unwrap();
         let mut photo = photo.clone();
         photo.relative_path = normalize_relative_path(&photo.relative_path);
+        photo.file_path = normalize_file_path(&photo.file_path);
         photos.insert(photo.relative_path.clone(), photo);
         Ok(())
     }
@@ -95,6 +108,7 @@ impl Database {
         for photo in new_photos {
             let mut photo = photo.clone();
             photo.relative_path = normalize_relative_path(&photo.relative_path);
+            photo.file_path = normalize_file_path(&photo.file_path);
             photos.insert(photo.relative_path.clone(), photo);
         }
         Ok(new_photos.len())
@@ -194,6 +208,7 @@ impl Database {
             .into_iter()
             .map(|mut p| {
                 p.relative_path = normalize_relative_path(&p.relative_path);
+                p.file_path = normalize_file_path(&p.file_path);
                 (p.relative_path.clone(), p)
             })
             .collect();
@@ -203,7 +218,7 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_relative_path, source_path_cache_key};
+    use super::{normalize_file_path, normalize_relative_path, source_path_cache_key};
 
     #[test]
     fn windows_cache_key_accepts_either_separator() {
@@ -222,6 +237,21 @@ mod tests {
         assert_eq!(
             normalize_relative_path("Folder\\Nested\\image.jpg"),
             "Folder/Nested/image.jpg"
+        );
+    }
+
+    #[test]
+    fn file_paths_use_native_separators() {
+        #[cfg(windows)]
+        assert_eq!(
+            normalize_file_path("D:/Photo/Nested/image.jpg"),
+            "D:\\Photo\\Nested\\image.jpg"
+        );
+
+        #[cfg(not(windows))]
+        assert_eq!(
+            normalize_file_path("D:/Photo/Nested/image.jpg"),
+            "D:/Photo/Nested/image.jpg"
         );
     }
 }

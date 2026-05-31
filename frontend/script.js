@@ -47,6 +47,14 @@ function encodePhotoPath(path) {
     return String(path || '').replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/');
 }
 
+function displayFilePath(path) {
+    const value = String(path || '');
+    if (/^[A-Za-z]:[\\/]/.test(value) || value.includes('\\')) {
+        return value.replace(/\//g, '\\');
+    }
+    return value;
+}
+
 /**
  * Loads photos from the API and initializes the map markers.
  * Fetches photo data, pre-calculates years, and triggers marker addition.
@@ -200,7 +208,8 @@ function formatPhotoData(photo) {
     }
 
     // Extract filename from full path (support both / and \ for Windows)
-    const filename = photo.file_path.split(/[\/\\]/).pop() || photo.file_path;
+    const nativeFilePath = displayFilePath(photo.file_path);
+    const filename = nativeFilePath.split(/[\/\\]/).pop() || nativeFilePath;
 
     return {
         formattedDateTime,
@@ -219,8 +228,8 @@ function createPhotoMetadataFragment(photo) {
 
     const filenameElement = document.createElement('div');
     filenameElement.className = 'filename popup-filename reveal-file-btn';
-    filenameElement.dataset.tooltip = photo.file_path || '';
-    filenameElement.dataset.fullPath = photo.file_path || '';
+    filenameElement.dataset.tooltip = displayFilePath(photo.file_path);
+    filenameElement.dataset.fullPath = displayFilePath(photo.file_path);
     filenameElement.style.cursor = 'pointer';
     filenameElement.textContent = `📁 ${filename}`;
 
@@ -560,15 +569,14 @@ function addMarkers() {
 
     // Normal marker mode
     photoData.forEach(photo => {
-        // Use thumbnail for better visibility when zoomed in
-        const icon = createPhotoIcon(photo, true);
+        const icon = createPhotoIcon(photo, false);
 
         const marker = L.marker([photo.lat, photo.lng], {
             icon: icon,
             photoData: photo
         });
 
-        marker.bindPopup(createPopupContent(photo));
+        marker.bindPopup(() => createPopupContent(photo));
         markerClusterGroup.addLayer(marker);
     });
 
@@ -760,10 +768,10 @@ function filterMarkers() {
     } else {
         // Add filtered markers
         filteredPhotos.forEach(photo => {
-            const icon = createPhotoIcon(photo, true);
+            const icon = createPhotoIcon(photo, false);
             const marker = L.marker([photo.lat, photo.lng], { icon: icon });
 
-            marker.bindPopup(createPopupContent(photo));
+            marker.bindPopup(() => createPopupContent(photo));
             markerClusterGroup.addLayer(marker);
         });
 
