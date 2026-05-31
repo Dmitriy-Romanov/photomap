@@ -44,7 +44,7 @@ const API = {
 let photoData = [];
 
 function encodePhotoPath(path) {
-    return String(path || '').split('/').map(encodeURIComponent).join('/');
+    return String(path || '').replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/');
 }
 
 /**
@@ -531,10 +531,12 @@ let heatLayer = null;
 function createPhotoIcon(photo, useThumbnail = false) {
   const iconSize = useThumbnail ? 60 : 40;
   const apiUrl = useThumbnail ? API.THUMBNAIL : API.MARKER;
-  const encodedPath = encodePhotoPath(photo.relative_path);
+  const iconUrl = useThumbnail
+      ? `${apiUrl}/${encodePhotoPath(photo.relative_path)}`
+      : (photo.marker_icon || `${apiUrl}/${encodePhotoPath(photo.relative_path)}`);
 
   return L.icon({
-    iconUrl: apiUrl + '/' + encodedPath,
+    iconUrl,
     iconSize: [iconSize, iconSize],
     iconAnchor: [iconSize / 2, iconSize / 2],
     popupAnchor: [0, -iconSize / 2],

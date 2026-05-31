@@ -62,6 +62,10 @@ fn source_path_cache_key(path: &str) -> String {
     }
 }
 
+fn normalize_relative_path(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
 impl Database {
     pub fn new() -> Result<Self> {
         Ok(Database {
@@ -77,7 +81,9 @@ impl Database {
 
     pub fn insert_photo(&self, photo: &PhotoMetadata) -> Result<()> {
         let mut photos = self.photos.write().unwrap();
-        photos.insert(photo.relative_path.clone(), photo.clone());
+        let mut photo = photo.clone();
+        photo.relative_path = normalize_relative_path(&photo.relative_path);
+        photos.insert(photo.relative_path.clone(), photo);
         Ok(())
     }
 
@@ -87,7 +93,9 @@ impl Database {
         }
         let mut photos = self.photos.write().unwrap();
         for photo in new_photos {
-            photos.insert(photo.relative_path.clone(), photo.clone());
+            let mut photo = photo.clone();
+            photo.relative_path = normalize_relative_path(&photo.relative_path);
+            photos.insert(photo.relative_path.clone(), photo);
         }
         Ok(new_photos.len())
     }
@@ -106,7 +114,10 @@ impl Database {
 
     pub fn get_photo_by_relative_path(&self, relative_path: &str) -> Result<Option<PhotoMetadata>> {
         let photos = self.photos.read().unwrap();
-        Ok(photos.get(relative_path).cloned())
+        Ok(photos
+            .get(relative_path)
+            .or_else(|| photos.get(&normalize_relative_path(relative_path)))
+            .cloned())
     }
 
     pub fn save_to_disk(&self, source_paths: &[String]) -> Result<()> {
@@ -181,7 +192,10 @@ impl Database {
         *photos = cache
             .photos
             .into_iter()
-            .map(|p| (p.relative_path.clone(), p))
+            .map(|mut p| {
+                p.relative_path = normalize_relative_path(&p.relative_path);
+                (p.relative_path.clone(), p)
+            })
             .collect();
         Ok(true)
     }
@@ -189,7 +203,7 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
-    use super::source_path_cache_key;
+    use super::{normalize_relative_path, source_path_cache_key};
 
     #[test]
     fn windows_cache_key_accepts_either_separator() {
@@ -200,6 +214,14 @@ mod tests {
         assert_eq!(
             source_path_cache_key("/home/user/photos/"),
             "/home/user/photos"
+        );
+    }
+
+    #[test]
+    fn relative_paths_always_use_url_separators() {
+        assert_eq!(
+            normalize_relative_path("Folder\\Nested\\image.jpg"),
+            "Folder/Nested/image.jpg"
         );
     }
 }

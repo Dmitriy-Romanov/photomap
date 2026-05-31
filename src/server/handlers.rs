@@ -50,6 +50,27 @@ fn get_mime_type(path: &std::path::Path) -> &'static str {
     }
 }
 
+fn encode_url_path(path: &str) -> String {
+    path.replace('\\', "/")
+        .split('/')
+        .map(encode_url_path_segment)
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn encode_url_path_segment(segment: &str) -> String {
+    let mut encoded = String::with_capacity(segment.len());
+    for byte in segment.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                encoded.push(byte as char);
+            }
+            _ => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    encoded
+}
+
 pub async fn get_all_photos(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<ImageMetadata>>, StatusCode> {
@@ -70,11 +91,12 @@ pub async fn get_all_photos(
     let api_photos: Vec<ImageMetadata> = photos
         .into_iter()
         .map(|photo| {
+            let encoded_path = encode_url_path(&photo.relative_path);
             let (url, fallback_url) = if photo.is_heic {
-                let jpg_url = format!("/convert-heic?filename={}", photo.relative_path);
+                let jpg_url = format!("/convert-heic?filename={encoded_path}");
                 (jpg_url.clone(), jpg_url)
             } else {
-                let photo_url = format!("/api/popup/{}", photo.relative_path);
+                let photo_url = format!("/api/popup/{encoded_path}");
                 (photo_url.clone(), photo_url)
             };
 
@@ -83,7 +105,7 @@ pub async fn get_all_photos(
                 relative_path: photo.relative_path.clone(),
                 url,
                 fallback_url,
-                marker_icon: format!("/api/marker/{}", photo.relative_path),
+                marker_icon: format!("/api/marker/{encoded_path}"),
                 lat: photo.lat,
                 lng: photo.lng,
                 datetime: photo.datetime,
@@ -110,7 +132,11 @@ pub async fn serve_processed_image(
 
     if photo.is_heic {
         let size_param = image_type.name();
-        let redirect_url = format!("/convert-heic?filename={}&size={}", filename, size_param);
+        let redirect_url = format!(
+            "/convert-heic?filename={}&size={}",
+            encode_url_path(&filename),
+            size_param
+        );
         return Response::builder()
             .status(StatusCode::FOUND)
             .header(header::CACHE_CONTROL, "public, max-age=3600")
@@ -561,6 +587,19 @@ pub async fn shutdown_app(
         "status": "success",
         "message": "Server shutting down"
     })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encode_url_path;
+
+    #[test]
+    fn encodes_photo_paths_for_urls() {
+        assert_eq!(
+            encode_url_path("C телефона и чужие работы\\Маша OLD\\2024 10.jpg"),
+            "C%20%D1%82%D0%B5%D0%BB%D0%B5%D1%84%D0%BE%D0%BD%D0%B0%20%D0%B8%20%D1%87%D1%83%D0%B6%D0%B8%D0%B5%20%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%8B/%D0%9C%D0%B0%D1%88%D0%B0%20OLD/2024%2010.jpg"
+        );
+    }
 }
 
 pub async fn select_folder_dialog(
