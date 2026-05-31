@@ -123,21 +123,34 @@ fn try_load_jpeg(path: &Path, target_size: u32) -> Result<Option<DynamicImage>> 
     }
 }
 
+fn native_path(path: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        PathBuf::from(path.to_string_lossy().replace('/', "\\"))
+    }
+
+    #[cfg(not(windows))]
+    {
+        path.to_path_buf()
+    }
+}
+
 pub fn create_scaled_image_in_memory(source_path: &Path, image_type: ImageType) -> Result<Vec<u8>> {
+    let source_path = native_path(source_path);
     let size = image_type.size();
     let pad_to_square = image_type.pad_to_square();
 
     // Try to load with turbojpeg first (fast path for JPEGs)
     // We pass target_size to allow for future optimization with scaling
-    let mut img = if let Ok(Some(img)) = try_load_jpeg(source_path, size) {
+    let mut img = if let Ok(Some(img)) = try_load_jpeg(&source_path, size) {
         img
     } else {
-        image::open(source_path)
-            .with_context(|| format!("Failed to open image: {:?}", source_path))?
+        image::open(&source_path)
+            .with_context(|| format!("Failed to open image: {}", source_path.display()))?
     };
 
     // Apply EXIF orientation
-    img = crate::exif_parser::apply_exif_orientation(source_path, img)?;
+    img = crate::exif_parser::apply_exif_orientation(&source_path, img)?;
 
     create_scaled_image(img, size, pad_to_square)
 }
@@ -205,8 +218,8 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
 
     let pad_to_square = matches!(size_param, "marker" | "thumbnail" | "gallery");
 
-    let original_path = Path::new(&photo.file_path);
-    let mut path_to_decode = original_path.to_path_buf();
+    let original_path = native_path(Path::new(&photo.file_path));
+    let mut path_to_decode = original_path.clone();
     let mut temp_guard = TempFileGuard { path: None };
 
     // Check the file extension
@@ -241,7 +254,7 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
 
         #[cfg(unix)]
         {
-            std::os::unix::fs::symlink(original_path, &final_symlink_path).with_context(|| {
+            std::os::unix::fs::symlink(&original_path, &final_symlink_path).with_context(|| {
                 format!(
                     "Failed to create symlink for HEIC file: {:?}",
                     original_path
@@ -253,7 +266,7 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
         {
             // On Windows and other non-Unix systems, we copy the file instead of symlinking
             // because symlinks require special privileges on Windows
-            std::fs::copy(original_path, &final_symlink_path).with_context(|| {
+            std::fs::copy(&original_path, &final_symlink_path).with_context(|| {
                 format!("Failed to copy HEIC file for decoding: {:?}", original_path)
             })?;
         }
@@ -264,7 +277,7 @@ fn convert_heic_to_jpeg_native(photo: &PhotoMetadata, size_param: &str) -> Resul
     let img = ImageReader::open(&path_to_decode)?
         .with_guessed_format()?
         .decode()
-        .with_context(|| format!("Failed to decode image: {:?}", &path_to_decode))?;
+        .with_context(|| format!("Failed to decode image: {}", path_to_decode.display()))?;
 
     create_scaled_image(img, max_dimension, pad_to_square)
 }
@@ -282,7 +295,7 @@ pub fn convert_heic_to_jpeg(photo: &PhotoMetadata, size_param: &str) -> Result<V
             .arg("-s")
             .arg("format")
             .arg("jpeg")
-            .arg(&photo.file_path)
+            .arg(native_path(Path::new(&photo.file_path)))
             .arg("--out")
             .arg("-")
             .output()
@@ -293,5 +306,25 @@ pub fn convert_heic_to_jpeg(photo: &PhotoMetadata, size_param: &str) -> Result<V
         }
     }
 
-    anyhow::bail!("Failed to convert HEIC file: {}", photo.file_path)
+    anyhow::bail!(
+        "Failed to convert HEIC file: {}",
+        native_path(Path::new(&photo.file_path)).display()
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::native_path;
+    use std::path::Path;
+
+    #[test]
+    fn native_path_repairs_windows_separators() {
+        let repaired = native_path(Path::new("D:/Photo\\Nested/image.jpg"));
+
+        #[cfg(windows)]
+        assert_eq!(repaired.to_string_lossy(), "D:\\Photo\\Nested\\image.jpg");
+
+        #[cfg(not(windows))]
+        assert_eq!(repaired.to_string_lossy(), "D:/Photo\\Nested/image.jpg");
+    }
 }
