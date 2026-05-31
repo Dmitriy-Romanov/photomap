@@ -2,6 +2,16 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
+## [Unreleased] - 2026-05-31
+
+### Fixed
+- **Cache Compatibility Regression**: Restored legacy `bincode` fixed-integer decoding while keeping bounded reads, so `photos_v1.bin` and embedded GeoNames data deserialize correctly instead of forcing unnecessary full rescans.
+- **Windows Path Normalization**: Normalized configured folders, cached file paths, processing logs, tooltip paths, reveal-file payloads, and image-decoding paths to native Windows separators while keeping relative URL paths browser-safe.
+- **Photo URL Encoding**: Encoded marker, thumbnail, gallery, popup, and HEIC conversion URL paths per segment so spaces, Cyrillic names, and mixed slash input resolve consistently.
+- **Lazy Popup Image Loading**: Changed Leaflet popups to build content only when opened, preventing thousands of background popup image conversions for large collections.
+- **Map Marker Load Behavior**: Restored lightweight marker image usage for the map instead of requesting larger thumbnails for every marker.
+- **Frontend Injection Hardening**: Replaced popup/gallery metadata template-string HTML with DOM node construction and `textContent`, and assigned image `src`/fallback URLs via DOM properties.
+
 ## [0.12.0] - 2026-05-30
 
 ### Added
