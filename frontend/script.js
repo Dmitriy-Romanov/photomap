@@ -41,9 +41,11 @@ const API = {
     REPROCESS: '/api/reprocess'
 };
 
-const escAttr = (s) => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const escHtml = (s) => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 let photoData = [];
+
+function encodePhotoPath(path) {
+    return String(path || '').split('/').map(encodeURIComponent).join('/');
+}
 
 /**
  * Loads photos from the API and initializes the map markers.
@@ -200,33 +202,36 @@ function formatPhotoData(photo) {
     // Extract filename from full path (support both / and \ for Windows)
     const filename = photo.file_path.split(/[\/\\]/).pop() || photo.file_path;
 
-    // Location + Date line
-    const metaLine = photo.location
-        ? `📍 ${photo.location} &nbsp; 📅 ${formattedDateTime}`
-        : `📅 ${formattedDateTime}`;
-
-    // Generate HTML for popup (div)
-    // We separate the clickable filename part from the metadata part
-const filenameHtml = `
-<div class="filename popup-filename reveal-file-btn" data-tooltip="${escAttr(photo.file_path)}"
-data-full-path="${escAttr(photo.file_path)}"
-style="cursor: pointer;">
-📁 ${escHtml(filename)}
-</div>
-<div class="popup-metadata">
-${metaLine}
-</div>
-`;
-
-    // For gallery detail view - use EXACTLY the same structure as map popup
-    const filenameHtmlSpan = filenameHtml;
-
     return {
         formattedDateTime,
-        filename,
-        filenameHtml,
-        filenameHtmlSpan
+        filename
     };
+}
+
+/**
+ * Builds safe metadata DOM used by both map popups and gallery detail view.
+ * @param {Object} photo - The photo object containing metadata.
+ * @returns {DocumentFragment} The rendered filename and metadata nodes.
+ */
+function createPhotoMetadataFragment(photo) {
+    const { formattedDateTime, filename } = formatPhotoData(photo);
+    const fragment = document.createDocumentFragment();
+
+    const filenameElement = document.createElement('div');
+    filenameElement.className = 'filename popup-filename reveal-file-btn';
+    filenameElement.dataset.tooltip = photo.file_path || '';
+    filenameElement.dataset.fullPath = photo.file_path || '';
+    filenameElement.style.cursor = 'pointer';
+    filenameElement.textContent = `📁 ${filename}`;
+
+    const metadataElement = document.createElement('div');
+    metadataElement.className = 'popup-metadata';
+    metadataElement.textContent = photo.location
+        ? `📍 ${photo.location}   📅 ${formattedDateTime || ''}`
+        : `📅 ${formattedDateTime || ''}`;
+
+    fragment.append(filenameElement, metadataElement);
+    return fragment;
 }
 
 /**
@@ -526,7 +531,7 @@ let heatLayer = null;
 function createPhotoIcon(photo, useThumbnail = false) {
   const iconSize = useThumbnail ? 60 : 40;
   const apiUrl = useThumbnail ? API.THUMBNAIL : API.MARKER;
-  const encodedPath = photo.relative_path.split('/').map(encodeURIComponent).join('/');
+  const encodedPath = encodePhotoPath(photo.relative_path);
 
   return L.icon({
     iconUrl: apiUrl + '/' + encodedPath,
@@ -843,17 +848,25 @@ markerClusterGroup.on('clusterclick', function (a) {
 /**
  * Generates HTML content for a photo popup.
  * @param {Object} photo - The photo object.
- * @returns {string} The HTML string for the popup.
+ * @returns {HTMLElement} The popup content node.
  */
 function createPopupContent(photo) {
-    const { formattedDateTime, filenameHtml } = formatPhotoData(photo);
+    const popup = document.createElement('div');
+    popup.className = 'photo-popup';
 
-  return `
-<div class="photo-popup">
-<img src="${photo.url}" onerror="this.src='${photo.fallback_url}'" alt="${escHtml(photo.filename)}" />
-${filenameHtml}
-</div>
-`;
+    const img = document.createElement('img');
+    let fallbackUsed = false;
+    img.src = photo.url || '';
+    img.alt = photo.filename || '';
+    img.onerror = () => {
+        if (!fallbackUsed && photo.fallback_url) {
+            fallbackUsed = true;
+            img.src = photo.fallback_url;
+        }
+    };
+
+    popup.append(img, createPhotoMetadataFragment(photo));
+    return popup;
 }
 
 /**
@@ -1504,7 +1517,7 @@ function renderGalleryPage(page) {
         thumb.addEventListener('click', () => showPhotoInGallery(photo));
 
         const img = document.createElement('img');
-        img.src = `${API.GALLERY}/${photo.relative_path}`;  // Use gallery size (240x240)
+        img.src = `${API.GALLERY}/${encodePhotoPath(photo.relative_path)}`;  // Use gallery size (240x240)
         img.alt = photo.filename;
         img.loading = 'lazy';
 
@@ -1566,14 +1579,18 @@ function showPhotoInGallery(photo) {
     const detailImg = document.getElementById('cluster-detail-img');
     const detailInfo = document.getElementById('cluster-detail-info');
 
-    const { formattedDateTime, filenameHtmlSpan } = formatPhotoData(photo);
-
     // Update content
-    detailImg.src = photo.url;
-    detailImg.onerror = () => { detailImg.src = photo.fallback_url; };
+    let fallbackUsed = false;
+    detailImg.src = photo.url || '';
+    detailImg.alt = photo.filename || '';
+    detailImg.onerror = () => {
+        if (!fallbackUsed && photo.fallback_url) {
+            fallbackUsed = true;
+            detailImg.src = photo.fallback_url;
+        }
+    };
 
-    // Insert HTML directly into detail-info container
-    detailInfo.innerHTML = filenameHtmlSpan;
+    detailInfo.replaceChildren(createPhotoMetadataFragment(photo));
 
     // Switch views
     gridView.classList.add('hidden');

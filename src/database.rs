@@ -42,6 +42,26 @@ pub struct Database {
     photos: Arc<RwLock<HashMap<String, PhotoMetadata>>>,
 }
 
+fn source_path_cache_key(path: &str) -> String {
+    #[cfg(windows)]
+    {
+        let mut normalized = path.replace('/', "\\").to_ascii_lowercase();
+        while normalized.len() > 3 && normalized.ends_with('\\') {
+            normalized.pop();
+        }
+        normalized
+    }
+
+    #[cfg(not(windows))]
+    {
+        let mut normalized = path.to_string();
+        while normalized.len() > 1 && normalized.ends_with('/') {
+            normalized.pop();
+        }
+        normalized
+    }
+}
+
 impl Database {
     pub fn new() -> Result<Self> {
         Ok(Database {
@@ -124,6 +144,7 @@ impl Database {
         use bincode::Options;
         let cache: CachedDatabase = match bincode::options()
             .with_limit(50 * 1024 * 1024)
+            .with_fixint_encoding()
             .deserialize_from(file)
         {
             Ok(c) => c,
@@ -143,7 +164,17 @@ impl Database {
             let _ = std::fs::remove_file(&cache_path);
             return Ok(false);
         }
-        if cache.source_paths != expected_paths {
+        let cached_paths: Vec<String> = cache
+            .source_paths
+            .iter()
+            .map(|path| source_path_cache_key(path))
+            .collect();
+        let expected_paths: Vec<String> = expected_paths
+            .iter()
+            .map(|path| source_path_cache_key(path))
+            .collect();
+
+        if cached_paths != expected_paths {
             return Ok(false);
         }
         let mut photos = self.photos.write().unwrap();
@@ -153,5 +184,22 @@ impl Database {
             .map(|p| (p.relative_path.clone(), p))
             .collect();
         Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::source_path_cache_key;
+
+    #[test]
+    fn windows_cache_key_accepts_either_separator() {
+        #[cfg(windows)]
+        assert_eq!(source_path_cache_key("D:/Photo/"), "d:\\photo");
+
+        #[cfg(not(windows))]
+        assert_eq!(
+            source_path_cache_key("/home/user/photos/"),
+            "/home/user/photos"
+        );
     }
 }

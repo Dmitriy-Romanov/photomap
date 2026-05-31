@@ -111,12 +111,12 @@ pub async fn serve_processed_image(
     if photo.is_heic {
         let size_param = image_type.name();
         let redirect_url = format!("/convert-heic?filename={}&size={}", filename, size_param);
-        return Ok(Response::builder()
+        return Response::builder()
             .status(StatusCode::FOUND)
             .header(header::CACHE_CONTROL, "public, max-age=3600")
             .header(header::LOCATION, redirect_url)
             .body("Redirecting to converted image".into())
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?);
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     let jpeg_data = match tokio::task::spawn_blocking(move || {
@@ -132,12 +132,12 @@ pub async fn serve_processed_image(
         Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "image/jpeg")
         .header(header::CACHE_CONTROL, "public, max-age=3600")
         .body(jpeg_data.into())
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 pub async fn get_marker_image(
@@ -202,12 +202,12 @@ pub async fn convert_heic(
         }
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "image/jpeg")
         .header(header::CACHE_CONTROL, "public, max-age=3600")
         .body(jpeg_data.into())
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 pub async fn serve_photo(
@@ -228,11 +228,11 @@ pub async fn serve_photo(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let content_type = get_mime_type(path);
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, content_type)
         .body(data.into())
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 pub async fn get_settings(State(state): State<AppState>) -> Result<Json<Settings>, StatusCode> {
@@ -266,7 +266,11 @@ pub async fn set_folder(
         })));
     }
 
-    let folders_to_store: Vec<String> = folder_paths.into_iter().take(5).collect();
+    let folders_to_store: Vec<String> = folder_paths
+        .into_iter()
+        .map(|path| crate::settings::normalize_folder_path(&path))
+        .take(5)
+        .collect();
 
     for folder_path in &folders_to_store {
         if !std::path::Path::new(folder_path).exists() {

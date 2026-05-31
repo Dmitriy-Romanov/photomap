@@ -7,8 +7,8 @@ Living list of known remaining work. Completed v0.12.0 fixes were removed after 
 | # | Issue | File / Area | Notes | Status |
 |---|---|---|---|:---:|
 | 1 | HEIC conversion still blocks async handler | `src/server/handlers.rs` | Wrapped `/convert-heic` work in `tokio::task::spawn_blocking`. | ✅ DONE |
-| 2 | Frontend metadata HTML injection risk | `frontend/script.js` | Escape `photo.datetime` and `photo.location` before inserting popup/gallery metadata via `innerHTML`. | ⬜ |
-| 3 | Image URL attributes inserted without attribute escaping | `frontend/script.js` | Escape `photo.url` and `photo.fallback_url` in popup/gallery HTML, or build DOM nodes instead of template strings. | ⬜ |
+| 2 | Frontend metadata HTML injection risk | `frontend/script.js` | Popup/gallery metadata is now rendered with DOM nodes and `textContent` instead of interpolated `innerHTML`. | ✅ DONE |
+| 3 | Image URL attributes inserted without attribute escaping | `frontend/script.js` | Popup/gallery images now use DOM properties for `src`, `alt`, and fallback handling instead of template-string attributes. | ✅ DONE |
 
 ## Medium Priority
 
@@ -29,4 +29,4 @@ Living list of known remaining work. Completed v0.12.0 fixes were removed after 
 
 ## Summary
 
-Remaining: 2 high-priority, 3 medium-priority, 4 low-priority items.
+Remaining: 3 medium-priority, 4 low-priority items.

@@ -144,29 +144,21 @@ fn parse_gps_ifd(
         let value_offset = read_u32(&data[pos + 8..pos + 12], byte_order);
 
         match tag {
-            1 => {
+            1 if format == 2 && count >= 1 => {
                 // GPSLatitudeRef
-                if format == 2 && count >= 1 {
-                    lat_ref = Some(data[pos + 8] as char);
-                }
+                lat_ref = Some(data[pos + 8] as char);
             }
-            2 => {
+            2 if format == 5 && count == 3 => {
                 // GPSLatitude
-                if format == 5 && count == 3 {
-                    lat = read_gps_coordinate(data, tiff_start, value_offset as usize, byte_order);
-                }
+                lat = read_gps_coordinate(data, tiff_start, value_offset as usize, byte_order);
             }
-            3 => {
+            3 if format == 2 && count >= 1 => {
                 // GPSLongitudeRef
-                if format == 2 && count >= 1 {
-                    lon_ref = Some(data[pos + 8] as char);
-                }
+                lon_ref = Some(data[pos + 8] as char);
             }
-            4 => {
+            4 if format == 5 && count == 3 => {
                 // GPSLongitude
-                if format == 5 && count == 3 {
-                    lon = read_gps_coordinate(data, tiff_start, value_offset as usize, byte_order);
-                }
+                lon = read_gps_coordinate(data, tiff_start, value_offset as usize, byte_order);
             }
             _ => {}
         }

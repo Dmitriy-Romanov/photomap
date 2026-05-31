@@ -31,6 +31,7 @@ impl ReverseGeocoder {
         use bincode::Options;
         let locations: Vec<GeoLocation> = bincode::options()
             .with_limit(20 * 1024 * 1024)
+            .with_fixint_encoding()
             .deserialize_from(decoder)
             .context("Failed to deserialize geodata")?;
 
@@ -91,5 +92,16 @@ pub fn get_location_name(lat: f64, lng: f64) -> Option<String> {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ReverseGeocoder;
+
+    #[test]
+    fn embedded_geodata_deserializes() {
+        let geocoder = ReverseGeocoder::new().expect("embedded geodata should deserialize");
+        assert!(!geocoder.locations.is_empty());
     }
 }

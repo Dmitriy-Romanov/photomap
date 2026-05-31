@@ -5,6 +5,18 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
+pub fn normalize_folder_path(path: &str) -> String {
+    #[cfg(windows)]
+    {
+        path.replace('/', "\\")
+    }
+
+    #[cfg(not(windows))]
+    {
+        path.to_string()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub folders: [Option<String>; 5], // Maximum 5 folder paths
@@ -63,7 +75,7 @@ impl Settings {
             if let Some(path) = config_map.get(&key) {
                 let trimmed = path.trim_matches('"').trim();
                 if !trimmed.is_empty() {
-                    settings.folders[i] = Some(trimmed.to_string());
+                    settings.folders[i] = Some(normalize_folder_path(trimmed));
                 }
             }
         }
@@ -72,7 +84,7 @@ impl Settings {
         if let Some(last_folder) = config_map.get("last_folder") {
             let trimmed = last_folder.trim_matches('"').trim();
             if !trimmed.is_empty() && settings.folders[0].is_none() {
-                settings.folders[0] = Some(trimmed.to_string());
+                settings.folders[0] = Some(normalize_folder_path(trimmed));
             }
         }
 
@@ -146,7 +158,10 @@ impl Settings {
 
         // Save folders as path1-path5
         for (i, folder) in self.folders.iter().enumerate() {
-            let value = folder.as_deref().unwrap_or("");
+            let value = folder
+                .as_deref()
+                .map(normalize_folder_path)
+                .unwrap_or_default();
             content.push_str(&format!("path{} = \"{}\"\n", i + 1, value));
         }
 
@@ -176,6 +191,18 @@ mod tests {
     use super::*;
     use std::env;
     use std::fs;
+
+    #[test]
+    fn test_windows_folder_path_normalization() {
+        #[cfg(windows)]
+        assert_eq!(
+            normalize_folder_path("D:/Photo/Nested"),
+            "D:\\Photo\\Nested"
+        );
+
+        #[cfg(not(windows))]
+        assert_eq!(normalize_folder_path("D:/Photo/Nested"), "D:/Photo/Nested");
+    }
 
     #[test]
     fn test_settings_creation() {
