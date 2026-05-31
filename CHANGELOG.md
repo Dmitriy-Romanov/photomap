@@ -2,7 +2,7 @@
 
 All notable changes to PhotoMap will be documented in this file.
 
-## [Unreleased] - 2026-05-31
+## [0.12.1] - 2026-05-31
 
 ### Fixed
 - **Cache Compatibility Regression**: Restored legacy `bincode` fixed-integer decoding while keeping bounded reads, so `photos_v1.bin` and embedded GeoNames data deserialize correctly instead of forcing unnecessary full rescans.

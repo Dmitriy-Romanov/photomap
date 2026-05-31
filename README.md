@@ -1,11 +1,11 @@
-# PhotoMap Processor v0.12.0
+# PhotoMap Processor v0.12.1
 
 A modern, high-performance photo mapping application with In-Memory database storage and on-demand marker generation. Built with Rust for speed and reliability.
 
-## Latest Improvements (v0.12.0)
+## Latest Improvements (v0.12.1)
 
-- **Post-v0.12.0 Windows Cache & Path Fixes**: Fixed bincode cache/geodata compatibility after adding bounded reads, repaired Windows folder/file path normalization across settings, cache, logs, image decoding, and reveal-file tooltips, while keeping URL paths encoded with forward slashes for the browser.
-- **Post-v0.12.0 Frontend Safety & Loading Fixes**: Popup/gallery metadata now renders through DOM nodes and `textContent`, image URLs are assigned through DOM properties, popup images load lazily only when opened, and map markers use lightweight marker images instead of triggering large popup generation in the background.
+- **Windows Cache & Path Fixes**: Fixed bincode cache/geodata compatibility after adding bounded reads, repaired Windows folder/file path normalization across settings, cache, logs, image decoding, and reveal-file tooltips, while keeping URL paths encoded with forward slashes for the browser.
+- **Frontend Safety & Loading Fixes**: Popup/gallery metadata now renders through DOM nodes and `textContent`, image URLs are assigned through DOM properties, popup images load lazily only when opened, and map markers use lightweight marker images instead of triggering large popup generation in the background.
 - **Processing Reliability**: SSE processing events now pass through an internal `mpsc` buffer before fan-out, preserving completion/progress events even when the browser connects late.
 - **Database Performance**: Photo metadata is stored in a `HashMap` keyed by relative path, making batch inserts and image lookups O(1) instead of cloning or scanning the whole database.
 - **Async Runtime Health**: CPU-heavy image resizing, folder processing, and native folder dialogs are moved off async worker threads; settings now use `tokio::sync::Mutex`.
