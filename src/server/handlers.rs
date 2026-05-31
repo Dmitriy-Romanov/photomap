@@ -71,6 +71,18 @@ fn encode_url_path_segment(segment: &str) -> String {
     encoded
 }
 
+fn display_path(path: &std::path::Path) -> String {
+    #[cfg(windows)]
+    {
+        path.to_string_lossy().replace('/', "\\")
+    }
+
+    #[cfg(not(windows))]
+    {
+        path.display().to_string()
+    }
+}
+
 pub async fn get_all_photos(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<ImageMetadata>>, StatusCode> {
@@ -390,11 +402,11 @@ pub async fn reprocess_photos(
 
         for photos_dir in &folders_clone {
             if !photos_dir.exists() {
-                eprintln!("⚠️ Folder not found: {}", photos_dir.display());
+                eprintln!("⚠️ Folder not found: {}", display_path(photos_dir));
                 let _ = event_sender.blocking_send(ProcessingEvent {
                     event_type: "processing_error".to_string(),
                     data: ProcessingData {
-                        message: Some(format!("Folder not found: {}", photos_dir.display())),
+                        message: Some(format!("Folder not found: {}", display_path(photos_dir))),
                         phase: Some("error".to_string()),
                         ..Default::default()
                     },
@@ -410,13 +422,13 @@ pub async fn reprocess_photos(
                     total_stats.3 += heic_count;
                 }
                 Err(e) => {
-                    eprintln!("Processing error for {}: {}", photos_dir.display(), e);
+                    eprintln!("Processing error for {}: {}", display_path(photos_dir), e);
                     let _ = event_sender.blocking_send(ProcessingEvent {
                         event_type: "processing_error".to_string(),
                         data: ProcessingData {
                             message: Some(format!(
                                 "Processing failed for {}: {}",
-                                photos_dir.display(),
+                                display_path(photos_dir),
                                 e
                             )),
                             phase: Some("error".to_string()),
@@ -483,7 +495,7 @@ pub async fn initiate_processing(
 
         for photos_dir in &folders_clone {
             if !photos_dir.exists() {
-                eprintln!("⚠️ Folder not found: {}", photos_dir.display());
+                eprintln!("⚠️ Folder not found: {}", display_path(photos_dir));
                 continue;
             }
 
@@ -495,7 +507,7 @@ pub async fn initiate_processing(
                     total_stats.3 += heic_count;
                 }
                 Err(e) => {
-                    eprintln!("Processing error for {}: {}", photos_dir.display(), e);
+                    eprintln!("Processing error for {}: {}", display_path(photos_dir), e);
                 }
             }
         }

@@ -57,6 +57,18 @@ fn walk_dir(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
+fn native_path_string(path: &Path) -> String {
+    #[cfg(windows)]
+    {
+        path.to_string_lossy().replace('/', "\\")
+    }
+
+    #[cfg(not(windows))]
+    {
+        path.to_string_lossy().to_string()
+    }
+}
+
 /// Processes photos and saves metadata to the database
 /// Returns processing statistics: (total_files, processed_count, no_gps_count, heic_count)
 pub fn process_photos_with_stats(
@@ -66,11 +78,17 @@ pub fn process_photos_with_stats(
     clear_database: bool,
 ) -> Result<(usize, usize, usize, usize)> {
     if !silent_mode {
-        println!("🔍 Scanning photos directory: {}", photos_dir.display());
+        println!(
+            "🔍 Scanning photos directory: {}",
+            native_path_string(photos_dir)
+        );
     }
 
     if !photos_dir.exists() {
-        let error_msg = format!("❌ Photos directory not found: {}", photos_dir.display());
+        let error_msg = format!(
+            "❌ Photos directory not found: {}",
+            native_path_string(photos_dir)
+        );
         if silent_mode {
             return Err(anyhow::Error::msg(error_msg));
         } else {
@@ -90,7 +108,10 @@ pub fn process_photos_with_stats(
     }
 
     if !photos_dir.exists() {
-        let error_msg = format!("❌ Photos directory not found: {}", photos_dir.display());
+        let error_msg = format!(
+            "❌ Photos directory not found: {}",
+            native_path_string(photos_dir)
+        );
         if silent_mode {
             return Err(anyhow::Error::msg(error_msg));
         } else {
@@ -149,9 +170,13 @@ pub fn process_photos_with_stats(
                         if let Some(crate::exif_parser::ExifError::GpsNotFound) =
                             e.downcast_ref::<crate::exif_parser::ExifError>()
                         {
-                            println!("ℹ️  Skipped {}: No GPS data", path.display());
+                            println!("ℹ️  Skipped {}: No GPS data", native_path_string(&path));
                         } else {
-                            eprintln!("Failed to process file {}: {}", path.display(), e);
+                            eprintln!(
+                                "Failed to process file {}: {}",
+                                native_path_string(&path),
+                                e
+                            );
                         }
                     }
                 }
@@ -234,7 +259,7 @@ pub fn process_photos_from_directory(
 ) -> Result<(usize, usize, usize, usize)> {
     println!(
         "🔍 Processing photos from directory: {}",
-        photos_dir.display()
+        native_path_string(photos_dir)
     );
 
     // Use the new combined function, but without silent_mode
@@ -306,7 +331,24 @@ fn process_file_to_metadata(path: &Path, photos_dir: &Path) -> Result<PhotoMetad
         datetime: datetime_str,
         lat,
         lng,
-        file_path: path.to_string_lossy().to_string(),
+        file_path: native_path_string(path),
         is_heic: is_heif,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::native_path_string;
+    use std::path::Path;
+
+    #[test]
+    fn native_path_string_repairs_mixed_windows_paths() {
+        let path = native_path_string(Path::new("D:/Photo\\Nested/image.jpg"));
+
+        #[cfg(windows)]
+        assert_eq!(path, "D:\\Photo\\Nested\\image.jpg");
+
+        #[cfg(not(windows))]
+        assert_eq!(path, "D:/Photo\\Nested/image.jpg");
+    }
 }

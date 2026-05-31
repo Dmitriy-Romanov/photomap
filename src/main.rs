@@ -19,6 +19,18 @@ use libheif_rs::integration::image::register_all_decoding_hooks;
 use server::state::AppState;
 use settings::Settings;
 
+fn display_path(path: &str) -> String {
+    #[cfg(windows)]
+    {
+        path.replace('/', "\\")
+    }
+
+    #[cfg(not(windows))]
+    {
+        path.to_string()
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -121,14 +133,14 @@ async fn main() -> Result<()> {
                 for folder_path in &folder_paths {
                     let photos_path = Path::new(folder_path);
                     if !photos_path.exists() {
-                        eprintln!("⚠️ Saved folder not found: {}", folder_path);
+                        eprintln!("⚠️ Saved folder not found: {}", display_path(folder_path));
                         continue;
                     }
-                    println!("📂 Processing saved folder: {}", folder_path);
+                    println!("📂 Processing saved folder: {}", display_path(folder_path));
                     if let Err(e) =
                         processing::process_photos_with_stats(&db, photos_path, false, false)
                     {
-                        eprintln!("⚠️ Error processing {}: {}", folder_path, e);
+                        eprintln!("⚠️ Error processing {}: {}", display_path(folder_path), e);
                     }
                 }
 
